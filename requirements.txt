@@ -1,0 +1,30 @@
+# Shared Python dependencies (macOS, Linux, and Windows)
+fastapi
+matplotlib
+numpy
+psutil
+pydantic
+pyperclip
+pynput
+requests
+scapy
+tldextract
+uvicorn
+python-multipart
+scikit-learn
+
+# Windows-only active-window support
+pywin32; sys_platform == "win32"
+
+# macOS-only active-application support
+pyobjc-framework-Cocoa; sys_platform == "darwin"
+
+# Linux active-window support uses the system commands xdotool and xprop.
+# Install them with your distribution package manager, for example:
+# Debian/Ubuntu: sudo apt install xdotool x11-utils
+# Fedora: sudo dnf install xdotool xorg-x11-utils
+
+# Packet capture also needs a system driver:
+# Windows: install Npcap (https://npcap.com/)
+# macOS: install libpcap (usually already available)
+# Linux: install libpcap through your distribution package manager

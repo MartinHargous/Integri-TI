@@ -3,7 +3,7 @@ import sys
 import ctypes
 import re
 from scapy.all import sniff, Raw, TCP
-import tldextract  # Verifica si el sufijo/extensión del dominio es real en internet
+import tldextract 
 
 def is_admin():
     try:
@@ -12,10 +12,6 @@ def is_admin():
         return False
 
 def extract_valid_domains(payload):
-    """
-    Busca cadenas de texto con forma de dominio y valida si su extensión (.com, .org, etc.) es real.
-    """
-    # Captura cualquier texto que parezca un dominio (letras, números y puntos)
     domain_regex = re.compile(b'(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,10}')
     matches = domain_regex.findall(payload)
     
