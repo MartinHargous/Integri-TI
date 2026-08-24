@@ -1,0 +1,6 @@
+# Configuration for the foreground application monitor
+# Relative paths are resolved beside this file.
+enabled=true
+log_file=program_monitor.log
+poll_seconds=1.0
+log_title_changes=true

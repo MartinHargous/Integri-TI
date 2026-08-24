@@ -1,0 +1,7 @@
+# Configuration for the clipboard monitor
+# Relative paths are resolved beside this file.
+enabled=true
+log_file=paperclip.log
+poll_seconds=0.5
+log_content=true
+max_content_length=1000

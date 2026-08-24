@@ -1,0 +1,13 @@
+# Configuration for the keystroke SVM agent
+# Relative paths are resolved beside this file.
+enabled=true
+show_interface=true
+log_file=alerts.log
+train_chars=100
+time_window=60
+alert_threshold=0.25
+max_hold_time=0.5
+max_flight_time=1.5
+svm_nu=0.05
+svm_kernel=rbf
+svm_gamma=scale

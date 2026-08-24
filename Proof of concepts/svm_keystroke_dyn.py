@@ -14,7 +14,7 @@ class KeystrokeSVMVisualAgent:
     def __init__(self, root):
         self.root = root
         self.root.title("Agente de Telemetría Visual: One-Class SVM")
-        self.root.geometry("800x800") # Ventana más grande para acomodar el gráfico
+        self.root.geometry("800x800")
 
         self.estado_actual = "INACTIVO" 
         self.last_press_time = None

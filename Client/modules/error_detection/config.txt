@@ -1,0 +1,10 @@
+
+# Configuracion de error_detection (clave=valor)
+enabled=true
+log_file=auditoria_python.log
+sitecustomize_path=
+capture_errors=true
+capture_input=true
+capture_print=true
+monitor_poll_seconds=0.5
+excluded_scripts=pip,pip.exe,error_detection.py,manager_telemetria.py
