@@ -16,7 +16,6 @@ class TelemetryClient:
         self.hilo_red = threading.Thread(target=self._loop_sincronizacion, daemon=True)
         self.hilo_red.start()
         
-        # El hilo principal se queda esperando o ejecutando la interfaz UI
         try:
             while True:
                 time.sleep(1)
@@ -50,13 +49,13 @@ class TelemetryClient:
     def _procesar_comando(self, estado_servidor):
         # Si el servidor ordenó empezar y nosotros estábamos esperando
         if estado_servidor == "GRABANDO" and self.estado_local != "GRABANDO":
-            print("🟢 Orden recibida: INICIAR TELEMETRÍA.")
+            print("Orden recibida: INICIAR TELEMETRÍA.")
             self.estado_local = "GRABANDO"
             # Aquí llamas a self.iniciar_monitoreo() de tu script SVM
             
         # Si el servidor ordenó detenerse
         elif estado_servidor == "FINALIZADO" and self.estado_local == "GRABANDO":
-            print("🛑 Orden recibida: DETENER TELEMETRÍA.")
+            print("Orden recibida: DETENER TELEMETRÍA.")
             self.estado_local = "FINALIZADO"
             # Aquí llamas a self.detener_todo() de tu script SVM
 

@@ -30,6 +30,7 @@ class Sniffer:
         self.sniffer = None
         self.cooldown = float(self.config.get("cooldown_seconds", 1))
         self.last_seen = {}
+        self._stop_event = threading.Event()
 
     def _read_config(self):
         values = self.DEFAULTS.copy()
@@ -166,13 +167,16 @@ class Sniffer:
         sniff(
             filter="port 443 or port 53", 
             prn=self.process_packet, 
-            store=False
+            store=False,
+            stop_filter=self._stop_event.is_set,
         )
 
     def stop_sniffing(self):
+        self._stop_event.set()
         # Scapy no tiene un método nativo para detener sniff() de forma limpia desde otro hilo
         # a menos que uses el argumento 'stop_filter'. 
         # Sin embargo, si tu Orchestrator termina, al ser un hilo 'daemon=True', se cerrará solo.
+
         pass
 if __name__ == "__main__":
     sniffer = Sniffer()

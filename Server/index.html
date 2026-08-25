@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - Telemetría</title>
+    <!-- Cargamos FontAwesome para los íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #d4d4d4; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .card { background-color: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        h1, h2 { color: #569cd6; margin-top: 0; display: flex; align-items: center; gap: 10px; }
+        .status-badge { padding: 8px 16px; border-radius: 4px; font-weight: bold; font-size: 1.2em; display: inline-block; }
+        
+        /* Estilos de botones */
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 10px; transition: 0.2s; color: white; display: inline-flex; align-items: center; gap: 8px; font-size: 14px;}
+        .btn-esperando { background-color: #d7ba7d; color: black; }
+        .btn-grabando { background-color: #4CAF50; }
+        .btn-finalizado { background-color: #f44336; }
+        .btn:hover { opacity: 0.8; transform: translateY(-1px); }
+        
+        /* Tabla */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #3e3e42; }
+        th { background-color: #2d2d30; color: #9cdcfe; }
+        tr:hover { background-color: #2a2d2e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1><i class="fa-solid fa-satellite-dish"></i> Centro de Mando</h1>
+            <p>Comando Global Actual:</p>
+            <div id="badge-comando" class="status-badge" style="background-color: gray;">
+                <i class="fa-solid fa-spinner fa-spin"></i> CARGANDO...
+            </div>
+            
+            <h3 style="margin-top: 20px;">Cambiar Estado:</h3>
+            <button class="btn btn-esperando" onclick="cambiarComando('ESPERANDO')">
+                <i class="fa-solid fa-pause"></i> ESPERANDO
+            </button>
+            <button class="btn btn-grabando" onclick="cambiarComando('GRABANDO')">
+                <i class="fa-solid fa-play"></i> GRABANDO
+            </button>
+            <button class="btn btn-finalizado" onclick="cambiarComando('FINALIZADO')">
+                <i class="fa-solid fa-stop"></i> FINALIZADO
+            </button>
+        </div>
+
+        <div class="card">
+            <h2><i class="fa-solid fa-computer"></i> Agentes Conectados</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Identificador (ID)</th>
+                        <th>Estado Local</th>
+                        <th>Última Sincronización</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-clientes">
+                    <tr><td colspan="3" style="text-align:center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Esperando conexiones...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Función para actualizar los datos desde la API
+        async function refrescarDashboard() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                // Actualizar Badge del Comando Global
+                const badge = document.getElementById('badge-comando');
+                
+                if (data.comando_global === 'ESPERANDO') { 
+                    badge.innerHTML = '<i class="fa-solid fa-pause"></i> ESPERANDO';
+                    badge.style.backgroundColor = '#d7ba7d'; 
+                    badge.style.color = 'black'; 
+                }
+                else if (data.comando_global === 'GRABANDO') { 
+                    badge.innerHTML = '<i class="fa-solid fa-play"></i> GRABANDO';
+                    badge.style.backgroundColor = '#4CAF50'; 
+                    badge.style.color = 'white';
+                }
+                else { 
+                    badge.innerHTML = '<i class="fa-solid fa-stop"></i> FINALIZADO';
+                    badge.style.backgroundColor = '#f44336'; 
+                    badge.style.color = 'white';
+                }
+
+                // Actualizar Tabla de Clientes
+                const tbody = document.getElementById('tabla-clientes');
+                if (Object.keys(data.clientes).length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;"><i class="fa-solid fa-clock-rotate-left"></i> No hay agentes conectados aún.</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                for (const [client_id, info] of Object.entries(data.clientes)) {
+                    let colorEstado = info.estado === 'GRABANDO' ? '#4CAF50' : (info.estado === 'FINALIZADO' ? '#f44336' : '#d7ba7d');
+                    let iconoEstado = info.estado === 'GRABANDO' ? 'fa-play' : (info.estado === 'FINALIZADO' ? 'fa-stop' : 'fa-pause');
+                    
+                    html += `<tr>
+                        <td style="font-weight: bold;"><i class="fa-solid fa-user-shield" style="margin-right:8px; color:#569cd6;"></i>${client_id}</td>
+                        <td style="color: ${colorEstado};"><i class="fa-solid ${iconoEstado}"></i> ${info.estado}</td>
+                        <td style="color: #9cdcfe;"><i class="fa-regular fa-clock" style="margin-right:5px;"></i>${info.ultimo_visto}</td>
+                    </tr>`;
+                }
+                tbody.innerHTML = html;
+
+            } catch (error) {
+                console.error("Error obteniendo datos: ", error);
+            }
+        }
+
+        // Función para enviar comandos al servidor
+        async function cambiarComando(nuevoComando) {
+            await fetch(`/profesor/comando/${nuevoComando}`);
+            refrescarDashboard(); // Forzar refresco inmediato
+        }
+
+        
+        setInterval(refrescarDashboard, 2000);
+        refrescarDashboard();
+    </script>
+</body>
+</html>
