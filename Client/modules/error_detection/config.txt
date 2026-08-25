@@ -1,6 +1,6 @@
 
 # Configuracion de error_detection (clave=valor)
-enabled=true
+enabled=True
 log_file=auditoria_python.log
 sitecustomize_path=
 capture_errors=true

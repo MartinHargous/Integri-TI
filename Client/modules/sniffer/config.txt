@@ -1,5 +1,5 @@
 enabled=true
 log_file=sniffer.log
-method=regex 
+method=regex
 cooldown_seconds=1
 #method accepts "regex" or "sni"

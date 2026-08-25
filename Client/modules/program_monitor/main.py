@@ -8,7 +8,7 @@ from pathlib import Path
 import psutil
 
 
-class ForegroundMonitor:
+class ProgramMonitor:
     DEFAULTS = {
         "enabled": "true",
         "log_file": "program_monitor.log",
@@ -67,7 +67,6 @@ class ForegroundMonitor:
         self.last_window_title = window_title
 
     def get_active_window_info(self):
-        """Devuelve una tupla: (Nombre_del_Proceso, Titulo_de_la_Ventana)"""
         try:
             if self.os_type == "win32":
                 return self._get_windows_active()
@@ -163,5 +162,5 @@ class ForegroundMonitor:
         self.run()
 
 if __name__ == "__main__":
-    monitor = ForegroundMonitor()
+    monitor = ProgramMonitor()
     monitor.iniciar_auditoria_contexto()

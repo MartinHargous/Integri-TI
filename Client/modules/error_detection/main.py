@@ -132,7 +132,8 @@ class ErrorDetection:
             while self.monitoring:
                 line = log_file.readline()
                 if line:
-                    print(f"\n[EN VIVO] {line.strip()}")
+                    sys.__stdout__.write(f"\n[EN VIVO] {line.strip()}\n")
+                    sys.__stdout__.flush()
                 else:
                     time.sleep(float(self.config["monitor_poll_seconds"]))
 
@@ -152,6 +153,11 @@ class ErrorDetection:
         return True
 
     def start_monitor(self):
+        if not self._bool("enabled"):
+            print("[AVISO] La telemetria esta desactivada en config.txt.")
+            if self.flag_path.exists():
+                        self.flag_path.unlink()
+            return False
         if self.monitoring:
             return False
             

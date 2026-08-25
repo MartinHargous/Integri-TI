@@ -12,7 +12,8 @@ from scapy.layers.tls.extensions import TLS_Ext_ServerName
 
 import tldextract 
 import threading
-
+import logging
+logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 class Sniffer:
     DEFAULTS = {
         "enabled": "true",
@@ -21,18 +22,19 @@ class Sniffer:
         "cooldown_seconds": "1",
     }
 
-    def __init__(self):
+    def __init__(self, config_path=None):
+        self.config_path = Path(config_path or Path(__file__).with_name("config.txt"))
         self.config = self._read_config()
         self.log_path = self._resolve_path(self.config["log_file"])
         self.os_type = sys.platform
         self.sniffer = None
         self.cooldown = float(self.config.get("cooldown_seconds", 1))
         self.last_seen = {}
+
     def _read_config(self):
         values = self.DEFAULTS.copy()
-        config_path = Path(__file__).with_name("config.txt")
-        if config_path.exists():
-            for raw_line in config_path.read_text(encoding="utf-8-sig").splitlines():
+        if self.config_path.exists():
+            for raw_line in self.config_path.read_text(encoding="utf-8-sig").splitlines():
                 line = raw_line.strip()
                 if not line or line.startswith(("#", ";")) or "=" not in line:
                     continue
@@ -160,17 +162,18 @@ class Sniffer:
         method = self.config.get("method", "sni").upper()
         print(f"[INFO] Sniffer iniciado. Método activo: {method}")
         print(f"[INFO] Escuchando TCP, UDP (QUIC) y DNS. Guardando en: {self.log_path}")
-        
-        self.sniffer = threading.Thread(
-            target=sniff, 
-            kwargs={"filter": "port 443 or port 53", "prn": self.process_packet, "store": False}
+
+        sniff(
+            filter="port 443 or port 53", 
+            prn=self.process_packet, 
+            store=False
         )
-        self.sniffer.start()
 
     def stop_sniffing(self):
-        if hasattr(self, 'sniffer') and self.sniffer:
-            self.sniffer.join()
-
+        # Scapy no tiene un método nativo para detener sniff() de forma limpia desde otro hilo
+        # a menos que uses el argumento 'stop_filter'. 
+        # Sin embargo, si tu Orchestrator termina, al ser un hilo 'daemon=True', se cerrará solo.
+        pass
 if __name__ == "__main__":
     sniffer = Sniffer()
     if sniffer.is_admin():

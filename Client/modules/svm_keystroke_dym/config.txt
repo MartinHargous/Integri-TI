@@ -1,7 +1,7 @@
 # Configuration for the keystroke SVM agent
 # Relative paths are resolved beside this file.
-enabled=true
-show_interface=true
+enabled=True
+show_interface=false
 log_file=alerts.log
 train_chars=100
 time_window=60

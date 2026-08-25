@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 from pynput import keyboard
+from sklearn import callback
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import OneClassSVM
 
@@ -110,6 +111,9 @@ class KeystrokeSVM:
 	def _ui(self, callback, *args):
 		if self.root is not None:
 			self.root.after(0, callback, *args)
+		else:
+            # Si no hay interfaz gráfica, ejecutamos la función directamente
+			callback(*args)
 
 	def _set_state_label(self, text, color="gray"):
 		if self.lbl_state is not None:
@@ -207,10 +211,14 @@ class KeystrokeSVM:
 		data = self.scaler.fit_transform(np.asarray(self.calibration_data))
 		self.svm_model.fit(data)
 		self._set_state_label("SVM trained. Starting audit...", "blue")
+
 		if self.root is not None:
 			self.root.after(1500, self.start_monitoring)
+		else:
+			print("[INFO] SVM entrenado. Iniciando auditoría silenciosa...")
+			self.start_monitoring()
+        
 		return True
-
 	def process_audit(self, vector):
 		scaled = self.scaler.transform(np.asarray([vector]))
 		prediction = self.svm_model.predict(scaled)[0]
@@ -252,13 +260,23 @@ class KeystrokeSVM:
 		if self.root is not None:
 			self.root.destroy()
 
-	def run(self):
+	def start(self):
+		if not self._bool("enabled"):
+			print("[INFO] Keystroke SVM agent is disabled in the configuration.")
+			return
 		if not self._bool("show_interface"):
 			self.start_calibration()
+			print("[INFO] Keystroke SVM agent started in background (no GUI).")
+			
+			try:
+				while self.state != "INACTIVE" or self.listener is not None:
+					time.sleep(1)
+			except KeyboardInterrupt:
+				self.stop()
 			return
+
 		if self.root is None:
 			import tkinter as tk
-
 			self.root = tk.Tk()
 			self._build_ui()
 		self.root.mainloop()
@@ -268,4 +286,4 @@ KeystrokeSVMVisualAgent = KeystrokeSVM
 
 
 if __name__ == "__main__":
-	KeystrokeSVM().run()
+	KeystrokeSVM().start()
