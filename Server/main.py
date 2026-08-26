@@ -1,7 +1,5 @@
 import os
 import socket
-import time
-import threading
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -15,12 +13,11 @@ os.makedirs(CARPETA_DATOS, exist_ok=True)
 comando_global = "ESPERANDO" 
 clientes_conectados = {}
 
-# --- UTILIDADES DE RED (NUEVO) ---
+# --- UTILIDADES DE RED ---
 
 def obtener_ip_local():
-    """Obtiene la IP real del profesor en la red Wi-Fi o LAN actual."""
+
     try:
-        # Nos conectamos a un servidor externo (no envía datos reales) solo para ver qué IP de salida usamos
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
@@ -28,22 +25,6 @@ def obtener_ip_local():
         return ip
     except Exception:
         return "127.0.0.1"
-
-def emitir_presencia(ip_local, puerto_api=8000, puerto_broadcast=9999):
-    """Grita a toda la red local la dirección de esta API cada 2 segundos."""
-    mensaje = f"PROFESOR_API:http://{ip_local}:{puerto_api}".encode('utf-8')
-    
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as s:
-        # Habilitar el modo Broadcast para que el router lo replique a todos
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        
-        while True:
-            try:
-                # El string "<broadcast>" envía el paquete a toda la subred
-                s.sendto(mensaje, ("<broadcast>", puerto_broadcast))
-            except Exception:
-                pass
-            time.sleep(2) # Repetir cada 2 segundos
 
 # --- MODELOS DE DATOS ---
 class Alerta(BaseModel):
@@ -101,12 +82,13 @@ def obtener_estado_actual():
 
 @app.get("/", response_class=FileResponse)
 def ver_dashboard():
-    return FileResponse("index.html")
+    ruta_base = os.path.dirname(os.path.abspath(__file__))
+    ruta_html = os.path.join(ruta_base, "index.html")
+    return FileResponse(ruta_html)
 
 # --- INICIO DEL SERVIDOR ---
 
 if __name__ == "__main__":
-    # 1. Obtener nuestra IP dinámica
     mi_ip = obtener_ip_local()
     PUERTO = 8000
     
@@ -116,10 +98,4 @@ if __name__ == "__main__":
     print(f"[*] Abre tu navegador en: http://localhost:{PUERTO} o http://{mi_ip}:{PUERTO}")
     print("="*50 + "\n")
     
-    # 2. Iniciar el grito UDP en segundo plano (Faro/Beacon)
-    hilo_beacon = threading.Thread(target=emitir_presencia, args=(mi_ip, PUERTO), daemon=True)
-    hilo_beacon.start()
-    print("[*] Autodescubrimiento UDP activado. Esperando alumnos...")
-    
-    # 3. Lanzar FastAPI
     uvicorn.run(app, host="0.0.0.0", port=PUERTO)
