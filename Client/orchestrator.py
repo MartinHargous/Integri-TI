@@ -1,12 +1,12 @@
 import os
 import sys
 from pathlib import Path
-from Client.modules.error_detection.error_detection import ErrorDetection
-from Client.modules.keylogger.keylogger import Keylogger
-from modules.paperclip.main import Paperclip
-from Client.modules.program_monitor.program_monitor import ProgramMonitor
-from Client.modules.sniffer.sniffer import Sniffer
-from Client.modules.svm_keystroke_dym.svm_keystroke import KeystrokeSVM
+from modules.error_detection.error_detection import ErrorDetection
+from modules.keylogger.keylogger import Keylogger
+from modules.paperclip.paperclip import Paperclip
+from modules.program_monitor.program_monitor import ProgramMonitor
+from modules.sniffer.sniffer import Sniffer
+from modules.svm_keystroke_dym.svm_keystroke import KeystrokeSVM
 import threading
 import ctypes
 import re
@@ -237,7 +237,7 @@ class Orchestrator:
                 combined_log.write(f"[{timestamp}][{modulo}] {text}\n")
 
         print(f"[OK] Logs combinados y ordenados en {combined_log_path}")
-
+        return logs
     def clear_logs(self):
         log_files = [
             self.error_detection.log_path,

@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "c:\Users\Martin Hargous\Documents\Integri-TI\Client\client.py", line 194, in <module>
+    agente.iniciar_agente()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "c:\Users\Martin Hargous\Documents\Integri-TI\Client\client.py", line 108, in iniciar_agente
+    self._loop_sincronizacion()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "c:\Users\Martin Hargous\Documents\Integri-TI\Client\client.py", line 127, in _loop_sincronizacion
+    logs_pendientes = self.orchestrator.get_all_logs()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Orchestrator' object has no attribute 'get_all_logs'
