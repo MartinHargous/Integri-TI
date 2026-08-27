@@ -2,15 +2,18 @@ import os
 import socket
 import time
 import requests
+import json
 from pathlib import Path
 import concurrent.futures
+import traceback
+
 # Importamos tu Orquestador
 from orchestrator import Orchestrator
-import traceback
 
 class TelemetryClient:
     DEFAULTS = {
-        "sync_interval_seconds": "15" # Tiempo entre envíos al servidor
+        "sync_interval_seconds": "15",
+        "discovery_timeout_seconds": "0" # 0 = Modo Daemon (búsqueda infinita)
     }
 
     def __init__(self, config_path=None):
@@ -18,8 +21,8 @@ class TelemetryClient:
         self.config = self._read_config()
         
         self.interval = float(self.config.get("sync_interval_seconds", self.DEFAULTS["sync_interval_seconds"]))
+        self.discovery_timeout = float(self.config.get("discovery_timeout_seconds", self.DEFAULTS["discovery_timeout_seconds"]))
         
-        # Estos valores se llenarán automáticamente al arrancar
         self.client_id = "Desconocido"
         self.server_url = ""
         
@@ -42,7 +45,6 @@ class TelemetryClient:
         return values
 
     def _generar_client_id(self):
-        """Extrae el usuario de Windows y el nombre del PC automáticamente."""
         try:
             usuario = os.getlogin()
             equipo = socket.gethostname()
@@ -51,7 +53,6 @@ class TelemetryClient:
             return "Alumno_Desconocido"
 
     def _obtener_ip_local(self):
-        """Averigua la IP de este computador para saber en qué red estamos."""
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
@@ -62,10 +63,8 @@ class TelemetryClient:
             return "127.0.0.1"
 
     def _probar_ip(self, ip_destino, puerto):
-        """Intenta conectarse silenciosamente a una IP específica."""
         url = f"http://{ip_destino}:{puerto}"
         try:
-            # Timeout cortísimo (0.5s) porque si está en la misma red, responde al instante
             respuesta = requests.get(f"{url}/api/status", timeout=0.5)
             if respuesta.status_code == 200:
                 return url
@@ -74,36 +73,43 @@ class TelemetryClient:
         return None
 
     def descubrir_servidor(self, puerto_api=8000):
-        """Escanea la red local buscando la API del profesor."""
-        mi_ip = self._obtener_ip_local()
-        if mi_ip == "127.0.0.1":
-            print("[ERROR] Estás desconectado del Wi-Fi/Red.")
-            return None
-
-        # Extraemos la base de la red (Ej: de "192.168.1.45" sacamos "192.168.1.")
-        base_ip = ".".join(mi_ip.split(".")[:-1]) + "."
-        print(f"\n[BÚSQUEDA] {self.client_id} escaneando la red {base_ip}x en busca del profesor...")
-
-        # Generamos la lista de las 254 IPs posibles de la sala
-        ips_a_probar = [f"{base_ip}{i}" for i in range(1, 255)]
-
-        # Lanzamos 50 hilos al mismo tiempo para que revisen todas las IPs en un par de segundos
-        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-            # Iniciamos todas las peticiones
-            futuros = [executor.submit(self._probar_ip, ip, puerto_api) for ip in ips_a_probar]
+        """Escanea la red buscando la API, con soporte para reintentos infinitos."""
+        start_time = time.time()
+        intento = 1
+        
+        while True:
+            mi_ip = self._obtener_ip_local()
             
-            # A medida que van terminando, revisamos si alguna tuvo éxito
-            for futuro in concurrent.futures.as_completed(futuros):
-                resultado = futuro.result()
-                if resultado:
-                    print(f"[OK] Profesor encontrado automáticamente en: {resultado}")
-                    return resultado # Encontramos al profe, detenemos la búsqueda
+            if mi_ip == "127.0.0.1":
+                print(f"[BÚSQUEDA - Intento {intento}] Sin red Wi-Fi/LAN detectada. Esperando...")
+            else:
+                base_ip = ".".join(mi_ip.split(".")[:-1]) + "."
+                print(f"\n[BÚSQUEDA - Intento {intento}] {self.client_id} escaneando red {base_ip}x...")
+
+                ips_a_probar = [f"{base_ip}{i}" for i in range(1, 255)]
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+                    futuros = [executor.submit(self._probar_ip, ip, puerto_api) for ip in ips_a_probar]
                     
-        print("[ERROR] No se encontró ningún servidor activo en esta red.")
-        return None
+                    for futuro in concurrent.futures.as_completed(futuros):
+                        resultado = futuro.result()
+                        if resultado:
+                            print(f"[OK] Profesor encontrado automáticamente en: {resultado}")
+                            return resultado
+                            
+            # Si tiene un timeout configurado (> 0), revisamos si ya se agotó el tiempo
+            if self.discovery_timeout > 0:
+                tiempo_transcurrido = time.time() - start_time
+                if tiempo_transcurrido >= self.discovery_timeout:
+                    print(f"[TIMEOUT] No se encontró ningún servidor activo tras {self.discovery_timeout}s.")
+                    return None
+            
+            # Pausa de 5 segundos antes de lanzar otra ráfaga de escaneo
+            time.sleep(5)
+            intento += 1
+
     def iniciar_agente(self):
         print(f"\n[INFO] Iniciando agente. Sincronizando con {self.server_url} cada {self.interval}s...")
-        
         try:
             self._loop_sincronizacion()
         except KeyboardInterrupt:
@@ -123,18 +129,30 @@ class TelemetryClient:
         while True:
             try:
                 logs_pendientes = []
+                ruta_log = Path("combined_log.log")
+                
                 if self.estado_local == "GRABANDO":
                     logs_pendientes = self.orchestrator.combine_logs()
 
-                payload = {
+                data_payload = {
                     "client_id": self.client_id,
                     "estado_local": self.estado_local,
                     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                    "logs": logs_pendientes,
-                    "alertas": self.alertas_pendientes
+                    "alertas": json.dumps(self.alertas_pendientes)
                 }
                 
-                respuesta = requests.post(f"{self.server_url}/sync", json=payload, timeout=5)
+                archivo_abierto = None
+                
+                if self.estado_local == "GRABANDO" and ruta_log.exists() and ruta_log.stat().st_size > 0:
+                    archivo_abierto = open(ruta_log, "rb")
+                    archivos = {"archivo_log": archivo_abierto}
+                else:
+                    archivos = {"archivo_log": ("", "")}
+                
+                respuesta = requests.post(f"{self.server_url}/sync", data=data_payload, files=archivos, timeout=10)
+                
+                if archivo_abierto:
+                    archivo_abierto.close()
                 
                 if respuesta.status_code == 200:
                     if not self.conectado:
@@ -145,7 +163,7 @@ class TelemetryClient:
                     
                     if logs_pendientes:
                         print(f"[*] {len(logs_pendientes)} registros enviados al servidor correctamente.")
-                        self.orchestrator.combine_logs()
+                        self.orchestrator.clear_logs() 
                         
                     if self.alertas_pendientes:
                         print(f"[*] {len(self.alertas_pendientes)} alertas enviadas al servidor.")
@@ -187,27 +205,26 @@ if __name__ == "__main__":
     try:
         agente = TelemetryClient()
         agente.client_id = agente._generar_client_id()
+        
+        # El agente buscará dependiendo de su configuración en config.txt
         url_profesor = agente.descubrir_servidor()
         
         if url_profesor:
             agente.server_url = url_profesor
             agente.iniciar_agente()
         else:
-            input("\n[!] No se encontró el servidor. Presiona ENTER para salir...")
+            # Si el timeout configurado expiró
+            print("\n[!] No se encontró el servidor en el tiempo estipulado.")
+            # Quitamos el input() para que no bloquee en caso de usarlo sin terminal visible
             
     except KeyboardInterrupt:
-        pass # Salida limpia si el usuario presiona Ctrl+C
+        pass 
         
     except Exception as e:
-        # Si algo explota, atrapamos el error aquí
         print("\n" + "!"*50)
         print("ERROR FATAL INESPERADO:")
-        traceback.print_exc() # Imprime el error en la consola
+        traceback.print_exc()
         print("!"*50)
         
-        # Guardamos el error en un archivo txt al lado del script
         with open("crash_log.txt", "w", encoding="utf-8") as f:
             traceback.print_exc(file=f)
-            
-        # Pausamos la consola para que no se cierre
-        input("\nPresiona ENTER para cerrar esta ventana...")

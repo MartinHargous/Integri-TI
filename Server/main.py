@@ -1,6 +1,7 @@
 import os
 import socket
-from fastapi import FastAPI
+import json # NUEVO IMPORT
+from fastapi import FastAPI, UploadFile, File, Form # NUEVOS IMPORTS
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import uvicorn
@@ -14,9 +15,7 @@ comando_global = "ESPERANDO"
 clientes_conectados = {}
 
 # --- UTILIDADES DE RED ---
-
 def obtener_ip_local():
-
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
@@ -26,36 +25,43 @@ def obtener_ip_local():
     except Exception:
         return "127.0.0.1"
 
-# --- MODELOS DE DATOS ---
+# Ya no necesitamos el modelo SyncPayload porque recibiremos un Formulario Multipart
 class Alerta(BaseModel):
     timestamp: str
     nivel: str
     mensaje: str
 
-class SyncPayload(BaseModel):
-    client_id: str
-    estado_local: str
-    timestamp: str
-    logs: list[str] = []
-    alertas: list[Alerta] = []
-
 # --- RUTAS DE LA API ---
 
 @app.post("/sync")
-def recibir_telemetria(payload: SyncPayload):
-    clientes_conectados[payload.client_id] = {
-        "estado": payload.estado_local,
-        "ultimo_visto": payload.timestamp
+async def recibir_telemetria(
+    # Usamos Form() y File() en lugar de un Pydantic BaseModel
+    client_id: str = Form(...),
+    estado_local: str = Form(...),
+    timestamp: str = Form(...),
+    alertas: str = Form("[]"),
+    archivo_log: UploadFile = File(None) # El archivo es opcional
+):
+    clientes_conectados[client_id] = {
+        "estado": estado_local,
+        "ultimo_visto": timestamp
     }
 
-    if payload.logs:
-        ruta_archivo = os.path.join(CARPETA_DATOS, f"{payload.client_id}.log")
-        with open(ruta_archivo, "a", encoding="utf-8") as f:
-            for log in payload.logs:
-                f.write(f"{log}\n")
+    # 1. Guardar el archivo si el alumno envió uno
+    if archivo_log and archivo_log.filename:
+        ruta_destino = os.path.join(CARPETA_DATOS, f"{client_id}.log")
+        
+        # Leemos el archivo que viene en la red
+        contenido = await archivo_log.read()
+        
+        # Lo guardamos en modo "ab" (Append Binary) para sumarlo al historial
+        with open(ruta_destino, "ab") as f:
+            f.write(contenido)
 
-    for alerta in payload.alertas:
-        print(f"\n[🚨 ALERTA - {payload.client_id}] {alerta.nivel}: {alerta.mensaje}")
+    # 2. Procesar alertas decodificando el JSON string
+    lista_alertas = json.loads(alertas)
+    for alerta in lista_alertas:
+        print(f"\n[🚨 ALERTA - {client_id}] {alerta['nivel']}: {alerta['mensaje']}")
 
     return {"comando_global": comando_global}
 

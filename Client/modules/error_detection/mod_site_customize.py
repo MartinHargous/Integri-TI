@@ -55,8 +55,12 @@ if os.path.exists(FLAG_FILE):
     def _log_telemetry(msg):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
+            # MAGIA AQUI: Aplanamos el mensaje antes de guardarlo.
+            # Usamos doble y cuádruple barra para que en el script final quede bien escrito.
+            msg_flat = str(msg).replace('\\r', '').replace('\\n', '\\\\n')
+            
             with open(LOG_FILE, "a", encoding="utf-8") as log_file:
-                log_file.write(f"[{{timestamp}}] {{msg}}\\n")
+                log_file.write(f"[{{timestamp}}] {{msg_flat}}\\n")
         except Exception:
             pass
 
