@@ -3,18 +3,18 @@ import site
 import sys
 import threading
 import time
+import subprocess
 from pathlib import Path
+
 try:
     from .mod_site_customize import MARKER_END, MARKER_START, build_payload
 except ImportError:
     from mod_site_customize import MARKER_END, MARKER_START, build_payload
 
-
 class ErrorDetection:
     DEFAULTS = {
         "enabled": "true",
         "log_file": "auditoria_python.log",
-        "sitecustomize_path": "",
         "capture_errors": "true",
         "capture_input": "true",
         "capture_print": "true",
@@ -56,44 +56,82 @@ class ErrorDetection:
 
     @property
     def flag_path(self):
-        # Archivo bandera que controla si la telemetría graba o no
         return self.log_path.parent / ".telemetry_active"
 
     @property
     def sitecustomize_path(self):
-        configured = self.config["sitecustomize_path"]
-        if configured:
-            return self._path(configured)
-        return Path(site.getusersitepackages()) / "sitecustomize.py"
+        # 1. FORZAMOS una carpeta global oculta en el perfil del usuario para cualquier OS
+        target_dir = Path.home() / ".telemetria_global"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        return target_dir / "sitecustomize.py"
+
+    def _configurar_variables_entorno(self):
+        """Inyecta el PYTHONPATH en el sistema operativo automáticamente."""
+        target_dir = str(self.sitecustomize_path.parent)
+        
+        if sys.platform == "win32":
+            # Automatización en WINDOWS
+            current_pp = os.environ.get('PYTHONPATH', '')
+            if target_dir not in current_pp:
+                new_pp = f"{target_dir};{current_pp}" if current_pp else target_dir
+                try:
+                    subprocess.run(['setx', 'PYTHONPATH', new_pp], capture_output=True, check=True)
+                    print(f"[OK] Variable de entorno inyectada en Windows mediante setx.")
+                except Exception as e:
+                    print(f"[ERROR] No se pudo fijar PYTHONPATH en Windows: {e}")
+        else:
+            # Automatización en LINUX / MAC
+            linea_export = f'\nexport PYTHONPATH="{target_dir}:$PYTHONPATH"\n'
+            for rc_file in [".bashrc", ".zshrc", ".bash_profile"]:
+                rc_path = Path.home() / rc_file
+                if rc_path.exists():
+                    content = rc_path.read_text(encoding="utf-8")
+                    if target_dir not in content:
+                        with rc_path.open("a", encoding="utf-8") as f:
+                            f.write(linea_export)
+                        print(f"[OK] Archivo {rc_file} actualizado automáticamente.")
+
+    def _limpiar_variables_entorno(self):
+        """Limpia el PYTHONPATH en Linux/Mac automáticamente (Windows es mejor manual)."""
+        target_dir = str(self.sitecustomize_path.parent)
+        if sys.platform != "win32":
+            for rc_file in [".bashrc", ".zshrc", ".bash_profile"]:
+                rc_path = Path.home() / rc_file
+                if rc_path.exists():
+                    lines = rc_path.read_text(encoding="utf-8").splitlines(keepends=True)
+                    new_lines = [line for line in lines if target_dir not in line]
+                    if len(lines) != len(new_lines):
+                        rc_path.write_text("".join(new_lines), encoding="utf-8")
+                        print(f"[OK] Variable de entorno limpiada de {rc_file}.")
 
     def is_installed(self):
         if not self.sitecustomize_path.exists():
             return False
-        return MARKER_START in self.sitecustomize_path.read_text(encoding="utf-8") and MARKER_END in self.sitecustomize_path.read_text(encoding="utf-8")
-
-    def status(self):
-        return {
-            "enabled": self._bool("enabled"),
-            "installed": self.is_installed(),
-            "sitecustomize_path": str(self.sitecustomize_path),
-            "log_path": str(self.log_path),
-        }
+        return MARKER_START in self.sitecustomize_path.read_text(encoding="utf-8")
 
     def install(self):
         if not self._bool("enabled"):
             print("[AVISO] La telemetria esta desactivada en config.txt.")
             return False
+            
         path = self.sitecustomize_path
-        path.parent.mkdir(parents=True, exist_ok=True)
         content = path.read_text(encoding="utf-8") if path.exists() else ""
+        
         if MARKER_START in content:
             print("[AVISO] La telemetria ya esta instalada.")
             return False
         
-        # Le pasamos la ruta del archivo bandera al payload
         payload = build_payload(self.log_path, self.flag_path, self.config)
         path.write_text(content + "\n" + payload, encoding="utf-8")
-        print(f"[OK] Telemetria instalada en {path}.")
+        
+        # 2. ACTIVAMOS LA TRAMPA EN EL OS AL INSTALAR
+        self._configurar_variables_entorno()
+        
+        print(f"[OK] Telemetria instalada globalmente en {path}.")
+        if sys.platform != "win32":
+            print("[!] IMPORTANTE: Ejecuta 'source ~/.bashrc' o reinicia tu terminal para aplicar.")
+        else:
+            print("[!] IMPORTANTE: Reinicia tu terminal (CMD/PowerShell) para aplicar.")
         return True
 
     def uninstall(self):
@@ -101,6 +139,7 @@ class ErrorDetection:
         if not path.exists():
             print("[AVISO] La telemetria no esta instalada.")
             return False
+            
         lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
         filtered = []
         inside = False
@@ -111,15 +150,18 @@ class ErrorDetection:
                 filtered.append(line)
             if line.strip() == MARKER_END:
                 inside = False
+                
         new_content = "".join(filtered)
         if new_content.strip():
             path.write_text(new_content, encoding="utf-8")
         else:
             path.unlink()
             
-        # Limpiamos la bandera si desinstalamos
         if self.flag_path.exists():
             self.flag_path.unlink()
+            
+        # 3. LIMPIAMOS LA TRAMPA AL DESINSTALAR
+        self._limpiar_variables_entorno()
             
         print("[OK] Telemetria desinstalada.")
         return True
@@ -142,7 +184,6 @@ class ErrorDetection:
             return False
         self.monitoring = False
         
-        # ELIMINA el archivo bandera, deteniendo el registro en los scripts
         if self.flag_path.exists():
             self.flag_path.unlink()
             
@@ -156,12 +197,11 @@ class ErrorDetection:
         if not self._bool("enabled"):
             print("[AVISO] La telemetria esta desactivada en config.txt.")
             if self.flag_path.exists():
-                        self.flag_path.unlink()
+                self.flag_path.unlink()
             return False
         if self.monitoring:
             return False
             
-        # CREA el archivo bandera, permitiendo que los scripts graben
         self.flag_path.touch(exist_ok=True)
         
         self.monitoring = True
@@ -175,7 +215,7 @@ class ErrorDetection:
         while True:
             state = "ENCENDIDO" if self.monitoring else "APAGADO"
             print("\n=== GESTOR DE TELEMETRIA DE CODIGO ===")
-            print("1. Instalar telemetria")
+            print("1. Instalar telemetria (Modo Global Automático)")
             print("2. Desinstalar telemetria")
             print(f"3. Iniciar registro de logs (Estado: {state})")
             print("4. Detener registro de logs")
@@ -187,7 +227,7 @@ class ErrorDetection:
             elif option == "5":
                 self.monitoring = False
                 if self.flag_path.exists():
-                    self.flag_path.unlink() # Asegurar apagado al salir
+                    self.flag_path.unlink()
                 print("[INFO] Saliendo del gestor...")
                 return
             else:
