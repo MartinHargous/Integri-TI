@@ -40,7 +40,8 @@ builtins.print = _telemetry_print''')
     # Aumentamos la indentación a 12 espacios para que entre dentro del "if" del archivo final
     hooks = textwrap.indent("\n\n".join(hook_code), "            ")
     
-    return f'''{MARKER_START}
+    # Guardamos todo el código generado en una variable
+    codigo_final = f'''{MARKER_START}
 import atexit
 import builtins
 import datetime
@@ -55,12 +56,12 @@ if os.path.exists(FLAG_FILE):
     def _log_telemetry(msg):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         try:
-            # MAGIA AQUI: Aplanamos el mensaje antes de guardarlo.
-            # Usamos doble y cuádruple barra para que en el script final quede bien escrito.
             msg_flat = str(msg).replace('\\r', '').replace('\\n', '\\\\n')
-            
             with open(LOG_FILE, "a", encoding="utf-8") as log_file:
                 log_file.write(f"[{{timestamp}}] {{msg_flat}}\\n")
+                
+            # NUEVO: Liberamos los permisos del log para que root y kali no peleen
+            os.chmod(LOG_FILE, 0o666)
         except Exception:
             pass
 
@@ -79,3 +80,5 @@ if os.path.exists(FLAG_FILE):
             atexit.register(_on_exit)
 {MARKER_END}
 '''
+    # LA MAGIA ANTI-ERRORES: Convertimos todos los Tabs ocultos a 4 espacios
+    return codigo_final.replace('\t', '    ')

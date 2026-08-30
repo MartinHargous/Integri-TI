@@ -27,7 +27,13 @@ class ErrorDetection:
         self.config = self._read_config()
         self.monitoring = False
         self._monitor_thread = None
-
+    def _liberar_permisos(self, ruta):
+        """Otorga permisos de lectura/escritura totales (chmod 666) para evitar bloqueos root/kali."""
+        try:
+            if ruta.exists():
+                os.chmod(ruta, 0o666)
+        except Exception:
+            pass
     def _read_config(self):
         values = self.DEFAULTS.copy()
         if self.config_path.exists():
@@ -124,9 +130,11 @@ class ErrorDetection:
         payload = build_payload(self.log_path, self.flag_path, self.config)
         path.write_text(content + "\n" + payload, encoding="utf-8")
         
+        # NUEVO: Liberamos los permisos del archivo inyectado global
+        self._liberar_permisos(path)
+        
         # 2. ACTIVAMOS LA TRAMPA EN EL OS AL INSTALAR
         self._configurar_variables_entorno()
-        
         print(f"[OK] Telemetria instalada globalmente en {path}.")
         if sys.platform != "win32":
             print("[!] IMPORTANTE: Ejecuta 'source ~/.bashrc' o reinicia tu terminal para aplicar.")
@@ -202,7 +210,10 @@ class ErrorDetection:
         if self.monitoring:
             return False
             
+        # Creamos la bandera
         self.flag_path.touch(exist_ok=True)
+        # NUEVO: Liberamos los permisos de la bandera
+        self._liberar_permisos(self.flag_path)
         
         self.monitoring = True
         self._monitor_thread = threading.Thread(target=self._follow_log, daemon=True)

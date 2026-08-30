@@ -13,7 +13,8 @@ from orchestrator import Orchestrator
 class TelemetryClient:
     DEFAULTS = {
         "sync_interval_seconds": "15",
-        "discovery_timeout_seconds": "0" # 0 = Modo Daemon (búsqueda infinita)
+        "discovery_timeout_seconds": "0", # 0 = Modo Daemon (búsqueda infinita)
+        "server_ip": ""
     }
 
     def __init__(self, config_path=None):
@@ -73,7 +74,19 @@ class TelemetryClient:
         return None
 
     def descubrir_servidor(self, puerto_api=8000):
-        """Escanea la red buscando la API, con soporte para reintentos infinitos."""
+        """Escanea la red buscando la API, cruzando barreras NAT si es necesario."""
+        
+        # 1. Bypass manual: Si se configuró una IP explícita en config.txt
+        ip_forzada = self.config.get("server_ip", "")
+        if ip_forzada:
+            print(f"[BÚSQUEDA] Probando IP forzada desde configuración: {ip_forzada}...")
+            url = self._probar_ip(ip_forzada, puerto_api)
+            if url:
+                print(f"[OK] Profesor encontrado en IP configurada: {url}")
+                return url
+            print("[AVISO] La IP forzada no respondió. Pasando a búsqueda automática...")
+
+        # 2. Escaneo automático masivo
         start_time = time.time()
         intento = 1
         
@@ -81,14 +94,22 @@ class TelemetryClient:
             mi_ip = self._obtener_ip_local()
             
             if mi_ip == "127.0.0.1":
-                print(f"[BÚSQUEDA - Intento {intento}] Sin red Wi-Fi/LAN detectada. Esperando...")
+                print(f"[BÚSQUEDA - Intento {intento}] Sin red detectada. Esperando...")
             else:
-                base_ip = ".".join(mi_ip.split(".")[:-1]) + "."
-                print(f"\n[BÚSQUEDA - Intento {intento}] {self.client_id} escaneando red {base_ip}x...")
+                base_local = ".".join(mi_ip.split(".")[:-1]) + "."
+                
+                # Armamos las subredes a escanear (La local de la VM + Las físicas más comunes)
+                subredes = [base_local, "192.168.0.", "192.168.1.", "192.168.100."]
+                # Eliminamos duplicados por si la VM ya está en una de esas
+                subredes = list(set(subredes)) 
+                
+                ips_a_probar = []
+                for subred in subredes:
+                    ips_a_probar.extend([f"{subred}{i}" for i in range(1, 255)])
+                    
+                print(f"\n[BÚSQUEDA - Intento {intento}] {self.client_id} escaneando {len(ips_a_probar)} IPs (Cruzando NAT)...")
 
-                ips_a_probar = [f"{base_ip}{i}" for i in range(1, 255)]
-
-                with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
                     futuros = [executor.submit(self._probar_ip, ip, puerto_api) for ip in ips_a_probar]
                     
                     for futuro in concurrent.futures.as_completed(futuros):
@@ -97,14 +118,12 @@ class TelemetryClient:
                             print(f"[OK] Profesor encontrado automáticamente en: {resultado}")
                             return resultado
                             
-            # Si tiene un timeout configurado (> 0), revisamos si ya se agotó el tiempo
             if self.discovery_timeout > 0:
                 tiempo_transcurrido = time.time() - start_time
                 if tiempo_transcurrido >= self.discovery_timeout:
                     print(f"[TIMEOUT] No se encontró ningún servidor activo tras {self.discovery_timeout}s.")
                     return None
             
-            # Pausa de 5 segundos antes de lanzar otra ráfaga de escaneo
             time.sleep(5)
             intento += 1
 
