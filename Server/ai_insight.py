@@ -94,7 +94,7 @@ def construir_prompt(client_id: str, contexto_logs: str) -> Tuple[str, str]:
         f"3. {PREGUNTAS_INSIGHT[2]}\n"
         f"4. {PREGUNTAS_INSIGHT[3]}\n\n"
         "Estructura tu respuesta exactamente con estas cuatro secciones numeradas precedidas de '### 1. ', '### 2. ', "
-        "'### 3. ' y '### 4. ', seguidas de un resumen o conclusión pedagógica en '### Conclusión Pedagógica:'."
+        "'### 3. ' y '### 4. ', seguidas de un resumen o conclusión en '### Conclusión:'."
     )
 
     user_prompt = (
@@ -138,11 +138,13 @@ def parsear_secciones_respuesta(texto_respuesta: str) -> Dict[str, Any]:
             if clave in resultado:
                 resultado[clave] = contenido_limpio
 
-        # Buscar conclusión (con o sin tilde)
-        patron_conclusion = re.compile(r"###\s*Conclusi[oó]n.*?:?\s*(.*?)(?=\n###|\Z)", re.DOTALL | re.IGNORECASE)
+        # Buscar conclusión (con o sin tilde) y omitir encabezados como "Pedagógica:"
+        patron_conclusion = re.compile(r"###\s*Conclusi[oó]n[^\n:]*:?\s*(.*?)(?=\n###|\Z)", re.DOTALL | re.IGNORECASE)
         match_conc = patron_conclusion.search(texto_respuesta)
         if match_conc:
-            resultado["conclusion"] = match_conc.group(1).strip()
+            texto_conc = match_conc.group(1).strip()
+            texto_conc = re.sub(r"^(?:pedag[oó]gica?|general)?\s*:?\s*", "", texto_conc, flags=re.IGNORECASE).strip()
+            resultado["conclusion"] = texto_conc
 
     return resultado
 

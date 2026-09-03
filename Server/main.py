@@ -500,50 +500,27 @@ async def generar_insight_cliente(client_id: str, request: Request):
 
 @app.get("/auditoria/{client_id}")
 def ver_auditoria_html(request: Request, client_id: str):
-    ruta_root = os.path.join(BASE_DIR, "audit.html")
-    ruta_tpl = os.path.join(TEMPLATES_DIR, "audit.html")
-
-    # Si se editó Server/audit.html en la raíz, sincronizarlo automáticamente a templates/
-    if os.path.exists(ruta_root) and os.path.exists(ruta_tpl):
-        if os.path.getmtime(ruta_root) > os.path.getmtime(ruta_tpl):
-            try:
-                import shutil
-                shutil.copy2(ruta_root, ruta_tpl)
-            except Exception:
-                pass
-
-    if templates and os.path.exists(ruta_tpl):
+    if templates and os.path.exists(os.path.join(TEMPLATES_DIR, "audit.html")):
         response = templates.TemplateResponse(request, "audit.html", context={"client_id": client_id})
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
         return response
-
-    return FileResponse(ruta_root, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    ruta_root = os.path.join(BASE_DIR, "audit.html")
+    return FileResponse(ruta_root)
 
 # --- DASHBOARD WEB HTML ---
 
 @app.get("/")
 def ver_dashboard(request: Request):
-    ruta_root = os.path.join(BASE_DIR, "index.html")
-    ruta_tpl = os.path.join(TEMPLATES_DIR, "index.html")
-
-    if os.path.exists(ruta_root) and os.path.exists(ruta_tpl):
-        if os.path.getmtime(ruta_root) > os.path.getmtime(ruta_tpl):
-            try:
-                import shutil
-                shutil.copy2(ruta_root, ruta_tpl)
-            except Exception:
-                pass
-
-    if templates and os.path.exists(ruta_tpl):
+    if templates and os.path.exists(os.path.join(TEMPLATES_DIR, "index.html")):
         response = templates.TemplateResponse(request, "index.html")
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
         return response
-
-    return FileResponse(ruta_root, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+    ruta_root = os.path.join(BASE_DIR, "index.html")
+    return FileResponse(ruta_root)
 
 # --- INICIO DEL SERVIDOR ---
 

