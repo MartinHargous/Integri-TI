@@ -113,9 +113,11 @@ class LogCorrelator:
                 pass
         return time.time()
 
-    def parsear_linea(self, linea: str, numero_linea: int = 0) -> Optional[Dict[str, Any]]:
+    def parsear_linea(self, linea: str, numero_linea: int = 0, ignorar_heartbeats: bool = False) -> Optional[Dict[str, Any]]:
         linea = linea.strip()
-        if not linea or "--- IGNORE ---" in linea:
+        if not linea:
+            return None
+        if ignorar_heartbeats and "--- IGNORE ---" in linea:
             return None
         m = self.PATRON_LINEA.match(linea)
         if not m:
@@ -301,7 +303,7 @@ class LogCorrelator:
         offset_lineas = len(self.historial_eventos_por_cliente[client_id])
         nuevos = []
         for idx, l in enumerate(lineas, start=offset_lineas + 1):
-            ev = self.parsear_linea(l, numero_linea=idx)
+            ev = self.parsear_linea(l, numero_linea=idx, ignorar_heartbeats=True)
             if ev:
                 nuevos.append(ev)
 
@@ -363,7 +365,7 @@ class LogCorrelator:
 
         eventos = []
         for idx, l in enumerate(lineas, start=1):
-            ev = self.parsear_linea(l, numero_linea=idx)
+            ev = self.parsear_linea(l, numero_linea=idx, ignorar_heartbeats=True)
             if ev:
                 eventos.append(ev)
 

