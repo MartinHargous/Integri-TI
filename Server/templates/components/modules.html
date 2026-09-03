@@ -1,0 +1,87 @@
+<!-- =======================================================
+     COMPONENTE: CONFIGURACIÓN REMOTA DE MÓDULOS (HTTP)
+     ======================================================= -->
+<section class="md:col-span-6 xl:col-span-3 bg-[#111827] border border-[#1f2937] rounded-lg p-3 sm:p-3.5 flex flex-col gap-2.5">
+  <div class="flex items-center justify-between border-b border-[#1f2937] pb-2 text-sm">
+    <h2 class="font-semibold uppercase tracking-wider text-slate-200 text-sm">Módulos (HTTP)</h2>
+    <select id="select-destino" onchange="cambiarDestinoSeleccionado(this.value)" class="bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs focus:outline-none font-mono max-w-[150px] truncate">
+      <option value="global" selected="">Global</option>
+      <option value="alertas">Solo en alerta</option>
+    </select>
+  </div>
+
+  <!-- LISTA DE LOS 6 MÓDULOS -->
+  <div class="flex flex-col gap-2 font-mono text-xs sm:text-sm max-h-[400px] xl:max-h-[430px] overflow-y-auto pr-0.5">
+    <!-- sniffer -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">sniffer</span>
+        <span id="sub-sniffer" class="text-[11px] text-slate-400 block truncate">log: sniffer.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('sniffer')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-sniffer" onchange="toggleModulo('sniffer', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+
+    <!-- keylogger -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">keylogger</span>
+        <span id="sub-keylogger" class="text-[11px] text-slate-400 block truncate">log: keylogger.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('keylogger')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-keylogger" onchange="toggleModulo('keylogger', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+
+    <!-- keystrokes svm -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">keystrokes svm</span>
+        <span id="sub-keystrokes_svm" class="text-[11px] text-slate-400 block truncate">log: alerts.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('keystrokes svm')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-keystrokes_svm" onchange="toggleModulo('keystrokes svm', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+
+    <!-- error_detection -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">error_detection</span>
+        <span id="sub-error_detection" class="text-[11px] text-slate-400 block truncate">log: auditoria_python.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('error_detection')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-error_detection" onchange="toggleModulo('error_detection', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+
+    <!-- paperclip -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">paperclip</span>
+        <span id="sub-paperclip" class="text-[11px] text-slate-400 block truncate">log: paperclip.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('paperclip')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-paperclip" onchange="toggleModulo('paperclip', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+
+    <!-- program monitor -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">program monitor</span>
+        <span id="sub-program_monitor" class="text-[11px] text-slate-400 block truncate">log: program_monitor.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('program monitor')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-program_monitor" onchange="toggleModulo('program monitor', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+  </div>
+</section>

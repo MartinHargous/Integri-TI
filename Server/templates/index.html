@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html class="h-full bg-[#0b0f19]" lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport">
+  <title class="text-[15px]">integri-TI - Panel de Control del Examen</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          screens: {
+            'xs': '480px',
+            '3xl': '1920px'
+          },
+          colors: {
+            brand: {
+              bg: '#0b0f19',
+              card: '#111827',
+              border: '#1f2937',
+              borderLight: '#374151',
+              accent: '#2563eb',
+              text: '#f3f4f6',
+              textMuted: '#9ca3af'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body class="min-h-full flex flex-col antialiased text-sm sm:text-[15px] overflow-x-hidden">
+<!-- CONTENEDOR PRINCIPAL FLUIDO (100% DE PANTALLA) -->
+<div class="min-h-screen flex flex-col w-full px-2.5 sm:px-4 py-2 sm:py-2.5 gap-2.5">
+
+  <!-- SECCIÓN 1: ENCABEZADO Y CONTROL DE COMANDOS -->
+  {% include 'components/header.html' %}
+
+  <!-- SECCIÓN 2: GRID SUPERIOR (AGENTES, MÓDULOS Y REGLAS CON EDITOR PLEGABLE) -->
+  <main class="grid grid-cols-1 md:grid-cols-12 xl:grid-cols-12 gap-2.5 flex-1 items-start">
+    {% include 'components/agents.html' %}
+    {% include 'components/modules.html' %}
+    {% include 'components/rules.html' %}
+  </main>
+
+  <!-- SECCIÓN 3: ALERTAS RECIENTES (MÁXIMO 4) Y TELEMETRÍA -->
+  {% include 'components/alerts.html' %}
+
+</div>
+
+<!-- COMPONENTES MODALES Y NOTIFICACIONES FLOTANTES -->
+{% include 'components/modal.html' %}
+
+<!-- SCRIPTS MODULARES -->
+<script src="/static/js/api.js"></script>
+<script src="/static/js/agents.js"></script>
+<script src="/static/js/modules.js"></script>
+<script src="/static/js/rules.js"></script>
+<script src="/static/js/alerts.js"></script>
+<script src="/static/js/main.js"></script>
+</body>
+</html>
+

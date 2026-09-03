@@ -1,0 +1,41 @@
+<!-- =======================================================
+     COMPONENTE: MATRIZ DE AGENTES EN RED (CONTROL DE CLASE)
+     ======================================================= -->
+<section class="md:col-span-12 xl:col-span-6 bg-[#111827] border border-[#1f2937] rounded-lg p-3 sm:p-3.5 flex flex-col gap-2.5">
+  <div class="flex items-center justify-between border-b border-[#1f2937] pb-2 text-sm">
+    <div class="flex items-center gap-2">
+      <span class="font-semibold text-slate-200 uppercase tracking-wider text-sm">Agentes en Red</span>
+      <span id="agentes-contador" class="text-xs sm:text-sm text-slate-400 font-mono">(0 activos)</span>
+    </div>
+    
+    <div class="flex items-center gap-1.5 font-mono text-xs">
+      <span class="text-slate-400 text-xs uppercase mr-1 hidden xs:inline">Vista:</span>
+      <div class="inline-flex rounded border border-[#1f2937] bg-[#0b0f19] p-0.5 gap-0.5">
+        <button id="btn-grid-3x3" onclick="cambiarCuadricula('3x3')" class="px-2.5 py-1 rounded text-xs bg-[#1f2937] text-slate-200 font-medium border border-slate-700 transition-colors" type="button">3x3</button>
+        <button id="btn-grid-4x3" onclick="cambiarCuadricula('4x3')" class="px-2.5 py-1 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors border border-transparent" type="button">4x3</button>
+        <button id="btn-grid-4x4" onclick="cambiarCuadricula('4x4')" class="px-2.5 py-1 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors border border-transparent" type="button">4x4</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR DE TARJETAS DE ALUMNOS (SCROLL INTERNO COMPACTO) -->
+  <div id="matriz-agentes" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 font-mono text-sm max-h-[400px] xl:max-h-[430px] overflow-y-auto pr-0.5">
+    <div id="sin-agentes-aviso" class="col-span-full py-12 flex flex-col items-center justify-center text-center text-slate-400 border border-dashed border-[#1f2937] rounded-lg bg-[#0b0f19]/40 p-5">
+      <div class="w-10 h-10 rounded-full bg-[#1f2937] flex items-center justify-center mb-2 text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+      </div>
+      <span class="text-sm font-semibold text-slate-200">Esperando conexión de clientes...</span>
+      <span class="text-xs text-slate-400 mt-1">Inicie <code class="text-blue-400 bg-[#0b0f19] px-1.5 py-0.5 rounded border border-[#1f2937]">python client.py</code> en los equipos</span>
+    </div>
+  </div>
+
+  <div class="pt-2 border-t border-[#1f2937] flex items-center justify-between text-xs sm:text-sm text-slate-400 font-mono">
+    <span class="text-slate-400">Pulse en "Auditar Alumno" para acceder a las líneas de infracción</span>
+    <div class="inline-flex items-center gap-3">
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Grabando</span>
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Esperando</span>
+    </div>
+  </div>
+</section>

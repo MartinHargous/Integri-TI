@@ -1,0 +1,86 @@
+[
+  {
+    "id": "R-01",
+    "nombre": "Consulta a IA y Pegado de Código",
+    "severidad": "CRÍTICA",
+    "ventana_segundos": 60,
+    "pasos": [
+      {
+        "modulo": "keylogger",
+        "patron": "\\[CTRL\\]\\+c"
+      },
+      {
+        "modulo": "sniffer",
+        "patron": "gemini\\.google\\.com|chatgpt\\.com|claude\\.ai|deepseek"
+      },
+      {
+        "modulo": "keylogger",
+        "patron": "\\[CTRL\\]\\+v"
+      }
+    ]
+  },
+  {
+    "id": "R-02",
+    "nombre": "Copia a Portapapeles y Acceso a IA/Web",
+    "severidad": "ALTA",
+    "ventana_segundos": 45,
+    "pasos": [
+      {
+        "modulo": "paperclip",
+        "patron": "CLIPBOARD_CHANGED"
+      },
+      {
+        "modulo": "sniffer",
+        "patron": "chatgpt\\.com|gemini\\.google\\.com|claude\\.ai"
+      }
+    ]
+  },
+  {
+    "id": "R-03",
+    "nombre": "Exfiltración vía Portapapeles a Mensajería",
+    "severidad": "ALTA",
+    "ventana_segundos": 30,
+    "pasos": [
+      {
+        "modulo": "paperclip",
+        "patron": "CLIPBOARD_CHANGED"
+      },
+      {
+        "modulo": "sniffer",
+        "patron": "discord\\.com|miro\\.com|chat\\.google\\.com|telegram|whatsapp"
+      }
+    ]
+  },
+  {
+    "id": "R-04",
+    "nombre": "Crash en Código seguido de Búsqueda Externa",
+    "severidad": "MEDIA",
+    "ventana_segundos": 60,
+    "pasos": [
+      {
+        "modulo": "error_detection",
+        "patron": "CRASH DETECTADO"
+      },
+      {
+        "modulo": "sniffer",
+        "patron": "chatgpt\\.com|gemini\\.google\\.com|google\\.com|stackoverflow\\.com"
+      }
+    ]
+  },
+  {
+    "nombre": "Desvío a Navegador Externo durante Ejecución",
+    "severidad": "MEDIA",
+    "ventana_segundos": 30,
+    "pasos": [
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE.*app='(firefox|chrome|msedge)'"
+      },
+      {
+        "modulo": "keylogger",
+        "patron": "\\[CTRL\\]\\+v"
+      }
+    ],
+    "id": "R-05"
+  }
+]

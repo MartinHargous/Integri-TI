@@ -1,0 +1,81 @@
+<!-- =======================================================
+     COMPONENTE: REGLAS DE CORRELACIÓN CON EDITOR PLEGABLE
+     ======================================================= -->
+<section class="md:col-span-6 xl:col-span-3 bg-[#111827] border border-[#1f2937] rounded-lg p-3 sm:p-3.5 flex flex-col gap-2.5">
+  <div class="flex items-center justify-between border-b border-[#1f2937] pb-2 text-sm">
+    <div class="flex items-center gap-1.5">
+      <h2 class="font-semibold uppercase tracking-wider text-slate-200 text-sm">Reglas Secuenciales</h2>
+      <span id="contador-reglas" class="text-xs text-slate-400 font-mono">(...)</span>
+    </div>
+    <!-- BOTÓN QUE ABRE O CIERRA EL EDITOR -->
+    <button id="btn-toggle-editor" onclick="toggleEditorRegla()" class="px-2.5 py-1 rounded text-xs font-medium bg-[#1f2937] text-slate-200 border border-[#374151] hover:bg-[#374151] transition-colors flex items-center gap-1" type="button">
+      <span id="label-toggle-editor">+ Nueva Regla</span>
+    </button>
+  </div>
+
+  <!-- EDITOR PLEGABLE (SE PUEDE CERRAR PARA VER LAS REGLAS CON MÁXIMO ESPACIO) -->
+  <div id="editor-regla-contenedor" class="hidden flex flex-col gap-2.5 bg-[#0b0f19] border border-[#1f2937] rounded-lg p-3 transition-all">
+    <div class="flex items-center justify-between border-b border-[#1f2937] pb-1.5">
+      <input id="regla-nombre-input" class="bg-transparent text-xs sm:text-sm font-semibold text-slate-100 focus:outline-none w-full placeholder:text-slate-500" type="text" value="Nueva Secuencia Sospechosa" placeholder="Nombre de la regla">
+      <button onclick="toggleEditorRegla(false)" class="text-slate-400 hover:text-slate-200 text-base leading-none px-1" title="Cerrar editor" type="button">&times;</button>
+    </div>
+    
+    <!-- CONTENEDOR DE PASOS DINÁMICOS -->
+    <div id="contenedor-pasos" class="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-0.5">
+      <div class="paso-item flex flex-wrap items-center gap-1.5 font-mono text-xs bg-[#111827] border border-[#1f2937] rounded p-2">
+        <span class="paso-label px-1.5 py-0.5 rounded bg-[#0b0f19] text-[10px] sm:text-xs text-blue-400 border border-[#1f2937] font-semibold shrink-0">Paso 1</span>
+        <select class="paso-modulo bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs focus:outline-none shrink-0">
+          <option value="keylogger">Keylogger</option>
+          <option value="paperclip">Paperclip</option>
+          <option value="sniffer">Sniffer</option>
+          <option value="program_monitor">Program Monitor</option>
+          <option value="error_detection">Error Detection</option>
+        </select>
+        <input class="paso-valor bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-[110px] focus:outline-none" placeholder="patrón (ej. \[CTRL\]\+c)" type="text" value="\[CTRL\]\+c">
+        <button onclick="eliminarPaso(this)" class="text-slate-400 hover:text-red-400 px-1 text-base leading-none shrink-0" type="button">×</button>
+      </div>
+      <div class="paso-item flex flex-wrap items-center gap-1.5 font-mono text-xs bg-[#111827] border border-[#1f2937] rounded p-2">
+        <span class="paso-label px-1.5 py-0.5 rounded bg-[#0b0f19] text-[10px] sm:text-xs text-blue-400 border border-[#1f2937] font-semibold shrink-0">Paso 2</span>
+        <select class="paso-modulo bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs focus:outline-none shrink-0">
+          <option value="sniffer" selected="">Sniffer</option>
+          <option value="keylogger">Keylogger</option>
+          <option value="paperclip">Paperclip</option>
+          <option value="program_monitor">Program Monitor</option>
+          <option value="error_detection">Error Detection</option>
+        </select>
+        <input class="paso-valor bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-[110px] focus:outline-none" placeholder="patrón (ej. gemini\.google\.com)" type="text" value="gemini\.google\.com|chatgpt\.com">
+        <button onclick="eliminarPaso(this)" class="text-slate-400 hover:text-red-400 px-1 text-base leading-none shrink-0" type="button">×</button>
+      </div>
+    </div>
+
+    <!-- CONTROLES DEL EDITOR -->
+    <div class="flex flex-wrap items-center justify-between pt-1.5 gap-1.5 text-xs font-mono">
+      <button onclick="agregarPaso()" class="px-2.5 py-1 rounded bg-[#111827] hover:bg-[#1f2937] text-slate-300 border border-[#1f2937] transition-colors" type="button">
+        + Paso
+      </button>
+      <div class="flex items-center gap-2">
+        <select id="select-ventana" class="bg-[#111827] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs">
+          <option value="15">&lt;= 15s</option>
+          <option value="30">&lt;= 30s</option>
+          <option value="45">&lt;= 45s</option>
+          <option value="60" selected="">&lt;= 60s</option>
+        </select>
+        <select id="select-sev" class="bg-[#111827] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs">
+          <option value="CRÍTICA" selected="">Crítica</option>
+          <option value="ALTA">Alta</option>
+          <option value="MEDIA">Media</option>
+        </select>
+        <button onclick="guardarReglaBackend()" id="btn-guardar-regla" class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition-colors" type="button">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LISTA DE REGLAS ACTIVAS (CON AMPLIO ESPACIO VERTICAL CUANDO EL EDITOR ESTÁ CERRADO) -->
+  <div class="flex flex-col gap-2 flex-1 min-h-[140px]">
+    <div id="lista-reglas-guardadas" class="flex flex-col gap-1.5 max-h-[400px] xl:max-h-[430px] overflow-y-auto pr-0.5 font-mono text-xs">
+      <!-- Renderizado dinámicamente desde /api/reglas -->
+    </div>
+  </div>
+</section>

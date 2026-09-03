@@ -1,130 +1,373 @@
 <!DOCTYPE html>
-<html lang="es">
+<html class="h-full bg-[#0b0f19]" lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - Telemetría</title>
-    <!-- Cargamos FontAwesome para los íconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #d4d4d4; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: 0 auto; }
-        .card { background-color: #252526; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); margin-bottom: 20px; }
-        h1, h2 { color: #569cd6; margin-top: 0; display: flex; align-items: center; gap: 10px; }
-        .status-badge { padding: 8px 16px; border-radius: 4px; font-weight: bold; font-size: 1.2em; display: inline-block; }
-        
-        /* Estilos de botones */
-        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 10px; transition: 0.2s; color: white; display: inline-flex; align-items: center; gap: 8px; font-size: 14px;}
-        .btn-esperando { background-color: #d7ba7d; color: black; }
-        .btn-grabando { background-color: #4CAF50; }
-        .btn-finalizado { background-color: #f44336; }
-        .btn:hover { opacity: 0.8; transform: translateY(-1px); }
-        
-        /* Tabla */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #3e3e42; }
-        th { background-color: #2d2d30; color: #9cdcfe; }
-        tr:hover { background-color: #2a2d2e; }
-    </style>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" name="viewport">
+  <title class="text-[15px]">integri-TI - Panel de Control del Examen</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          screens: {
+            'xs': '480px',
+            '3xl': '1920px'
+          },
+          colors: {
+            brand: {
+              bg: '#0b0f19',
+              card: '#111827',
+              border: '#1f2937',
+              borderLight: '#374151',
+              accent: '#2563eb',
+              text: '#f3f4f6',
+              textMuted: '#9ca3af'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-<body>
-    <div class="container">
-        <div class="card">
-            <h1><i class="fa-solid fa-satellite-dish"></i> Centro de Mando</h1>
-            <p>Comando Global Actual:</p>
-            <div id="badge-comando" class="status-badge" style="background-color: gray;">
-                <i class="fa-solid fa-spinner fa-spin"></i> CARGANDO...
-            </div>
-            
-            <h3 style="margin-top: 20px;">Cambiar Estado:</h3>
-            <button class="btn btn-esperando" onclick="cambiarComando('ESPERANDO')">
-                <i class="fa-solid fa-pause"></i> ESPERANDO
-            </button>
-            <button class="btn btn-grabando" onclick="cambiarComando('GRABANDO')">
-                <i class="fa-solid fa-play"></i> GRABANDO
-            </button>
-            <button class="btn btn-finalizado" onclick="cambiarComando('FINALIZADO')">
-                <i class="fa-solid fa-stop"></i> FINALIZADO
-            </button>
-        </div>
+<body class="min-h-full flex flex-col antialiased text-sm sm:text-[15px] overflow-x-hidden">
+<!-- CONTENEDOR PRINCIPAL FLUIDO (100% DE PANTALLA) -->
+<div class="min-h-screen flex flex-col w-full px-2.5 sm:px-4 py-2 sm:py-2.5 gap-2.5">
 
-        <div class="card">
-            <h2><i class="fa-solid fa-computer"></i> Agentes Conectados</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Identificador (ID)</th>
-                        <th>Estado Local</th>
-                        <th>Última Sincronización</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla-clientes">
-                    <tr><td colspan="3" style="text-align:center;"><i class="fa-solid fa-circle-notch fa-spin"></i> Esperando conexiones...</td></tr>
-                </tbody>
-            </table>
-        </div>
+  <!-- SECCIÓN 1: ENCABEZADO Y CONTROL DE COMANDOS -->
+  <!--COMPONENTE: ENCABEZADO COMPACTO DE CONTROL-->
+<header class="flex flex-col sm:flex-row items-start sm:items-center justify-between border border-[#1f2937] bg-[#111827] px-3.5 py-2.5 rounded-lg gap-2">
+  <div class="flex items-center gap-2.5">
+    <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+    <h1 class="text-base sm:text-lg font-semibold text-white tracking-tight flex items-center gap-2">
+      INTEGRI-TI
+      <span class="text-xs sm:text-sm font-normal text-slate-400 hidden sm:inline">| Panel de Control y Monitoreo de Exámenes</span>
+    </h1>
+  </div>
+  
+  <!-- ACCIONES RÁPIDAS Y ESTADO EN EL HEADER -->
+  <div class="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm font-mono self-end sm:self-auto">
+    <div class="inline-flex rounded border border-[#1f2937] bg-[#0b0f19] p-0.5 gap-1" role="group">
+      <button id="btn-cmd-esperando" onclick="cambiarComando('ESPERANDO')" class="px-3 py-1 rounded text-xs sm:text-sm font-medium bg-[#1f2937] text-amber-300 border border-amber-800/80 transition-colors flex items-center gap-1.5" type="button">
+        <span class="w-2 h-2 rounded-full bg-amber-400"></span> Esperando
+      </button>
+      <button id="btn-cmd-grabando" onclick="cambiarComando('GRABANDO')" class="px-3 py-1 rounded text-xs sm:text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 border border-transparent" type="button">
+        <span class="w-2 h-2 rounded-full bg-emerald-500/50"></span> Grabando
+      </button>
+      <button id="btn-cmd-finalizado" onclick="cambiarComando('FINALIZADO')" class="px-3 py-1 rounded text-xs sm:text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 border border-transparent" type="button">
+        <span class="w-2 h-2 rounded-full bg-slate-500"></span> Finalizado
+      </button>
     </div>
 
-    <script>
-        // Función para actualizar los datos desde la API
-        async function refrescarDashboard() {
-            try {
-                const response = await fetch('/api/status');
-                const data = await response.json();
-                
-                // Actualizar Badge del Comando Global
-                const badge = document.getElementById('badge-comando');
-                
-                if (data.comando_global === 'ESPERANDO') { 
-                    badge.innerHTML = '<i class="fa-solid fa-pause"></i> ESPERANDO';
-                    badge.style.backgroundColor = '#d7ba7d'; 
-                    badge.style.color = 'black'; 
-                }
-                else if (data.comando_global === 'GRABANDO') { 
-                    badge.innerHTML = '<i class="fa-solid fa-play"></i> GRABANDO';
-                    badge.style.backgroundColor = '#4CAF50'; 
-                    badge.style.color = 'white';
-                }
-                else { 
-                    badge.innerHTML = '<i class="fa-solid fa-stop"></i> FINALIZADO';
-                    badge.style.backgroundColor = '#f44336'; 
-                    badge.style.color = 'white';
-                }
+    <span id="connection-status" class="px-2.5 py-1 rounded text-xs border border-emerald-800 bg-emerald-950/40 text-emerald-300 flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Activo
+    </span>
+    <span id="last-sync-time" class="text-slate-400 text-xs hidden xs:inline">Sinc: --:--:--</span>
+  </div>
+</header>
 
-                // Actualizar Tabla de Clientes
-                const tbody = document.getElementById('tabla-clientes');
-                if (Object.keys(data.clientes).length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;"><i class="fa-solid fa-clock-rotate-left"></i> No hay agentes conectados aún.</td></tr>';
-                    return;
-                }
+  <!-- SECCIÓN 2: GRID SUPERIOR (AGENTES, MÓDULOS Y REGLAS CON EDITOR PLEGABLE) -->
+  <main class="grid grid-cols-1 md:grid-cols-12 xl:grid-cols-12 gap-2.5 flex-1 items-start">
+    <!-- =======================================================
+     COMPONENTE: MATRIZ DE AGENTES EN RED (CONTROL DE CLASE)
+     ======================================================= -->
+<section class="md:col-span-12 xl:col-span-6 bg-[#111827] border border-[#1f2937] rounded-lg p-3 sm:p-3.5 flex flex-col gap-2.5">
+  <div class="flex items-center justify-between border-b border-[#1f2937] pb-2 text-sm">
+    <div class="flex items-center gap-2">
+      <span class="font-semibold text-slate-200 uppercase tracking-wider text-sm">Agentes en Red</span>
+      <span id="agentes-contador" class="text-xs sm:text-sm text-slate-400 font-mono">(0 activos)</span>
+    </div>
+    
+    <div class="flex items-center gap-1.5 font-mono text-xs">
+      <span class="text-slate-400 text-xs uppercase mr-1 hidden xs:inline">Vista:</span>
+      <div class="inline-flex rounded border border-[#1f2937] bg-[#0b0f19] p-0.5 gap-0.5">
+        <button id="btn-grid-3x3" onclick="cambiarCuadricula('3x3')" class="px-2.5 py-1 rounded text-xs bg-[#1f2937] text-slate-200 font-medium border border-slate-700 transition-colors" type="button">3x3</button>
+        <button id="btn-grid-4x3" onclick="cambiarCuadricula('4x3')" class="px-2.5 py-1 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors border border-transparent" type="button">4x3</button>
+        <button id="btn-grid-4x4" onclick="cambiarCuadricula('4x4')" class="px-2.5 py-1 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors border border-transparent" type="button">4x4</button>
+      </div>
+    </div>
+  </div>
 
-                let html = '';
-                for (const [client_id, info] of Object.entries(data.clientes)) {
-                    let colorEstado = info.estado === 'GRABANDO' ? '#4CAF50' : (info.estado === 'FINALIZADO' ? '#f44336' : '#d7ba7d');
-                    let iconoEstado = info.estado === 'GRABANDO' ? 'fa-play' : (info.estado === 'FINALIZADO' ? 'fa-stop' : 'fa-pause');
-                    
-                    html += `<tr>
-                        <td style="font-weight: bold;"><i class="fa-solid fa-user-shield" style="margin-right:8px; color:#569cd6;"></i>${client_id}</td>
-                        <td style="color: ${colorEstado};"><i class="fa-solid ${iconoEstado}"></i> ${info.estado}</td>
-                        <td style="color: #9cdcfe;"><i class="fa-regular fa-clock" style="margin-right:5px;"></i>${info.ultimo_visto}</td>
-                    </tr>`;
-                }
-                tbody.innerHTML = html;
+  <!-- CONTENEDOR DE TARJETAS DE ALUMNOS (SCROLL INTERNO COMPACTO) -->
+  <div id="matriz-agentes" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 font-mono text-sm max-h-[400px] xl:max-h-[430px] overflow-y-auto pr-0.5">
+    <div id="sin-agentes-aviso" class="col-span-full py-12 flex flex-col items-center justify-center text-center text-slate-400 border border-dashed border-[#1f2937] rounded-lg bg-[#0b0f19]/40 p-5">
+      <div class="w-10 h-10 rounded-full bg-[#1f2937] flex items-center justify-center mb-2 text-slate-300">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+      </div>
+      <span class="text-sm font-semibold text-slate-200">Esperando conexión de clientes...</span>
+      <span class="text-xs text-slate-400 mt-1">Inicie <code class="text-blue-400 bg-[#0b0f19] px-1.5 py-0.5 rounded border border-[#1f2937]">python client.py</code> en los equipos</span>
+    </div>
+  </div>
 
-            } catch (error) {
-                console.error("Error obteniendo datos: ", error);
-            }
-        }
+  <div class="pt-2 border-t border-[#1f2937] flex items-center justify-between text-xs sm:text-sm text-slate-400 font-mono">
+    <span class="text-slate-400">Pulse en "Auditar Alumno" para acceder a las líneas de infracción</span>
+    <div class="inline-flex items-center gap-3">
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Grabando</span>
+      <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Esperando</span>
+    </div>
+  </div>
+</section>
+    <!-- =======================================================
+     COMPONENTE: CONFIGURACIÓN REMOTA DE MÓDULOS (HTTP)
+     ======================================================= -->
+<section class="md:col-span-6 xl:col-span-3 bg-[#111827] border border-[#1f2937] rounded-lg p-3 sm:p-3.5 flex flex-col gap-2.5">
+  <div class="flex items-center justify-between border-b border-[#1f2937] pb-2 text-sm">
+    <h2 class="font-semibold uppercase tracking-wider text-slate-200 text-sm">Módulos (HTTP)</h2>
+    <select id="select-destino" onchange="cambiarDestinoSeleccionado(this.value)" class="bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs focus:outline-none font-mono max-w-[150px] truncate">
+      <option value="global" selected="">Global</option>
+      <option value="alertas">Solo en alerta</option>
+    </select>
+  </div>
 
-        // Función para enviar comandos al servidor
-        async function cambiarComando(nuevoComando) {
-            await fetch(`/profesor/comando/${nuevoComando}`);
-            refrescarDashboard(); // Forzar refresco inmediato
-        }
+  <!-- LISTA DE LOS 6 MÓDULOS -->
+  <div class="flex flex-col gap-2 font-mono text-xs sm:text-sm max-h-[400px] xl:max-h-[430px] overflow-y-auto pr-0.5">
+    <!-- sniffer -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">sniffer</span>
+        <span id="sub-sniffer" class="text-[11px] text-slate-400 block truncate">log: sniffer.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('sniffer')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-sniffer" onchange="toggleModulo('sniffer', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
 
-        
-        setInterval(refrescarDashboard, 2000);
-        refrescarDashboard();
-    </script>
+    <!-- keylogger -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">keylogger</span>
+        <span id="sub-keylogger" class="text-[11px] text-slate-400 block truncate">log: keylogger.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('keylogger')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-keylogger" onchange="toggleModulo('keylogger', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+
+    <!-- keystrokes svm -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">keystrokes svm</span>
+        <span id="sub-keystrokes_svm" class="text-[11px] text-slate-400 block truncate">log: alerts.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('keystrokes svm')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-keystrokes_svm" onchange="toggleModulo('keystrokes svm', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+
+    <!-- error_detection -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">error_detection</span>
+        <span id="sub-error_detection" class="text-[11px] text-slate-400 block truncate">log: auditoria_python.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('error_detection')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-error_detection" onchange="toggleModulo('error_detection', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+
+    <!-- paperclip -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">paperclip</span>
+        <span id="sub-paperclip" class="text-[11px] text-slate-400 block truncate">log: paperclip.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('paperclip')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-paperclip" onchange="toggleModulo('paperclip', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+
+    <!-- program monitor -->
+    <div class="flex items-center justify-between p-2 rounded bg-[#0b0f19] border border-[#1f2937]">
+      <div class="min-w-0 pr-1">
+        <span class="font-medium text-slate-200 block text-xs sm:text-sm truncate">program monitor</span>
+        <span id="sub-program_monitor" class="text-[11px] text-slate-400 block truncate">log: program_monitor.log</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="abrirAjustesModulo('program monitor')" class="text-slate-200 hover:text-white text-xs px-2 py-1 border border-[#374151] rounded bg-[#1f2937] hover:bg-[#374151] transition-colors" type="button">Ajustes</button>
+        <input id="toggle-program_monitor" onchange="toggleModulo('program monitor', this)" class="w-4 h-4 rounded border-slate-700 bg-[#0b0f19] text-blue-600 focus:ring-0 cursor-pointer" type="checkbox">
+      </div>
+    </div>
+  </div>
+</section>
+    <!-- =======================================================
+     COMPONENTE: REGLAS DE CORRELACIÓN CON EDITOR PLEGABLE
+     ======================================================= -->
+<section class="md:col-span-6 xl:col-span-3 bg-[#111827] border border-[#1f2937] rounded-lg p-3 sm:p-3.5 flex flex-col gap-2.5">
+  <div class="flex items-center justify-between border-b border-[#1f2937] pb-2 text-sm">
+    <div class="flex items-center gap-1.5">
+      <h2 class="font-semibold uppercase tracking-wider text-slate-200 text-sm">Reglas Secuenciales</h2>
+      <span id="contador-reglas" class="text-xs text-slate-400 font-mono">(...)</span>
+    </div>
+    <!-- BOTÓN QUE ABRE O CIERRA EL EDITOR -->
+    <button id="btn-toggle-editor" onclick="toggleEditorRegla()" class="px-2.5 py-1 rounded text-xs font-medium bg-[#1f2937] text-slate-200 border border-[#374151] hover:bg-[#374151] transition-colors flex items-center gap-1" type="button">
+      <span id="label-toggle-editor">+ Nueva Regla</span>
+    </button>
+  </div>
+
+  <!-- EDITOR PLEGABLE (SE PUEDE CERRAR PARA VER LAS REGLAS CON MÁXIMO ESPACIO) -->
+  <div id="editor-regla-contenedor" class="hidden flex flex-col gap-2.5 bg-[#0b0f19] border border-[#1f2937] rounded-lg p-3 transition-all">
+    <div class="flex items-center justify-between border-b border-[#1f2937] pb-1.5">
+      <input id="regla-nombre-input" class="bg-transparent text-xs sm:text-sm font-semibold text-slate-100 focus:outline-none w-full placeholder:text-slate-500" type="text" value="Nueva Secuencia Sospechosa" placeholder="Nombre de la regla">
+      <button onclick="toggleEditorRegla(false)" class="text-slate-400 hover:text-slate-200 text-base leading-none px-1" title="Cerrar editor" type="button">&times;</button>
+    </div>
+    
+    <!-- CONTENEDOR DE PASOS DINÁMICOS -->
+    <div id="contenedor-pasos" class="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-0.5">
+      <div class="paso-item flex flex-wrap items-center gap-1.5 font-mono text-xs bg-[#111827] border border-[#1f2937] rounded p-2">
+        <span class="paso-label px-1.5 py-0.5 rounded bg-[#0b0f19] text-[10px] sm:text-xs text-blue-400 border border-[#1f2937] font-semibold shrink-0">Paso 1</span>
+        <select class="paso-modulo bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs focus:outline-none shrink-0">
+          <option value="keylogger">Keylogger</option>
+          <option value="paperclip">Paperclip</option>
+          <option value="sniffer">Sniffer</option>
+          <option value="program_monitor">Program Monitor</option>
+          <option value="error_detection">Error Detection</option>
+        </select>
+        <input class="paso-valor bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-[110px] focus:outline-none" placeholder="patrón (ej. \[CTRL\]\+c)" type="text" value="\[CTRL\]\+c">
+        <button onclick="eliminarPaso(this)" class="text-slate-400 hover:text-red-400 px-1 text-base leading-none shrink-0" type="button">×</button>
+      </div>
+      <div class="paso-item flex flex-wrap items-center gap-1.5 font-mono text-xs bg-[#111827] border border-[#1f2937] rounded p-2">
+        <span class="paso-label px-1.5 py-0.5 rounded bg-[#0b0f19] text-[10px] sm:text-xs text-blue-400 border border-[#1f2937] font-semibold shrink-0">Paso 2</span>
+        <select class="paso-modulo bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs focus:outline-none shrink-0">
+          <option value="sniffer" selected="">Sniffer</option>
+          <option value="keylogger">Keylogger</option>
+          <option value="paperclip">Paperclip</option>
+          <option value="program_monitor">Program Monitor</option>
+          <option value="error_detection">Error Detection</option>
+        </select>
+        <input class="paso-valor bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-[110px] focus:outline-none" placeholder="patrón (ej. gemini\.google\.com)" type="text" value="gemini\.google\.com|chatgpt\.com">
+        <button onclick="eliminarPaso(this)" class="text-slate-400 hover:text-red-400 px-1 text-base leading-none shrink-0" type="button">×</button>
+      </div>
+    </div>
+
+    <!-- CONTROLES DEL EDITOR -->
+    <div class="flex flex-wrap items-center justify-between pt-1.5 gap-1.5 text-xs font-mono">
+      <button onclick="agregarPaso()" class="px-2.5 py-1 rounded bg-[#111827] hover:bg-[#1f2937] text-slate-300 border border-[#1f2937] transition-colors" type="button">
+        + Paso
+      </button>
+      <div class="flex items-center gap-2">
+        <select id="select-ventana" class="bg-[#111827] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs">
+          <option value="15">&lt;= 15s</option>
+          <option value="30">&lt;= 30s</option>
+          <option value="45">&lt;= 45s</option>
+          <option value="60" selected="">&lt;= 60s</option>
+        </select>
+        <select id="select-sev" class="bg-[#111827] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs">
+          <option value="CRÍTICA" selected="">Crítica</option>
+          <option value="ALTA">Alta</option>
+          <option value="MEDIA">Media</option>
+        </select>
+        <button onclick="guardarReglaBackend()" id="btn-guardar-regla" class="px-3 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition-colors" type="button">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LISTA DE REGLAS ACTIVAS (CON AMPLIO ESPACIO VERTICAL CUANDO EL EDITOR ESTÁ CERRADO) -->
+  <div class="flex flex-col gap-2 flex-1 min-h-[140px]">
+    <div id="lista-reglas-guardadas" class="flex flex-col gap-1.5 max-h-[400px] xl:max-h-[430px] overflow-y-auto pr-0.5 font-mono text-xs">
+      <!-- Renderizado dinámicamente desde /api/reglas -->
+    </div>
+  </div>
+</section>
+  </main>
+
+  <!-- SECCIÓN 3: ALERTAS RECIENTES (MÁXIMO 4) Y TELEMETRÍA -->
+  <!-- =======================================================
+     COMPONENTE: ALERTAS RECIENTES (MÁXIMO 4 TARJETAS)
+     Distribuida horizontalmente en 4 columnas full-width
+     ======================================================= -->
+<section class="bg-[#111827] border border-[#1f2937] rounded-lg p-3 sm:p-3.5 flex flex-col gap-2.5">
+  <div class="flex flex-col xs:flex-row items-start xs:items-center justify-between border-b border-[#1f2937] pb-2 gap-2">
+    <div class="flex items-center gap-2">
+      <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-200">
+        Alertas Recientes del Examen (Máximo 4)
+      </h2>
+      <span id="contador-alertas-badge" class="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-red-950/60 text-red-300 border border-red-800/60">0</span>
+    </div>
+
+    <div class="flex items-center gap-2.5 text-xs sm:text-sm font-mono self-end xs:self-auto">
+      <span id="texto-resumen-alertas" class="text-slate-400 text-xs hidden sm:inline"></span>
+      <button onclick="reanalizarHistorial()" class="px-2.5 py-1 rounded bg-[#1f2937] hover:bg-[#374151] text-slate-200 border border-[#374151] text-xs transition-colors" type="button" title="Vuelve a analizar los logs con las reglas actuales">
+        Re-analizar
+      </button>
+      <button onclick="limpiarAlertas()" class="text-slate-400 hover:text-slate-200 underline text-xs" type="button">Limpiar</button>
+    </div>
+  </div>
+
+  <!-- CONTENEDOR DE LAS 4 ALERTAS  -->
+  <div id="contenedor-alertas" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 font-mono text-xs sm:text-sm">
+    <div id="sin-alertas-aviso" class="col-span-full py-6 text-center text-slate-400 text-xs sm:text-sm border border-dashed border-[#1f2937] rounded-lg bg-[#0b0f19]/30">
+      No hay alertas registradas en este momento.
+    </div>
+  </div>
+
+  <!-- FLUJO SECUNDARIO COLAPSABLE DE TELEMETRÍA DE DIAGNÓSTICO -->
+  <details class="group pt-1.5 border-t border-[#1f2937]">
+    <summary class="cursor-pointer text-xs text-slate-400 hover:text-slate-200 flex items-center justify-between select-none font-mono">
+      <span>Flujo de Telemetría en Crudo (Diagnóstico)</span>
+      <span class="text-[10px] text-slate-500 group-open:rotate-180 transition-transform">▼</span>
+    </summary>
+    <div id="contenedor-telemetria-raw" class="mt-1.5 max-h-28 overflow-y-auto flex flex-col gap-1 text-xs font-mono bg-[#0b0f19] p-2 rounded border border-[#1f2937]">
+      <div class="text-slate-500 text-center py-1">Sin eventos recientes.</div>
+    </div>
+  </details>
+</section>
+
+</div>
+
+<!-- COMPONENTES MODALES Y NOTIFICACIONES FLOTANTES -->
+<!-- =======================================================
+     COMPONENTE: MODAL DE AJUSTES Y NOTIFICACIÓN TOAST
+     ======================================================= -->
+<!-- MODAL SOBRIO DE AJUSTES DE MÓDULO -->
+<div id="modal-ajustes" class="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 hidden flex items-center justify-center p-3 sm:p-4 font-sans">
+  <div class="bg-[#111827] border border-[#1f2937] rounded-lg shadow-xl max-w-xl w-full flex flex-col max-h-[90vh] overflow-hidden">
+    <div class="flex items-center justify-between border-b border-[#1f2937] px-4 py-3 bg-[#141d2e]/40">
+      <h3 id="modal-titulo" class="font-semibold text-sm sm:text-base text-white uppercase tracking-wider">Ajustes: Módulo</h3>
+      <button onclick="cerrarModalAjustes()" class="text-slate-400 hover:text-white text-xl leading-none p-1">&times;</button>
+    </div>
+    <div class="px-4 py-2 bg-[#0b0f19] border-b border-[#1f2937] text-xs sm:text-sm text-slate-300 flex items-center justify-between font-mono">
+      <span id="modal-archivo-ruta" class="truncate">Destino: Global • Envío por HTTP</span>
+      <span class="text-blue-400 shrink-0 font-medium">Distribución HTTP</span>
+    </div>
+    <div id="modal-cuerpo-campos" class="p-3 sm:p-4 overflow-y-auto flex flex-col gap-2.5 text-xs sm:text-sm flex-1 max-h-[60vh] font-mono">
+      <!-- Campos renderizados dinámicamente -->
+    </div>
+    <div class="flex flex-col xs:flex-row items-center justify-between border-t border-[#1f2937] px-4 py-3 bg-[#141d2e]/40 gap-2">
+      <span id="modal-status-msg" class="text-xs sm:text-sm text-slate-400"></span>
+      <div class="flex items-center gap-2.5 w-full xs:w-auto justify-end">
+        <button onclick="cerrarModalAjustes()" class="px-3.5 py-1.5 rounded bg-[#1f2937] hover:bg-[#374151] text-slate-300 border border-[#374151] text-xs sm:text-sm transition-colors">Cancelar</button>
+        <button onclick="guardarAjustesModal()" id="btn-guardar-modal" class="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs sm:text-sm transition-colors">
+          Guardar y Enviar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST DE NOTIFICACIÓN SOBRIO -->
+<div id="toast" class="fixed bottom-3 right-3 max-w-sm bg-[#111827] border border-slate-700 text-slate-200 text-xs sm:text-sm font-mono px-4 py-2.5 rounded shadow-lg pointer-events-none opacity-0 transition-opacity duration-200 flex items-center gap-2.5 z-50">
+  <span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>
+  <span id="toast-msg" class="truncate">Mensaje</span>
+</div>
+
+<!-- SCRIPTS MODULARES -->
+<script src="/static/js/api.js"></script>
+<script src="/static/js/agents.js"></script>
+<script src="/static/js/modules.js"></script>
+<script src="/static/js/rules.js"></script>
+<script src="/static/js/alerts.js"></script>
+<script src="/static/js/main.js"></script>
 </body>
 </html>

@@ -1,0 +1,30 @@
+<!--COMPONENTE: ENCABEZADO COMPACTO DE CONTROL-->
+<header class="flex flex-col sm:flex-row items-start sm:items-center justify-between border border-[#1f2937] bg-[#111827] px-3.5 py-2.5 rounded-lg gap-2">
+  <div class="flex items-center gap-2.5">
+    <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+    <h1 class="text-base sm:text-lg font-semibold text-white tracking-tight flex items-center gap-2">
+      INTEGRI-TI
+      <span class="text-xs sm:text-sm font-normal text-slate-400 hidden sm:inline">| Panel de Control y Monitoreo de Exámenes</span>
+    </h1>
+  </div>
+  
+  <!-- ACCIONES RÁPIDAS Y ESTADO EN EL HEADER -->
+  <div class="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm font-mono self-end sm:self-auto">
+    <div class="inline-flex rounded border border-[#1f2937] bg-[#0b0f19] p-0.5 gap-1" role="group">
+      <button id="btn-cmd-esperando" onclick="cambiarComando('ESPERANDO')" class="px-3 py-1 rounded text-xs sm:text-sm font-medium bg-[#1f2937] text-amber-300 border border-amber-800/80 transition-colors flex items-center gap-1.5" type="button">
+        <span class="w-2 h-2 rounded-full bg-amber-400"></span> Esperando
+      </button>
+      <button id="btn-cmd-grabando" onclick="cambiarComando('GRABANDO')" class="px-3 py-1 rounded text-xs sm:text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 border border-transparent" type="button">
+        <span class="w-2 h-2 rounded-full bg-emerald-500/50"></span> Grabando
+      </button>
+      <button id="btn-cmd-finalizado" onclick="cambiarComando('FINALIZADO')" class="px-3 py-1 rounded text-xs sm:text-sm text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5 border border-transparent" type="button">
+        <span class="w-2 h-2 rounded-full bg-slate-500"></span> Finalizado
+      </button>
+    </div>
+
+    <span id="connection-status" class="px-2.5 py-1 rounded text-xs border border-emerald-800 bg-emerald-950/40 text-emerald-300 flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Activo
+    </span>
+    <span id="last-sync-time" class="text-slate-400 text-xs hidden xs:inline">Sinc: --:--:--</span>
+  </div>
+</header>
