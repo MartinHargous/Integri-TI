@@ -9,6 +9,8 @@ from fastapi.templating import Jinja2Templates
 import uvicorn
 
 from correlator import LogCorrelator
+import database
+import ai_insight
 
 app = FastAPI(title="Panel del Profesor - Telemetría")
 
@@ -25,6 +27,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CARPETA_DATOS = os.path.join(BASE_DIR, "datos_alumnos")
 os.makedirs(CARPETA_DATOS, exist_ok=True)
 
+# Inicializar Base de Datos SQLite (integri_ti.db)
+RUTA_REGLAS = os.path.join(BASE_DIR, "reglas.json")
+database.inicializar_db(RUTA_REGLAS)
+
 # Montar archivos estáticos (CSS y JS separados) y plantillas HTML modulares
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -33,9 +39,10 @@ if os.path.exists(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR) if os.path.exists(TEMPLATES_DIR) else None
+if templates:
+    templates.env.auto_reload = True
 
 # Motor de correlación secuencial de logs
-RUTA_REGLAS = os.path.join(BASE_DIR, "reglas.json")
 correlador = LogCorrelator(RUTA_REGLAS)
 
 # El servidor DEBE iniciar en estado ESPERANDO
@@ -416,21 +423,127 @@ def obtener_auditoria_cliente(client_id: str):
         "lineas": lineas_parseadas
     }
 
+# --- ENDPOINTS DE INSIGHT PEDAGÓGICO CON IA (CHATGPT - MODELO LUNA) ---
+
+@app.get("/api/insight/{client_id}")
+def obtener_insight_cliente(client_id: str):
+    """Consulta si ya existe un insight para este cliente en la base de datos SQLite."""
+    insight = database.obtener_ultimo_insight(client_id)
+    if not insight:
+        return {"status": "ok", "existe": False}
+
+    secciones = ai_insight.parsear_secciones_respuesta(insight["response"])
+    return {
+        "status": "ok",
+        "existe": True,
+        "insight": insight,
+        "secciones": secciones
+    }
+
+@app.post("/api/insight/{client_id}")
+async def generar_insight_cliente(client_id: str, request: Request):
+    """
+    Genera un insight con ChatGPT (modelo luna) basado en los logs del alumno.
+    Si ya existe un insight previo y no se especificó forzar=True, retorna el almacenado
+    en la base de datos para evitar doble generación.
+    """
+    forzar = False
+    try:
+        body = await request.json()
+        forzar = bool(body.get("forzar", False))
+    except Exception:
+        pass
+
+    # 1. Evitar doble generación si ya existe registro en SQLite
+    if not forzar:
+        insight_existente = database.obtener_ultimo_insight(client_id)
+        if insight_existente:
+            secciones = ai_insight.parsear_secciones_respuesta(insight_existente["response"])
+            return {
+                "status": "ok",
+                "origen": "cache_db",
+                "mensaje": "Insight cargado desde la base de datos (evita doble generación).",
+                "insight": insight_existente,
+                "secciones": secciones
+            }
+
+    # 2. Verificar existencia del archivo de logs
+    ruta_log = os.path.join(CARPETA_DATOS, f"{client_id}.log")
+    if not os.path.exists(ruta_log):
+        return {
+            "status": "error",
+            "mensaje": f"No hay archivo de telemetría registrado para {client_id}."
+        }
+
+    # 3. Solicitar el insight al modelo Luna / ChatGPT
+    resultado = await ai_insight.solicitar_insight_ia(client_id, ruta_log)
+    if resultado.get("status") != "ok":
+        return resultado
+
+    # 4. Guardar el prompt y la respuesta en SQLite vinculados al cliente
+    raw_str = json.dumps(resultado.get("raw_api", {}), ensure_ascii=False)
+    guardado = database.guardar_insight(
+        client_id=client_id,
+        prompt=resultado["prompt"],
+        response=resultado["response"],
+        model=resultado["model"],
+        raw_response=raw_str
+    )
+
+    return {
+        "status": "ok",
+        "origen": "generado",
+        "mensaje": "Insight pedagógico generado exitosamente con IA.",
+        "insight": guardado,
+        "secciones": resultado["secciones"]
+    }
+
 @app.get("/auditoria/{client_id}")
 def ver_auditoria_html(request: Request, client_id: str):
-    if templates and os.path.exists(os.path.join(TEMPLATES_DIR, "audit.html")):
-        return templates.TemplateResponse(request, "audit.html", context={"client_id": client_id})
-    ruta_audit = os.path.join(BASE_DIR, "audit.html")
-    return FileResponse(ruta_audit)
+    ruta_root = os.path.join(BASE_DIR, "audit.html")
+    ruta_tpl = os.path.join(TEMPLATES_DIR, "audit.html")
+
+    # Si se editó Server/audit.html en la raíz, sincronizarlo automáticamente a templates/
+    if os.path.exists(ruta_root) and os.path.exists(ruta_tpl):
+        if os.path.getmtime(ruta_root) > os.path.getmtime(ruta_tpl):
+            try:
+                import shutil
+                shutil.copy2(ruta_root, ruta_tpl)
+            except Exception:
+                pass
+
+    if templates and os.path.exists(ruta_tpl):
+        response = templates.TemplateResponse(request, "audit.html", context={"client_id": client_id})
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
+    return FileResponse(ruta_root, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 # --- DASHBOARD WEB HTML ---
 
 @app.get("/")
 def ver_dashboard(request: Request):
-    if templates and os.path.exists(os.path.join(TEMPLATES_DIR, "index.html")):
-        return templates.TemplateResponse(request, "index.html")
-    ruta_html = os.path.join(BASE_DIR, "index.html")
-    return FileResponse(ruta_html)
+    ruta_root = os.path.join(BASE_DIR, "index.html")
+    ruta_tpl = os.path.join(TEMPLATES_DIR, "index.html")
+
+    if os.path.exists(ruta_root) and os.path.exists(ruta_tpl):
+        if os.path.getmtime(ruta_root) > os.path.getmtime(ruta_tpl):
+            try:
+                import shutil
+                shutil.copy2(ruta_root, ruta_tpl)
+            except Exception:
+                pass
+
+    if templates and os.path.exists(ruta_tpl):
+        response = templates.TemplateResponse(request, "index.html")
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
+    return FileResponse(ruta_root, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
 # --- INICIO DEL SERVIDOR ---
 

@@ -67,11 +67,39 @@
     </div>
   </header>
 
-  <!-- CONTENIDO PRINCIPAL: DOS COLUMNAS (ALERTAS FILTRADAS + VISOR FORENSE) -->
-  <main class="max-w-[1920px] mx-auto w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 sm:p-4 overflow-hidden">
+  <!-- BARRA DE SELECCIÓN DE VENTANAS DE AUDITORÍA -->
+  <nav class="bg-[#0e1424] border-b border-[#1f2937] px-4 py-2 sticky top-[57px] z-20">
+    <div class="max-w-[1920px] mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <button id="btn-tab-alertas" onclick="cambiarVentanaAuditoria('alertas')" class="px-3.5 py-1.5 rounded text-xs font-semibold flex items-center gap-2 transition-all border bg-blue-600 text-white border-blue-500 shadow-sm" type="button">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Registro Forense y Alertas
+        </button>
+
+        <button id="btn-tab-insight" onclick="cambiarVentanaAuditoria('insight')" class="px-3.5 py-1.5 rounded text-xs font-semibold flex items-center gap-2 transition-all border bg-[#1a2333] hover:bg-[#222f46] text-slate-300 border-[#2d3a4f]" type="button">
+          <svg class="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Insight Pedagógico con IA
+          <span id="badge-insight-status" class="px-1.5 py-0.2 rounded text-[10px] font-mono bg-purple-950/60 text-purple-300 border border-purple-800/60 hidden">En BD</span>
+        </button>
+      </div>
+
+      <div id="indicador-modo-texto" class="text-xs text-slate-400 font-mono hidden md:block">
+        Modo actual: <span class="text-slate-200">Visor de Registro y Alertas Secuenciales</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ================================================================= -->
+  <!-- VENTANA 1: REGISTRO FORENSE Y ALERTAS (VISOR FORENSE TRADICIONAL) -->
+  <!-- ================================================================= -->
+  <main id="ventana-alertas" class="max-w-[1920px] mx-auto w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 sm:p-4 overflow-hidden">
 
     <!-- COLUMNA IZQUIERDA: ALERTAS REGISTRADAS CON FILTROS (5 de 12) -->
-    <section class="lg:col-span-5 bg-[#111827] border border-[#1f2937] rounded-lg flex flex-col overflow-hidden max-h-[calc(100vh-100px)]">
+    <section class="lg:col-span-5 bg-[#111827] border border-[#1f2937] rounded-lg flex flex-col overflow-hidden max-h-[calc(100vh-140px)]">
       <!-- CABECERA Y FILTROS DE ALERTAS -->
       <div class="p-3 border-b border-[#1f2937] flex flex-col gap-2.5 bg-[#141d2e]/40">
         <div class="flex items-center justify-between">
@@ -116,7 +144,7 @@
     </section>
 
     <!-- COLUMNA DERECHA: VISOR DE LOGS FILTRADO CON MARCADORES DE ALERTA (7 de 12) -->
-    <section class="lg:col-span-7 bg-[#111827] border border-[#1f2937] rounded-lg flex flex-col overflow-hidden max-h-[calc(100vh-100px)]">
+    <section class="lg:col-span-7 bg-[#111827] border border-[#1f2937] rounded-lg flex flex-col overflow-hidden max-h-[calc(100vh-140px)]">
       <!-- BARRA DE HERRAMIENTAS Y FILTRADO DEL LOG -->
       <div class="p-3 border-b border-[#1f2937] flex flex-col gap-2.5 bg-[#141d2e]/40">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -163,6 +191,170 @@
     </section>
   </main>
 
+  <!-- ================================================================= -->
+  <!-- VENTANA 2: INSIGHT PEDAGÓGICO CON IA (MODELO LUNA / CHATGPT)     -->
+  <!-- ================================================================= -->
+  <main id="ventana-insight" class="max-w-[1920px] mx-auto w-full flex-1 flex flex-col gap-3 p-3 sm:p-4 overflow-hidden hidden max-h-[calc(100vh-140px)]">
+    
+    <!-- BARRA SUPERIOR DE ACCIÓN Y ESTADO DEL INSIGHT -->
+    <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-3 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shrink-0">
+      <div>
+        <div class="flex items-center gap-2.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse"></span>
+          <h2 class="text-sm font-semibold text-white tracking-wide">Generación de Insight Pedagógico</h2>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">
+          Análisis forense y cognitivo de los logs de telemetría para evaluar el proceso de resolución de problemas del estudiante.
+        </p>
+      </div>
+
+      <!-- BOTONES DE ACCIÓN (EVITA DOBLE GENERACIÓN) -->
+      <div class="flex items-center gap-2">
+        <button id="btn-generar-insight" onclick="generarInsight(false)" class="px-4 py-2 rounded-lg bg-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-xs shadow-md hover:shadow-purple-900/30 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" type="button">
+          <svg id="icono-btn-generar" class="w-4 h-4 text-purple-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span id="texto-btn-generar">Generar Insight con IA</span>
+        </button>
+
+        <button id="btn-regenerar-insight" onclick="confirmarRegeneracion()" class="px-3 py-2 rounded-lg bg-[#1f2937] hover:bg-[#374151] text-slate-300 border border-[#374151] text-xs font-mono transition-colors hidden flex items-center gap-1.5" type="button" title="Forzar una nueva consulta al modelo">
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Regenerar
+        </button>
+      </div>
+    </div>
+
+    <!-- BANNER DE NOTIFICACIÓN / ERROR (SI APLICA) -->
+    <div id="banner-error-insight" class="hidden p-3 rounded-lg bg-red-950/70 border border-red-800 text-red-200 text-xs font-mono flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span id="mensaje-error-insight">Error en la solicitud.</span>
+      </div>
+      <button onclick="document.getElementById('banner-error-insight').classList.add('hidden')" class="text-red-400 hover:text-white">&times;</button>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL SCROLLEABLE DE CONTENIDO DEL INSIGHT -->
+    <div class="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
+
+      <!-- ESTADO 1: SIN GENERAR (ESTADO INICIAL) -->
+      <div id="estado-insight-vacio" class="flex-1 flex flex-col items-center justify-center border border-dashed border-[#1f2937] rounded-lg bg-[#0b0f19]/60 p-8 text-center min-h-[350px]">
+        <div class="w-12 h-12 rounded-full bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400 mb-3 shadow-inner">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+        </div>
+        <h3 class="text-sm font-semibold text-slate-200 mb-1">Aún no se ha generado el Insight para este alumno</h3>
+        <p class="text-xs text-slate-400 max-w-md mb-4 leading-relaxed">
+          El análisis procesará el historial de telemetría del estudiante y consultará a la API de ChatGPT (modelo Luna) respondiendo a las 4 preguntas de evaluación pedagógica.
+        </p>
+        <button onclick="generarInsight(false)" class="px-4 py-2 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs flex items-center gap-2 transition-colors shadow">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Generar Análisis Ahora
+        </button>
+      </div>
+
+      <!-- ESTADO 2: INSIGHT GENERADO Y ALMACENADO EN SQLITE -->
+      <div id="estado-insight-resultado" class="hidden flex flex-col gap-3">
+
+        <!-- METADATOS DE PERSISTENCIA -->
+        <div class="flex items-center justify-between text-xs font-mono bg-[#0b0f19] border border-[#1f2937] rounded-lg px-3 py-2 text-slate-400">
+          <div class="flex items-center gap-2">
+            <span id="meta-fecha-insight">Fecha: --</span>
+          </div>
+        </div>
+
+        <!-- GRID DE LAS 4 PREGUNTAS PEDAGÓGICAS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+          <!-- TARJETA 1 -->
+          <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-3.5 flex flex-col gap-2 hover:border-purple-800/40 transition-colors">
+            <div class="flex items-start justify-between gap-2 border-b border-[#1f2937] pb-2">
+              <div class="flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-blue-950 text-blue-400 border border-blue-800 text-[11px] font-mono font-bold flex items-center justify-center">1</span>
+                <span class="text-[10px] uppercase tracking-wider font-mono font-semibold text-blue-400">Concepto Técnico / Lógico</span>
+              </div>
+            </div>
+            <h4 class="text-xs font-semibold text-slate-200 leading-snug">
+              ¿Qué concepto técnico, sintáctico o lógico específico está intentando resolver el estudiante?
+            </h4>
+            <div id="resp-pregunta-1" class="text-xs text-slate-300 leading-relaxed font-sans bg-[#0b0f19] p-2.5 rounded border border-[#1f2937]/70 whitespace-pre-line">
+              Cargando respuesta...
+            </div>
+          </div>
+
+          <!-- TARJETA 2 -->
+          <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-3.5 flex flex-col gap-2 hover:border-purple-800/40 transition-colors">
+            <div class="flex items-start justify-between gap-2 border-b border-[#1f2937] pb-2">
+              <div class="flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-amber-950 text-amber-400 border border-amber-800 text-[11px] font-mono font-bold flex items-center justify-center">2</span>
+                <span class="text-[10px] uppercase tracking-wider font-mono font-semibold text-amber-400">Relación Error vs. Búsqueda Web</span>
+              </div>
+            </div>
+            <h4 class="text-xs font-semibold text-slate-200 leading-snug">
+              ¿Existe una relación directa entre el error de ejecución recurrente y la búsqueda web realizada en dominios no autorizados?
+            </h4>
+            <div id="resp-pregunta-2" class="text-xs text-slate-300 leading-relaxed font-sans bg-[#0b0f19] p-2.5 rounded border border-[#1f2937]/70 whitespace-pre-line">
+              Cargando respuesta...
+            </div>
+          </div>
+
+          <!-- TARJETA 3 -->
+          <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-3.5 flex flex-col gap-2 hover:border-purple-800/40 transition-colors">
+            <div class="flex items-start justify-between gap-2 border-b border-[#1f2937] pb-2">
+              <div class="flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 text-[11px] font-mono font-bold flex items-center justify-center">3</span>
+                <span class="text-[10px] uppercase tracking-wider font-mono font-semibold text-emerald-400">Autonomía vs. Búsqueda Inmediata</span>
+              </div>
+            </div>
+            <h4 class="text-xs font-semibold text-slate-200 leading-snug">
+              ¿El alumno intentó depurar modificando la lógica por sus propios medios antes de recurrir a fuentes externas, o buscó la respuesta de forma inmediata?
+            </h4>
+            <div id="resp-pregunta-3" class="text-xs text-slate-300 leading-relaxed font-sans bg-[#0b0f19] p-2.5 rounded border border-[#1f2937]/70 whitespace-pre-line">
+              Cargando respuesta...
+            </div>
+          </div>
+
+          <!-- TARJETA 4 -->
+          <div class="bg-[#111827] border border-[#1f2937] rounded-lg p-3.5 flex flex-col gap-2 hover:border-purple-800/40 transition-colors">
+            <div class="flex items-start justify-between gap-2 border-b border-[#1f2937] pb-2">
+              <div class="flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-rose-950 text-rose-400 border border-rose-800 text-[11px] font-mono font-bold flex items-center justify-center">4</span>
+                <span class="text-[10px] uppercase tracking-wider font-mono font-semibold text-rose-400">Eficacia y Resolución de la Excepción</span>
+              </div>
+            </div>
+            <h4 class="text-xs font-semibold text-slate-200 leading-snug">
+              Tras realizar la consulta o insertar nuevo código, ¿logró el estudiante resolver la excepción o continuó la misma traza de error?
+            </h4>
+            <div id="resp-pregunta-4" class="text-xs text-slate-300 leading-relaxed font-sans bg-[#0b0f19] p-2.5 rounded border border-[#1f2937]/70 whitespace-pre-line">
+              Cargando respuesta...
+            </div>
+          </div>
+
+        </div>
+
+        <!-- CONCLUSIÓN PEDAGÓGICA GENERAL -->
+        <div id="contenedor-conclusion" class="bg-[#111827] border border-[#1f2937] rounded-lg p-3.5 flex flex-col gap-2">
+          <div class="flex items-center gap-2 border-b border-[#1f2937] pb-2">
+            <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="text-xs font-semibold text-white uppercase tracking-wider font-mono">Conclusión y Dictamen Pedagógico</span>
+          </div>
+          <div id="resp-conclusion" class="text-xs text-slate-300 leading-relaxed font-sans bg-[#0b0f19] p-3 rounded border border-[#1f2937]/70 whitespace-pre-line">
+            --
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
   <script>
     const rutaSegmentos = window.location.pathname.split('/');
     const clientId = decodeURIComponent(rutaSegmentos[rutaSegmentos.length - 1] || '');
@@ -172,7 +364,37 @@
     let lineasFiltradas = [];
     let indiceAlertaActiva = -1;
     let lineasConAlertaIndices = [];
+    let ventanaActiva = 'alertas';
+    let insightCargado = null;
 
+    // --- MANEJO DE LAS DOS VENTANAS DE AUDITORÍA ---
+    function cambiarVentanaAuditoria(nombreVentana) {
+      ventanaActiva = nombreVentana;
+
+      const btnAlertas = document.getElementById('btn-tab-alertas');
+      const btnInsight = document.getElementById('btn-tab-insight');
+      const vistaAlertas = document.getElementById('ventana-alertas');
+      const vistaInsight = document.getElementById('ventana-insight');
+      const indicadorTexto = document.getElementById('indicador-modo-texto');
+
+      if (nombreVentana === 'alertas') {
+        vistaAlertas.classList.remove('hidden');
+        vistaInsight.classList.add('hidden');
+
+        btnAlertas.className = 'px-3.5 py-1.5 rounded text-xs font-semibold flex items-center gap-2 transition-all border bg-blue-600 text-white border-blue-500 shadow-sm';
+        btnInsight.className = 'px-3.5 py-1.5 rounded text-xs font-semibold flex items-center gap-2 transition-all border bg-[#1a2333] hover:bg-[#222f46] text-slate-300 border-[#2d3a4f]';
+        
+      } else {
+        vistaAlertas.classList.add('hidden');
+        vistaInsight.classList.remove('hidden');
+
+        btnAlertas.className = 'px-3.5 py-1.5 rounded text-xs font-semibold flex items-center gap-2 transition-all border bg-[#1a2333] hover:bg-[#222f46] text-slate-300 border-[#2d3a4f]';
+        btnInsight.className = 'px-3.5 py-1.5 rounded text-xs font-semibold flex items-center gap-2 transition-all border bg-purple-600 text-white border-purple-500 shadow-sm';
+
+      }
+    }
+
+    // --- CARGA DE DATOS DE AUDITORÍA ---
     async function cargarAuditoria() {
       if (!clientId) {
         document.getElementById('client-title').textContent = 'Error: Cliente no especificado';
@@ -242,12 +464,171 @@
         aplicarFiltrosAlertas();
         aplicarFiltrosLog();
 
+        // Consultar en segundo plano si ya existe un insight previo en SQLite
+        verificarInsightExistente();
+
       } catch (err) {
         console.error('Error cargando auditoría:', err);
         document.getElementById('client-subtitle').textContent = 'Error de conexión con el servidor.';
       }
     }
 
+    // --- GESTIÓN DE INSIGHTS PEDAGÓGICOS CON IA ---
+    async function verificarInsightExistente() {
+      try {
+        const res = await fetch(`/api/insight/${encodeURIComponent(clientId)}?t=` + Date.now());
+        const data = await res.json();
+        if (data.status === 'ok' && data.existe && data.insight) {
+          renderizarInsight(data.insight, data.secciones);
+          const badgeTab = document.getElementById('badge-insight-status');
+        }
+      } catch (e) {
+        console.error('Error verificando insight existente:', e);
+      }
+    }
+
+    async function generarInsight(forzar = false) {
+      const btnGenerar = document.getElementById('btn-generar-insight');
+      const textoBtn = document.getElementById('texto-btn-generar');
+      const bannerError = document.getElementById('banner-error-insight');
+
+      if (bannerError) bannerError.classList.add('hidden');
+      if (btnGenerar) {
+        btnGenerar.disabled = true;
+        textoBtn.textContent = 'Consultando Modelo Luna...';
+      }
+
+      try {
+        const res = await fetch(`/api/insight/${encodeURIComponent(clientId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ forzar: forzar })
+        });
+
+        const data = await res.json();
+
+        if (data.status !== 'ok') {
+          mostrarErrorInsight(data.mensaje || 'Error generando insight');
+          return;
+        }
+
+        renderizarInsight(data.insight, data.secciones);
+
+        const badgeTab = document.getElementById('badge-insight-status');
+        if (badgeTab) {
+          badgeTab.classList.remove('hidden');
+          badgeTab.textContent = 'En BD';
+        }
+
+      } catch (err) {
+        console.error('Error generando insight:', err);
+        mostrarErrorInsight('No fue posible contactar con el servidor.');
+      } finally {
+        if (btnGenerar) {
+          btnGenerar.disabled = false;
+          textoBtn.textContent = 'Generar Insight con IA';
+        }
+      }
+    }
+
+    function confirmarRegeneracion() {
+      if (confirm('¿Deseas regenerar el insight realizando una nueva consulta al modelo Luna?')) {
+        generarInsight(true);
+      }
+    }
+
+    function mostrarErrorInsight(mensaje) {
+      const banner = document.getElementById('banner-error-insight');
+      const texto = document.getElementById('mensaje-error-insight');
+      if (banner && texto) {
+        texto.textContent = mensaje;
+        banner.classList.remove('hidden');
+      }
+    }
+
+    function renderizarInsight(insight, secciones) {
+      if (!insight) return;
+      insightCargado = insight;
+
+      const elVacio = document.getElementById('estado-insight-vacio');
+      if (elVacio) elVacio.classList.add('hidden');
+
+      const elResultado = document.getElementById('estado-insight-resultado');
+      if (elResultado) elResultado.classList.remove('hidden');
+
+      // Botón secundario para regenerar si se desea
+      const btnRegenerar = document.getElementById('btn-regenerar-insight');
+      if (btnRegenerar) btnRegenerar.classList.remove('hidden');
+
+      // Metadatos (con comprobación de existencia para evitar errores si se edita el HTML)
+      const elFecha = document.getElementById('meta-fecha-insight');
+      if (elFecha) elFecha.textContent = `Fecha: ${insight.created_at || 'Reciente'}`;
+
+      const elModelo = document.getElementById('meta-modelo-insight');
+      if (elModelo) elModelo.textContent = insight.model || 'luna';
+
+      // 4 Preguntas
+      const sec = secciones || {};
+      const respTexto = (insight.response || '').trim();
+
+      let r1 = sec.pregunta_1 || extraerFallback(respTexto, 1);
+      let r2 = sec.pregunta_2 || extraerFallback(respTexto, 2);
+      let r3 = sec.pregunta_3 || extraerFallback(respTexto, 3);
+      let r4 = sec.pregunta_4 || extraerFallback(respTexto, 4);
+
+      // Si el modelo respondió en texto libre sin encabezados ### 1., mostrar el texto en la primera tarjeta
+      if (!r1 && !r2 && !r3 && !r4 && respTexto) {
+        r1 = respTexto;
+        r2 = 'El modelo entregó la respuesta completa sin divisiones numéricas (ver pregunta 1).';
+        r3 = 'El modelo entregó la respuesta completa sin divisiones numéricas (ver pregunta 1).';
+        r4 = 'El modelo entregó la respuesta completa sin divisiones numéricas (ver pregunta 1).';
+      }
+
+      const p1 = document.getElementById('resp-pregunta-1');
+      if (p1) p1.textContent = r1 || 'No especificado en el análisis.';
+
+      const p2 = document.getElementById('resp-pregunta-2');
+      if (p2) p2.textContent = r2 || 'No especificado en el análisis.';
+
+      const p3 = document.getElementById('resp-pregunta-3');
+      if (p3) p3.textContent = r3 || 'No especificado en el análisis.';
+
+      const p4 = document.getElementById('resp-pregunta-4');
+      if (p4) p4.textContent = r4 || 'No especificado en el análisis.';
+
+      const contConclusion = document.getElementById('contenedor-conclusion');
+      const respConclusion = document.getElementById('resp-conclusion');
+      if (respConclusion) {
+        if (sec.conclusion) {
+          respConclusion.textContent = sec.conclusion;
+          if (contConclusion) contConclusion.classList.remove('hidden');
+        } else {
+          respConclusion.textContent = 'Análisis global completado exitosamente con base en la telemetría registrada.';
+        }
+      }
+
+      // Prompt e Inspector de BD
+      const elPrompt = document.getElementById('raw-prompt');
+      if (elPrompt) elPrompt.textContent = insight.prompt || 'Prompt no registrado.';
+
+      const elResp = document.getElementById('raw-response');
+      if (elResp) elResp.textContent = insight.response || 'Respuesta no registrada.';
+    }
+
+    function extraerFallback(texto, num) {
+      if (!texto) return '';
+      const patrones = [
+        new RegExp(`(?:###\\s*|\\*\\*|\\b)${num}\\.?\\s*(.*?)(?=(?:###\\s*|\\*\\*|\\b)(?:${num + 1}|Conclusi[oó]n)|$)`, 'si'),
+        new RegExp(`(?:^|\\n)\\s*${num}\\.?\\s*(.*?)(?=(?:\\n\\s*${num + 1}\\.|\n\\s*###|\n\\s*Conclusi[oó]n)|$)`, 'si')
+      ];
+      for (const p of patrones) {
+        const m = texto.match(p);
+        if (m && m[1].trim()) return m[1].trim();
+      }
+      return '';
+    }
+
+    // --- FILTROS DE ALERTAS (VENTANA 1) ---
     function aplicarFiltrosAlertas() {
       if (!datosAuditoria) return;
 
@@ -329,6 +710,7 @@
       cont.innerHTML = html;
     }
 
+    // --- FILTROS DE LOGS (VENTANA 1) ---
     function aplicarFiltrosLog() {
       if (!datosAuditoria) return;
 
@@ -459,4 +841,3 @@
   </script>
 </body>
 </html>
-

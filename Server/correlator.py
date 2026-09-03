@@ -72,6 +72,13 @@ class LogCorrelator:
     def __init__(self, ruta_reglas: str = "reglas.json"):
         self.ruta_reglas = ruta_reglas
         self.reglas: List[Dict[str, Any]] = []
+
+        try:
+            import database
+            database.inicializar_db(self.ruta_reglas)
+        except Exception as e:
+            print(f"[!] Advertencia inicializando base de datos SQLite: {e}")
+
         self.cargar_reglas()
 
         # Buffer en memoria por cliente: { client_id: list of parsed events }
@@ -126,6 +133,17 @@ class LogCorrelator:
         }
 
     def cargar_reglas(self):
+        try:
+            import database
+            reglas_db = database.obtener_todas_las_reglas()
+            if reglas_db:
+                self.reglas = reglas_db
+                print(f"[*] {len(self.reglas)} reglas de correlación cargadas desde SQLite")
+                return
+        except Exception as e:
+            print(f"[!] Error leyendo reglas desde SQLite: {e}")
+
+        # Fallback a JSON si la base de datos no tuviese registros
         if os.path.exists(self.ruta_reglas):
             try:
                 with open(self.ruta_reglas, "r", encoding="utf-8") as f:
@@ -136,16 +154,17 @@ class LogCorrelator:
                 print(f"[!] Error leyendo {self.ruta_reglas}: {e}. Usando reglas por defecto.")
         
         self.reglas = list(self.REGLAS_DEFAULT)
-        self.guardar_reglas()
 
     def guardar_reglas(self):
-        try:
-            with open(self.ruta_reglas, "w", encoding="utf-8") as f:
-                json.dump(self.reglas, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"[!] Error guardando {self.ruta_reglas}: {e}")
+        # Las reglas ahora persisten en SQLite, manteniendo reglas.json como defaults intacto
+        pass
 
     def obtener_reglas(self) -> List[Dict[str, Any]]:
+        try:
+            import database
+            self.reglas = database.obtener_todas_las_reglas()
+        except Exception:
+            pass
         return self.reglas
 
     def agregar_o_actualizar_regla(self, nueva_regla: Dict[str, Any]) -> Dict[str, Any]:
@@ -157,7 +176,7 @@ class LogCorrelator:
                 m = re.search(r"\d+", r.get("id", ""))
                 if m:
                     max_num = max(max_num, int(m.group(0)))
-            regla_id = f"R-{str(max_num + 1).padStart(2, '0')}" if hasattr(str, 'padStart') else f"R-{max_num + 1:02d}"
+            regla_id = f"R-{max_num + 1:02d}"
             nueva_regla["id"] = regla_id
 
         # Normalizar pasos
@@ -170,24 +189,33 @@ class LogCorrelator:
         nueva_regla["pasos"] = pasos_norm
         nueva_regla["ventana_segundos"] = int(nueva_regla.get("ventana_segundos", 30))
 
-        # Reemplazar si existe o agregar
+        # Guardar en SQLite
+        try:
+            import database
+            database.guardar_o_actualizar_regla(nueva_regla)
+        except Exception as e:
+            print(f"[!] Error guardando regla en SQLite: {e}")
+
+        # Reemplazar si existe o agregar en memoria
         for i, r in enumerate(self.reglas):
             if r.get("id") == regla_id:
                 self.reglas[i] = nueva_regla
-                self.guardar_reglas()
                 return nueva_regla
 
         self.reglas.append(nueva_regla)
-        self.guardar_reglas()
         return nueva_regla
 
     def eliminar_regla(self, regla_id: str) -> bool:
+        eliminado_db = False
+        try:
+            import database
+            eliminado_db = database.eliminar_regla_db(regla_id)
+        except Exception as e:
+            print(f"[!] Error eliminando regla en SQLite: {e}")
+
         inicial = len(self.reglas)
         self.reglas = [r for r in self.reglas if r.get("id") != regla_id]
-        if len(self.reglas) < inicial:
-            self.guardar_reglas()
-            return True
-        return False
+        return eliminado_db or (len(self.reglas) < inicial)
 
     def coincide_paso(self, paso: Dict[str, Any], evento: Dict[str, Any]) -> bool:
         mod_paso = self.normalizar_modulo(paso.get("modulo", ""))
