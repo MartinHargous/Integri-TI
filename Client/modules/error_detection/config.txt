@@ -7,4 +7,4 @@ capture_errors=true
 capture_input=true
 capture_print=true
 monitor_poll_seconds=0.5
-excluded_scripts=pip,pip.exe,error_detection.py,manager_telemetria.py
+excluded_scripts=pip,pip.exe,error_detection.py,client.py,keylogger.py,paperclip.py,program_monitor.py,sniffer.py,svm_keystroke.py,orchestrator.py
