@@ -1,7 +1,7 @@
 import os
 import socket
 import json
-from fastapi import FastAPI, UploadFile, File, Form, Request
+from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -187,6 +187,24 @@ def cambiar_estado_clase(nuevo_comando: str):
         print(f"\n[+] COMANDO GLOBAL CAMBIADO A: {comando_global}")
         return {"status": "OK", "comando_actual": comando_global}
     return {"status": "ERROR"}
+
+@app.get("/api/discovery")
+def verificar_descubrimiento():
+    """
+    Endpoint para descubrimiento y establecimiento de conexiones de agentes.
+    Solo responde afirmativamente si el servidor está en estado ESPERANDO.
+    En FINALIZADO (o GRABANDO), rechaza para evitar conexiones accidentales.
+    """
+    if comando_global != "ESPERANDO":
+        raise HTTPException(
+            status_code=403,
+            detail=f"Servidor en estado {comando_global}. Solo se aceptan y establecen conexiones cuando el servidor está en ESPERANDO."
+        )
+    return {
+        "status": "ready",
+        "comando_global": comando_global,
+        "mensaje": "Servidor listo para recibir y establecer conexiones de agentes."
+    }
 
 @app.get("/api/status")
 def obtener_estado_actual():

@@ -10,6 +10,7 @@ from modules.svm_keystroke_dym.svm_keystroke import KeystrokeSVM
 import threading
 import ctypes
 import re
+import time
 class Orchestrator:
     def __init__(self):
         self.error_detection = ErrorDetection()
@@ -98,6 +99,19 @@ class Orchestrator:
         self.program_monitor.stop()
         self.sniffer.stop_sniffing()
         self.keystroke_svm.stop()
+
+    def reset(self):
+        try:
+            self.stop_all()
+        except Exception as e:
+            print(f"[AVISO] Error al detener módulos durante reset: {e}")
+        time.sleep(0.5)
+        self.error_detection = ErrorDetection()
+        self.keylogger = Keylogger()
+        self.paperclip = Paperclip()
+        self.program_monitor = ProgramMonitor()
+        self.sniffer = Sniffer()
+        self.keystroke_svm = KeystrokeSVM()
     def restart_module(self, module_name):
             import time
             print(f"\n[*] Reiniciando módulo '{module_name}' para aplicar cambios...")

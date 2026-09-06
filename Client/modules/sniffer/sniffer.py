@@ -164,6 +164,7 @@ class Sniffer:
             print("[ERROR] Se requieren privilegios de administrador.")
             return False
         
+        self._stop_event.clear()
         method = self.config.get("method", "sni").upper()
         print(f"[INFO] Sniffer iniciado. Método activo: {method}")
         print(f"[INFO] Escuchando TCP, UDP (QUIC) y DNS. Guardando en: {self.log_path}")

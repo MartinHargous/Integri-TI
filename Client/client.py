@@ -66,9 +66,20 @@ class TelemetryClient:
     def _probar_ip(self, ip_destino, puerto):
         url = f"http://{ip_destino}:{puerto}"
         try:
-            respuesta = requests.get(f"{url}/api/status", timeout=0.5)
+            # 1. Probar endpoint de descubrimiento: solo responde 200 si el servidor está en ESPERANDO
+            respuesta = requests.get(f"{url}/api/discovery", timeout=0.5)
             if respuesta.status_code == 200:
                 return url
+            elif respuesta.status_code == 403:
+                # Servidor en FINALIZADO u otro estado que no acepta conexiones nuevas
+                return None
+            
+            # 2. Compatibilidad con /api/status si /api/discovery no estuviese disponible
+            resp_status = requests.get(f"{url}/api/status", timeout=0.5)
+            if resp_status.status_code == 200:
+                data = resp_status.json()
+                if data.get("comando_global") == "ESPERANDO":
+                    return url
         except Exception:
             pass
         return None
@@ -145,6 +156,7 @@ class TelemetryClient:
         self.alertas_pendientes.append(alerta)
 
     def _loop_sincronizacion(self):
+        fallos_consecutivos = 0
         while True:
             try:
                 logs_pendientes = []
@@ -174,8 +186,9 @@ class TelemetryClient:
                     archivo_abierto.close()
                 
                 if respuesta.status_code == 200:
+                    fallos_consecutivos = 0
                     if not self.conectado:
-                        print("[OK] Conexión establecida y enviando telemetría.")
+                        print(f"[OK] Conexión establecida con el profesor ({self.server_url}). Estado: {self.estado_local}")
                         self.conectado = True
                         
                     datos_servidor = respuesta.json()
@@ -189,31 +202,95 @@ class TelemetryClient:
                         self.alertas_pendientes.clear()
                         
                     comando_global = datos_servidor.get("comando_global")
-                    self._procesar_comando(comando_global)
+                    accion = self._procesar_comando(comando_global)
                     
+                    # Si la orden fue FINALIZAR, enviar reporte final, limpiar y regresar a modo de búsqueda
+                    if accion == "FINALIZADO":
+                        print("[*] Empaquetando y enviando telemetría final al servidor...")
+                        self.orchestrator.combine_logs()
+                        
+                        archivo_final = None
+                        if ruta_log.exists() and ruta_log.stat().st_size > 0:
+                            archivo_final = open(ruta_log, "rb")
+                            archivos_final = {"archivo_log": archivo_final}
+                        else:
+                            archivos_final = {"archivo_log": ("", "")}
+                            
+                        payload_final = {
+                            "client_id": self.client_id,
+                            "estado_local": "FINALIZADO",
+                            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                            "alertas": json.dumps(self.alertas_pendientes)
+                        }
+                        
+                        try:
+                            requests.post(f"{self.server_url}/sync", data=payload_final, files=archivos_final, timeout=10)
+                            print("[OK] Telemetría final confirmada por el servidor.")
+                        except Exception as e:
+                            print(f"[AVISO] No se pudo confirmar reporte final: {e}")
+                        finally:
+                            if archivo_final:
+                                archivo_final.close()
+                                
+                        self.orchestrator.clear_logs()
+                        self.alertas_pendientes.clear()
+                        self.orchestrator.reset()
+                        
+                        print("[INFO] Sesión de examen cerrada.")
+                        print("[INFO] El cliente queda buscando el servidor del profesor (esperando que esté en ESPERANDO)...\n")
+                        self.conectado = False
+                        self.server_url = ""
+                        self.estado_local = "ESPERANDO"
+                        break
+                        
                 else:
                     print(f"[AVISO] El servidor respondió con error {respuesta.status_code}.")
                     
             except requests.exceptions.RequestException:
+                fallos_consecutivos += 1
                 if self.conectado:
-                    print("[AVISO] Se perdió la conexión con el servidor. Reteniendo datos localmente...")
+                    print(f"[AVISO] Se perdió la conexión con el servidor (intento fallido {fallos_consecutivos}/3)...")
                     self.conectado = False
+                else:
+                    print(f"[AVISO] Reintentando conexión con {self.server_url} ({fallos_consecutivos}/3)...")
+                
+                if fallos_consecutivos >= 3:
+                    print("\n[AVISO] El servidor no responde tras 3 intentos. Volviendo a búsqueda automática...")
+                    if self.estado_local == "GRABANDO":
+                        self.orchestrator.stop_all()
+                    self.orchestrator.reset()
+                    self.conectado = False
+                    self.server_url = ""
+                    self.estado_local = "ESPERANDO"
+                    break
             
             time.sleep(self.interval)
 
     def _procesar_comando(self, estado_servidor):
         if not estado_servidor: 
-            return
+            return None
             
         if estado_servidor == "GRABANDO" and self.estado_local != "GRABANDO":
-            print("\nOrden recibida: INICIAR TELEMETRÍA.")
+            print("\n[+] Orden recibida: INICIAR TELEMETRÍA.")
             self.estado_local = "GRABANDO"
             self.orchestrator.start_all()
+            return "GRABANDO"
+
+        elif estado_servidor == "ESPERANDO" and self.estado_local != "ESPERANDO":
+            print("\n[*] Orden recibida: EN ESPERA (Telemetría pausada).")
+            if self.estado_local == "GRABANDO":
+                self.orchestrator.stop_all()
+            self.estado_local = "ESPERANDO"
+            return "ESPERANDO"
             
-        elif estado_servidor == "FINALIZADO" and self.estado_local == "GRABANDO":
-            print("\nOrden recibida: DETENER TELEMETRÍA.")
+        elif estado_servidor == "FINALIZADO":
+            print("\n[!] Orden recibida: DETENER Y FINALIZAR EXAMEN.")
+            if self.estado_local == "GRABANDO":
+                self.orchestrator.stop_all()
             self.estado_local = "FINALIZADO"
-            self.orchestrator.stop_all()
+            return "FINALIZADO"
+
+        return None
 
 
 if __name__ == "__main__":
@@ -221,23 +298,29 @@ if __name__ == "__main__":
     print(" Agente de Telemetría Estudiantil ")
     print("=" * 60)
     
+    agente = TelemetryClient()
+    agente.client_id = agente._generar_client_id()
+    
     try:
-        agente = TelemetryClient()
-        agente.client_id = agente._generar_client_id()
-        
-        # El agente buscará dependiendo de su configuración en config.txt
-        url_profesor = agente.descubrir_servidor()
-        
-        if url_profesor:
-            agente.server_url = url_profesor
-            agente.iniciar_agente()
-        else:
-            # Si el timeout configurado expiró
-            print("\n[!] No se encontró el servidor en el tiempo estipulado.")
-            # Quitamos el input() para que no bloquee en caso de usarlo sin terminal visible
+        while True:
+            # El agente buscará dependiendo de su configuración en config.txt
+            url_profesor = agente.descubrir_servidor()
+            
+            if url_profesor:
+                agente.server_url = url_profesor
+                agente.iniciar_agente()
+            else:
+                # Si el timeout configurado expiró (solo cuando discovery_timeout_seconds > 0)
+                print("\n[!] No se encontró el servidor en el tiempo estipulado.")
+                break
+                
+            # Pausa breve antes de reiniciar la búsqueda si se finalizó una sesión
+            time.sleep(3)
             
     except KeyboardInterrupt:
-        pass 
+        print("\n[!] Proceso detenido por el usuario.")
+        if agente.estado_local == "GRABANDO":
+            agente.orchestrator.stop_all()
         
     except Exception as e:
         print("\n" + "!"*50)
