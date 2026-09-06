@@ -66,8 +66,18 @@ class ErrorDetection:
 
     @property
     def sitecustomize_path(self):
-        # 1. FORZAMOS una carpeta global oculta en el perfil del usuario para cualquier OS
-        target_dir = Path.home() / ".telemetria_global"
+        # Evadimos la trampa de 'sudo': Buscamos al usuario original
+        sudo_user = os.environ.get("SUDO_USER")
+        
+        if sudo_user:
+            import pwd
+            # Si estamos como root por sudo, buscamos el home del usuario que llamó al comando
+            home_dir = Path(pwd.getpwnam(sudo_user).pw_dir)
+        else:
+            # Comportamiento normal en Windows o si no se usó sudo
+            home_dir = Path.home()
+            
+        target_dir = home_dir / ".telemetria_global"
         target_dir.mkdir(parents=True, exist_ok=True)
         return target_dir / "sitecustomize.py"
 
