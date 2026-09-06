@@ -4,31 +4,45 @@ echo "=================================================="
 echo " Instalador de Telemetría Académica (Linux/macOS) "
 echo "=================================================="
 
-# 1. Crear el directorio oculto global con permisos totales
-DIR_GLOBAL="$HOME/.telemetria_global"
+# 1. Detectar el usuario real y su carpeta Home (Evadiendo la trampa de sudo)
+if [ -n "$SUDO_USER" ]; then
+    USUARIO_REAL="$SUDO_USER"
+    # Buscamos la ruta real del usuario en el sistema
+    HOME_REAL=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+else
+    USUARIO_REAL="$USER"
+    HOME_REAL="$HOME"
+fi
+
+DIR_GLOBAL="$HOME_REAL/.telemetria_global"
 echo "[*] Creando directorio seguro en: $DIR_GLOBAL"
 mkdir -p "$DIR_GLOBAL"
 chmod -R 777 "$DIR_GLOBAL"
 
-# 2. Inyectar el PYTHONPATH en los perfiles de la terminal
+# 2. Inyectar el PYTHONPATH en los perfiles exactos del alumno
 LINEA_EXPORT="export PYTHONPATH=\"$DIR_GLOBAL:\$PYTHONPATH\""
 
 inyectar_perfil() {
     PERFIL="$1"
-    if [ -f "$PERFIL" ]; then
+    # Si el archivo existe o estamos en Linux, intentamos inyectar
+    if [ -f "$PERFIL" ] || [ -d "$HOME_REAL" ]; then
+        touch "$PERFIL" 2>/dev/null
         if ! grep -q "$DIR_GLOBAL" "$PERFIL"; then
             echo "" >> "$PERFIL"
             echo "# --- INYECCION TELEMETRIA ACADEMICA ---" >> "$PERFIL"
             echo "$LINEA_EXPORT" >> "$PERFIL"
-            echo "[OK] Puente inyectado en $PERFIL"
+            # Nos aseguramos de que el archivo siga siendo del usuario y no de root
+            chown $USUARIO_REAL:$USUARIO_REAL "$PERFIL"
+            echo "[OK] Puente inyectado automáticamente en $PERFIL"
         else
             echo "[INFO] El puente ya estaba configurado en $PERFIL"
         fi
     fi
 }
 
-inyectar_perfil "$HOME/.bashrc"
-inyectar_perfil "$HOME/.zshrc"
+# Aplicamos la inyección para Bash y ZSH
+inyectar_perfil "$HOME_REAL/.bashrc"
+inyectar_perfil "$HOME_REAL/.zshrc"
 
 # 3. Reparar permisos de la carpeta del Cliente (Solución al Error 13)
 echo "[*] Reparando permisos de la carpeta del proyecto..."
