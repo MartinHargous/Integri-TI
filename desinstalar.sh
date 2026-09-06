@@ -1,0 +1,60 @@
+#!/bin/bash
+
+echo "=================================================="
+echo " Desinstalador de Telemetría Académica (Linux)    "
+echo "=================================================="
+
+# 1. Detectar el usuario real
+if [ -n "$SUDO_USER" ]; then
+    USUARIO_REAL="$SUDO_USER"
+    HOME_REAL=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+else
+    USUARIO_REAL="$USER"
+    HOME_REAL="$HOME"
+fi
+
+DIR_GLOBAL="$HOME_REAL/.telemetria_global"
+
+# 2. Detener el agente en segundo plano
+echo "[*] Buscando y deteniendo procesos del agente..."
+if [ -f "agente.pid" ]; then
+    PID=$(cat agente.pid)
+    sudo kill -9 $PID 2>/dev/null
+    rm "agente.pid"
+    echo "[OK] Proceso (PID: $PID) eliminado mediante archivo."
+fi
+# Medida de seguridad adicional: matar cualquier client.py corriendo
+sudo pkill -f "client.py" 2>/dev/null
+echo "[OK] Procesos de Python asociados detenidos."
+
+# 3. Eliminar la persistencia en el arranque (crontab de root)
+echo "[*] Limpiando el registro de arranque del sistema..."
+(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar.sh") | sudo crontab -u root -
+echo "[OK] Tarea de inicio automático eliminada."
+
+# 4. Eliminar el inyector global y la bandera
+echo "[*] Eliminando archivos inyectados..."
+if [ -d "$DIR_GLOBAL" ]; then
+    sudo rm -rf "$DIR_GLOBAL"
+    echo "[OK] Carpeta $DIR_GLOBAL y sitecustomize eliminados."
+fi
+
+# 5. Limpiar los perfiles de terminal del alumno
+echo "[*] Limpiando variables de entorno en la terminal..."
+limpiar_perfil() {
+    PERFIL="$1"
+    if [ -f "$PERFIL" ]; then
+        # Eliminamos el comentario y la línea del PYTHONPATH
+        sudo sed -i '/--- INYECCION TELEMETRIA ACADEMICA ---/d' "$PERFIL"
+        sudo sed -i '\|.telemetria_global|d' "$PERFIL"
+        echo "[OK] Terminal restaurada: $PERFIL"
+    fi
+}
+
+limpiar_perfil "$HOME_REAL/.bashrc"
+limpiar_perfil "$HOME_REAL/.zshrc"
+
+echo "=================================================="
+echo " DESINSTALACIÓN COMPLETADA CON ÉXITO.             "
+echo " El sistema ha quedado completamente limpio.      "
+echo "=================================================="
