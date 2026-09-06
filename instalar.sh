@@ -66,7 +66,11 @@ if [ -f "requirements.txt" ]; then
 else
     echo "[AVISO] No se encontró 'requirements.txt'. Omitiendo instalación de librerías."
 fi
-
+# 5. Configurar inicio automático al encender el equipo (Persistencia)
+echo "[*] Configurando persistencia al inicio del sistema..."
+# Eliminamos entradas previas para no duplicar y agregamos la nueva regla
+(crontab -l 2>/dev/null | grep -v "ejecutar.sh"; echo "@reboot cd \"$CARPETA_CLIENTE\" && ./ejecutar.sh") | crontab -
+echo "[OK] Agente programado para arrancar automáticamente al encender."
 echo "=================================================="
 echo " INSTALACIÓN COMPLETADA CON ÉXITO."
 echo " IMPORTANTE: Cierra esta terminal por completo y"
