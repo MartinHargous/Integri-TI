@@ -91,29 +91,29 @@ fi
 echo "[*] Configurando persistencia profesional con Systemd..."
 
 DIR_ACTUAL=$(pwd)
-USUARIO_REAL=$(whoami)
+# Usamos USUARIO_REAL y HOME_REAL detectados en el Paso 1
 PYTHON_VENV="$DIR_ACTUAL/venv/bin/python"
-SCRIPT_PYTHON="$DIR_ACTUAL/client.py"
+SCRIPT_PYTHON="$DIR_ACTUAL/Client/client.py"
 
 # A) Crear el pase VIP apuntando directamente a Python y tu script
 echo "[*] Configurando privilegios de ejecución silenciosa (sudoers)..."
 echo "$USUARIO_REAL ALL=(ALL) NOPASSWD: $PYTHON_VENV $SCRIPT_PYTHON" | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
 sudo chmod 0440 /etc/sudoers.d/integriti_agent
 
-# B) Crear el directorio de servicios de usuario
-DIR_SYSTEMD_USER="$HOME/.config/systemd/user"
-mkdir -p "$DIR_SYSTEMD_USER"
+# B) Crear el directorio de servicios de usuario asegurando que le pertenezca a kali
+DIR_SYSTEMD_USER="$HOME_REAL/.config/systemd/user"
+sudo -u $USUARIO_REAL mkdir -p "$DIR_SYSTEMD_USER"
 
 # C) Crear el servicio puro de systemd
 echo "[*] Creando servicio systemd..."
-cat << EOF > "$DIR_SYSTEMD_USER/integriti.service"
+cat << EOF | sudo -u $USUARIO_REAL tee "$DIR_SYSTEMD_USER/integriti.service" > /dev/null
 [Unit]
 Description=Agente de Telemetria Integri-TI
 After=graphical-session.target
 
 [Service]
 Type=simple
-WorkingDirectory=$DIR_ACTUAL
+WorkingDirectory=$DIR_ACTUAL/Client
 # Inyectamos la variable para engañar a la telemetría de Python
 Environment="SUDO_USER=$USUARIO_REAL"
 # Lanzamos python con sudo conservando la pantalla gráfica (-E)
