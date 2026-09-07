@@ -84,7 +84,7 @@ fi
 echo "[*] Configurando persistencia con privilegios de administrador..."
 
 # Leemos el crontab de root, limpiamos duplicados, y guardamos la nueva regla en root
-(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar"; echo '@reboot sleep 15 && cd "/home/kali/Integri-TI" && ./ejecutar.sh > cron_error.log 2>&1') | sudo crontab -u root -
+(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar"; echo '@reboot sleep 15 && export DISPLAY=:0 && export XAUTHORITY=/home/kali/.Xauthority && cd "/home/kali/Integri-TI" && bash ejecutar.sh > cron_error.log 2>&1') | sudo crontab -u root -
 
 echo "[OK] Agente programado para arrancar automáticamente como ROOT al encender."
 
