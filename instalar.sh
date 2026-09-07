@@ -87,57 +87,47 @@ if ! command -v xhost >/dev/null 2>&1; then
     sudo apt-get update -y > /dev/null 2>&1 && sudo apt-get install -y x11-xserver-utils > /dev/null 2>&1 || true
 fi
 
-# 5. Configurar inicio automático anclado a la interfaz gráfica (Persistencia X11)
-echo "[*] Configurando persistencia avanzada anclada a la sesión del usuario..."
+# 5. Configurar persistencia como Servicio de Usuario (Systemd)
+echo "[*] Configurando persistencia profesional con Systemd (User Service)..."
+
 DIR_ACTUAL=$(pwd)
+USUARIO_REAL=$(whoami)
 
-# A) Limpiar restos de cron si existían de pruebas anteriores
-(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar") | sudo crontab -u root - 2>/dev/null
-
-# B) Crear el pase VIP para evitar que pida contraseña al reiniciar y preservar entorno X11
+# A) Crear el pase VIP para evitar que pida contraseña al escalar privilegios
 echo "[*] Configurando privilegios de ejecución silenciosa (sudoers)..."
-cat << EOF | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
-Defaults!$DIR_ACTUAL/ejecutar.sh env_keep += "DISPLAY XAUTHORITY"
-Defaults!$DIR_ACTUAL/venv/bin/python env_keep += "DISPLAY XAUTHORITY"
-Defaults!$DIR_ACTUAL/venv/bin/python3 env_keep += "DISPLAY XAUTHORITY"
-$USUARIO_REAL ALL=(ALL) NOPASSWD: SETENV: $DIR_ACTUAL/ejecutar.sh
-$USUARIO_REAL ALL=(ALL) NOPASSWD: SETENV: $DIR_ACTUAL/venv/bin/python
-$USUARIO_REAL ALL=(ALL) NOPASSWD: SETENV: $DIR_ACTUAL/venv/bin/python3
-EOF
+echo "$USUARIO_REAL ALL=(ALL) NOPASSWD: $DIR_ACTUAL/ejecutar.sh" | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
 sudo chmod 0440 /etc/sudoers.d/integriti_agent
 
-# Inyectar xhost en .xsessionrc del usuario para autorizar permanentemente a root en X11
-XSESSIONRC="$HOME_REAL/.xsessionrc"
-if ! grep -q "xhost +SI:localuser:root" "$XSESSIONRC" 2>/dev/null; then
-    echo "xhost +SI:localuser:root >/dev/null 2>&1" >> "$XSESSIONRC"
-    chown $USUARIO_REAL:$USUARIO_REAL "$XSESSIONRC"
-    chmod 644 "$XSESSIONRC"
-fi
+# B) Crear el directorio de servicios de usuario si no existe
+DIR_SYSTEMD_USER="$HOME/.config/systemd/user"
+mkdir -p "$DIR_SYSTEMD_USER"
 
-# C) Crear el lanzador gráfico (Autostart)
-echo "[*] Creando lanzador en el inicio de sesión del sistema..."
-AUTOSTART_DIR="$HOME_REAL/.config/autostart"
-mkdir -p "$AUTOSTART_DIR"
+# C) Crear el archivo del servicio (integriti.service)
+# Usamos Type=forking porque tu script ejecutar.sh lanza el proceso en segundo plano
+echo "[*] Creando servicio systemd..."
+cat << EOF > "$DIR_SYSTEMD_USER/integriti.service"
+[Unit]
+Description=Lanzador del Agente Integri-TI
+After=graphical-session.target
 
-cat << EOF > "$AUTOSTART_DIR/agente_telemetria.desktop"
-[Desktop Entry]
-Type=Application
-Exec=/bin/bash -c "sleep 3 && sudo -E $DIR_ACTUAL/ejecutar.sh"
-Terminal=false
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-Name=IntegriTI
+[Service]
+Type=forking
+WorkingDirectory=$DIR_ACTUAL
+# Ejecutamos con sudo conservando el entorno gráfico (-E)
+ExecStart=/usr/bin/sudo -E bash $DIR_ACTUAL/ejecutar.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
 EOF
 
-chmod +x "$AUTOSTART_DIR/agente_telemetria.desktop"
-chown $USUARIO_REAL:$USUARIO_REAL "$AUTOSTART_DIR/agente_telemetria.desktop"
+# D) Recargar systemd y habilitar el servicio para el arranque
+systemctl --user daemon-reload
+systemctl --user enable integriti.service
+systemctl --user start integriti.service
 
-# Asegurar permisos de ejecución en scripts
-chmod +x "$DIR_ACTUAL/ejecutar.sh" "$DIR_ACTUAL/desinstalar.sh" "$DIR_ACTUAL/instalar.sh"
-
-echo "[OK] Persistencia gráfica configurada correctamente."
-echo "[OK] Agente programado para arrancar automáticamente al iniciar sesión gráfica."
+echo "[OK] Servicio Systemd configurado e iniciado."
 
 # 6. Iniciar inmediatamente el agente de telemetría
 echo "[*] Iniciando el agente de telemetría de inmediato..."
