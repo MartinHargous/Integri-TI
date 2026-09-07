@@ -4,6 +4,10 @@ echo "=================================================="
 echo " Desinstalador de Telemetría Académica (Linux)    "
 echo "=================================================="
 
+# Asegurar directorio de trabajo del proyecto
+DIR_ACTUAL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$DIR_ACTUAL"
+
 # 1. Detectar el usuario real
 if [ -n "$SUDO_USER" ]; then
     USUARIO_REAL="$SUDO_USER"
@@ -17,10 +21,12 @@ DIR_GLOBAL="$HOME_REAL/.telemetria_global"
 
 # 2. Detener el agente en segundo plano
 echo "[*] Buscando y deteniendo procesos del agente..."
-if [ -f "agente.pid" ]; then
-    PID=$(cat agente.pid)
-    sudo kill -9 $PID 2>/dev/null
-    rm "agente.pid"
+if [ -f "$DIR_ACTUAL/agente.pid" ]; then
+    PID=$(cat "$DIR_ACTUAL/agente.pid" 2>/dev/null)
+    if [ -n "$PID" ]; then
+        sudo kill -9 $PID 2>/dev/null
+    fi
+    rm -f "$DIR_ACTUAL/agente.pid"
     echo "[OK] Proceso (PID: $PID) eliminado mediante archivo."
 fi
 # Medida de seguridad adicional: matar cualquier client.py corriendo

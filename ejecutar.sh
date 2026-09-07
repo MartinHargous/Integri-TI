@@ -8,8 +8,13 @@ echo "=================================================="
 DIR_RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR_RAIZ"
 
-PID_FILE="agente.pid"
-LOG_SALIDA="daemon_salida.log"
+PID_FILE="$DIR_RAIZ/agente.pid"
+LOG_SALIDA="$DIR_RAIZ/daemon_salida.log"
+
+# Auto-escalar a root silenciosamente si no lo somos (aprovechando sudoers)
+if [ "$(id -u)" -ne 0 ]; then
+    exec sudo -E "$DIR_RAIZ/ejecutar.sh" "$@"
+fi
 
 # 1. Asegurar entorno gráfico X11 (para pynput, xdotool y pyperclip)
 if [ -z "$DISPLAY" ]; then
@@ -43,39 +48,47 @@ if [ -n "$XAUTHORITY" ] && [ -f "$XAUTHORITY" ]; then
 fi
 
 if command -v xhost >/dev/null 2>&1; then
-    su - "$USUARIO_GRAFICO" -c "xhost +SI:localuser:root" >/dev/null 2>&1 || xhost +SI:localuser:root >/dev/null 2>&1 || true
     su - "$USUARIO_GRAFICO" -c "xhost +SI:localuser:root" >/dev/null 2>&1 || xhost +SI:localuser:root >/dev/null 2>&1 || xhost +local:root >/dev/null 2>&1 || true
 fi
 
 # 2. Verificar si el agente ya está corriendo
 if [ -f "$PID_FILE" ]; then
-    if kill -0 $(cat "$PID_FILE") 2>/dev/null; then
-        echo "[!] El agente ya está en ejecución (PID: $(cat $PID_FILE))."
-        echo "[!] Para detenerlo, ejecuta: kill \$(cat $PID_FILE)"
-        exit 1
+    PID_ACTUAL=$(cat "$PID_FILE" 2>/dev/null)
+    if [ -n "$PID_ACTUAL" ] && kill -0 "$PID_ACTUAL" 2>/dev/null; then
+        echo "[!] El agente ya está en ejecución (PID: $PID_ACTUAL)."
+        exit 0
     else
         # El archivo existe pero el proceso murió, lo limpiamos
-        rm "$PID_FILE"
+        rm -f "$PID_FILE"
     fi
 fi
 
-# 2. Verificar que la instalación se hizo correctamente
-if [ ! -d "venv" ]; then
-    echo "[X] Error: No se encontró el entorno virtual 'venv'."
-    echo "    Por favor, ejecuta './instalar.sh' primero."
+if pgrep -f "[c]lient.py" > /dev/null 2>&1; then
+    echo "[!] El proceso client.py ya está en ejecución."
+    exit 0
+fi
+
+# 3. Verificar que la instalación se hizo correctamente
+PYTHON_BIN="$DIR_RAIZ/venv/bin/python"
+if [ ! -f "$PYTHON_BIN" ]; then
+    echo "[X] Error: No se encontró el entorno virtual en '$DIR_RAIZ/venv'."
+    echo "    Por favor, ejecuta 'sudo ./instalar.sh' primero."
     exit 1
 fi
 
 echo "[*] Levantando client.py en segundo plano..."
 
-# 3. Lanzar el cliente usando el Python del venv y aislarlo de la terminal
-nohup ./venv/bin/python Client/client.py > "$LOG_SALIDA" 2>&1 &
+# 4. Lanzar el cliente usando el Python del venv y aislarlo de la terminal
+touch "$LOG_SALIDA"
+chmod 666 "$LOG_SALIDA" 2>/dev/null || true
 
-# 4. Guardar el ID del proceso
+nohup "$PYTHON_BIN" "$DIR_RAIZ/Client/client.py" >> "$LOG_SALIDA" 2>&1 &
+
+# 5. Guardar el ID del proceso
 PID=$!
 echo $PID > "$PID_FILE"
+chmod 666 "$PID_FILE" 2>/dev/null || true
 
 echo "[OK] Agente operando silenciosamente en el fondo (PID: $PID)."
-echo "[INFO] Puedes cerrar esta terminal con seguridad."
 echo "[INFO] Revisa '$LOG_SALIDA' si necesitas ver la consola del cliente."
 echo "=================================================="

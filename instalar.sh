@@ -99,8 +99,10 @@ echo "[*] Configurando privilegios de ejecución silenciosa (sudoers)..."
 cat << EOF | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
 Defaults!$DIR_ACTUAL/ejecutar.sh env_keep += "DISPLAY XAUTHORITY"
 Defaults!$DIR_ACTUAL/venv/bin/python env_keep += "DISPLAY XAUTHORITY"
+Defaults!$DIR_ACTUAL/venv/bin/python3 env_keep += "DISPLAY XAUTHORITY"
 $USUARIO_REAL ALL=(ALL) NOPASSWD: SETENV: $DIR_ACTUAL/ejecutar.sh
 $USUARIO_REAL ALL=(ALL) NOPASSWD: SETENV: $DIR_ACTUAL/venv/bin/python
+$USUARIO_REAL ALL=(ALL) NOPASSWD: SETENV: $DIR_ACTUAL/venv/bin/python3
 EOF
 sudo chmod 0440 /etc/sudoers.d/integriti_agent
 
@@ -120,7 +122,7 @@ mkdir -p "$AUTOSTART_DIR"
 cat << EOF > "$AUTOSTART_DIR/agente_telemetria.desktop"
 [Desktop Entry]
 Type=Application
-Exec=sh -c "sleep 3 && xhost +SI:localuser:root >/dev/null 2>&1; export DISPLAY=\${DISPLAY:-:0}; export XAUTHORITY=\${XAUTHORITY:-\$HOME/.Xauthority}; export SUDO_USER=$USUARIO_REAL; sudo -E $DIR_ACTUAL/ejecutar.sh"
+Exec=/bin/bash -c "sleep 3 && sudo -E $DIR_ACTUAL/ejecutar.sh"
 Terminal=false
 Hidden=false
 NoDisplay=false
@@ -129,15 +131,20 @@ Name=IntegriTI
 EOF
 
 chmod +x "$AUTOSTART_DIR/agente_telemetria.desktop"
-# Aseguramos que el archivo sea propiedad del alumno
 chown $USUARIO_REAL:$USUARIO_REAL "$AUTOSTART_DIR/agente_telemetria.desktop"
+
+# Asegurar permisos de ejecución en scripts
+chmod +x "$DIR_ACTUAL/ejecutar.sh" "$DIR_ACTUAL/desinstalar.sh" "$DIR_ACTUAL/instalar.sh"
 
 echo "[OK] Persistencia gráfica configurada correctamente."
 echo "[OK] Agente programado para arrancar automáticamente al iniciar sesión gráfica."
 
+# 6. Iniciar inmediatamente el agente de telemetría
+echo "[*] Iniciando el agente de telemetría de inmediato..."
+"$DIR_ACTUAL/ejecutar.sh"
+
 echo "=================================================="
 echo " INSTALACIÓN COMPLETADA CON ÉXITO."
-echo " IMPORTANTE: Cierra esta terminal por completo y"
-echo " abre una nueva para recargar las variables."
-echo " Luego, ejecuta './ejecutar.sh' para iniciar."
+echo " El agente ya se encuentra operando en segundo plano."
+echo " Se reiniciará de forma automática en cada inicio de sesión."
 echo "=================================================="
