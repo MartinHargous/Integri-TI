@@ -87,47 +87,50 @@ if ! command -v xhost >/dev/null 2>&1; then
     sudo apt-get update -y > /dev/null 2>&1 && sudo apt-get install -y x11-xserver-utils > /dev/null 2>&1 || true
 fi
 
-# 5. Configurar persistencia como Servicio de Usuario (Systemd)
-echo "[*] Configurando persistencia profesional con Systemd (User Service)..."
+# 5. Configurar persistencia pura con Systemd (User Service)
+echo "[*] Configurando persistencia profesional con Systemd..."
 
 DIR_ACTUAL=$(pwd)
 USUARIO_REAL=$(whoami)
+PYTHON_VENV="$DIR_ACTUAL/venv/bin/python"
+SCRIPT_PYTHON="$DIR_ACTUAL/client.py"
 
-# A) Crear el pase VIP para evitar que pida contraseña al escalar privilegios
+# A) Crear el pase VIP apuntando directamente a Python y tu script
 echo "[*] Configurando privilegios de ejecución silenciosa (sudoers)..."
-echo "$USUARIO_REAL ALL=(ALL) NOPASSWD: $DIR_ACTUAL/ejecutar.sh" | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
+echo "$USUARIO_REAL ALL=(ALL) NOPASSWD: $PYTHON_VENV $SCRIPT_PYTHON" | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
 sudo chmod 0440 /etc/sudoers.d/integriti_agent
 
-# B) Crear el directorio de servicios de usuario si no existe
+# B) Crear el directorio de servicios de usuario
 DIR_SYSTEMD_USER="$HOME/.config/systemd/user"
 mkdir -p "$DIR_SYSTEMD_USER"
 
-# C) Crear el archivo del servicio (integriti.service)
-# Usamos Type=forking porque tu script ejecutar.sh lanza el proceso en segundo plano
+# C) Crear el servicio puro de systemd
 echo "[*] Creando servicio systemd..."
 cat << EOF > "$DIR_SYSTEMD_USER/integriti.service"
 [Unit]
-Description=Lanzador del Agente Integri-TI
+Description=Agente de Telemetria Integri-TI
 After=graphical-session.target
 
 [Service]
-Type=forking
+Type=simple
 WorkingDirectory=$DIR_ACTUAL
-# Ejecutamos con sudo conservando el entorno gráfico (-E)
-ExecStart=/usr/bin/sudo -E bash $DIR_ACTUAL/ejecutar.sh
-Restart=on-failure
+# Inyectamos la variable para engañar a la telemetría de Python
+Environment="SUDO_USER=$USUARIO_REAL"
+# Lanzamos python con sudo conservando la pantalla gráfica (-E)
+ExecStart=/usr/bin/sudo -E $PYTHON_VENV $SCRIPT_PYTHON
+Restart=always
 RestartSec=10
 
 [Install]
 WantedBy=default.target
 EOF
 
-# D) Recargar systemd y habilitar el servicio para el arranque
+# D) Recargar systemd e iniciar el agente
 systemctl --user daemon-reload
 systemctl --user enable integriti.service
 systemctl --user start integriti.service
 
-echo "[OK] Servicio Systemd configurado e iniciado."
+echo "[OK] Instalación completada. Agente corriendo en segundo plano."
 
 # 6. Iniciar inmediatamente el agente de telemetría
 echo "[*] Iniciando el agente de telemetría de inmediato..."
