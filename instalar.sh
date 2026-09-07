@@ -97,7 +97,7 @@ SCRIPT_PYTHON="$DIR_ACTUAL/Client/client.py"
 
 # A) Crear el pase VIP apuntando directamente a Python y tu script
 echo "[*] Configurando privilegios de ejecución silenciosa (sudoers)..."
-echo "$USUARIO_REAL ALL=(ALL) NOPASSWD: $PYTHON_VENV $SCRIPT_PYTHON" | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
+echo "$USUARIO_REAL ALL=(ALL) SETENV: NOPASSWD: $PYTHON_VENV $SCRIPT_PYTHON" | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
 sudo chmod 0440 /etc/sudoers.d/integriti_agent
 
 # B) Crear el directorio de servicios de usuario asegurando que le pertenezca a kali
