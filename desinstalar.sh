@@ -46,6 +46,9 @@ fi
 # C) Limpiar cron (por si quedó alguna versión antigua)
 (sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar") | sudo crontab -u root - 2>/dev/null
 
+# D) Revocar permisos xhost de root
+su - "$USUARIO_REAL" -c "xhost -SI:localuser:root" 2>/dev/null || xhost -SI:localuser:root 2>/dev/null || true
+
 # 4. Eliminar el inyector global y la bandera
 echo "[*] Eliminando archivos inyectados..."
 if [ -d "$DIR_GLOBAL" ]; then
@@ -67,6 +70,9 @@ limpiar_perfil() {
 
 limpiar_perfil "$HOME_REAL/.bashrc"
 limpiar_perfil "$HOME_REAL/.zshrc"
+
+# 6. Limpiar archivos residuales generados durante la ejecución
+rm -f daemon_salida.log combined_log.log crash_log.txt agente.pid
 
 echo "=================================================="
 echo " DESINSTALACIÓN COMPLETADA CON ÉXITO.             "

@@ -1,4 +1,5 @@
 import os
+import sys
 import socket
 import time
 import requests
@@ -6,6 +7,22 @@ import json
 from pathlib import Path
 import concurrent.futures
 import traceback
+
+# Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar orchestrator
+if sys.platform.startswith("linux"):
+    if "DISPLAY" not in os.environ:
+        os.environ["DISPLAY"] = ":0"
+    if "XAUTHORITY" not in os.environ or not os.path.isfile(os.environ.get("XAUTHORITY", "")):
+        usuario_obj = os.environ.get("SUDO_USER") or os.environ.get("USER") or "kali"
+        rutas_posibles = [
+            f"/home/{usuario_obj}/.Xauthority",
+            os.path.expanduser(f"~{usuario_obj}/.Xauthority"),
+            "/root/.Xauthority",
+        ]
+        for r in rutas_posibles:
+            if os.path.isfile(r):
+                os.environ["XAUTHORITY"] = r
+                break
 
 # Importamos tu Orquestador
 from orchestrator import Orchestrator

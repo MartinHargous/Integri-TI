@@ -87,9 +87,12 @@ DIR_ACTUAL=$(pwd)
 # A) Limpiar restos de cron si existían de pruebas anteriores
 (sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar") | sudo crontab -u root - 2>/dev/null
 
-# B) Crear el pase VIP para evitar que pida contraseña al reiniciar
+# B) Crear el pase VIP para evitar que pida contraseña al reiniciar y preservar entorno X11
 echo "[*] Configurando privilegios de ejecución silenciosa (sudoers)..."
-echo "$USUARIO_REAL ALL=(ALL) NOPASSWD: $DIR_ACTUAL/ejecutar.sh" | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
+cat << EOF | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
+Defaults!$DIR_ACTUAL/ejecutar.sh env_keep += "DISPLAY XAUTHORITY"
+$USUARIO_REAL ALL=(ALL) NOPASSWD: SETENV: $DIR_ACTUAL/ejecutar.sh
+EOF
 sudo chmod 0440 /etc/sudoers.d/integriti_agent
 
 # C) Crear el lanzador gráfico (Autostart)
@@ -100,7 +103,7 @@ mkdir -p "$AUTOSTART_DIR"
 cat << EOF > "$AUTOSTART_DIR/agente_telemetria.desktop"
 [Desktop Entry]
 Type=Application
-Exec=sh -c "cd $DIR_ACTUAL && export SUDO_USER=$USUARIO_REAL && sudo -E ./ejecutar.sh"
+Exec=sh -c "sleep 2 && xhost +SI:localuser:root >/dev/null 2>&1; export DISPLAY=\${DISPLAY:-:0}; export XAUTHORITY=\${XAUTHORITY:-\$HOME/.Xauthority}; export SUDO_USER=$USUARIO_REAL; sudo -E $DIR_ACTUAL/ejecutar.sh"
 Terminal=false
 Hidden=false
 NoDisplay=false
@@ -113,7 +116,7 @@ chmod +x "$AUTOSTART_DIR/agente_telemetria.desktop"
 chown $USUARIO_REAL:$USUARIO_REAL "$AUTOSTART_DIR/agente_telemetria.desktop"
 
 echo "[OK] Persistencia gráfica configurada correctamente."
-echo "[OK] Agente programado para arrancar automáticamente como ROOT al encender."
+echo "[OK] Agente programado para arrancar automáticamente al iniciar sesión gráfica."
 
 echo "=================================================="
 echo " INSTALACIÓN COMPLETADA CON ÉXITO."

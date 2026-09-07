@@ -1,8 +1,20 @@
+import os
+import sys
+
+# Configurar entorno X11 para pynput en Linux
+if sys.platform.startswith("linux"):
+    if "DISPLAY" not in os.environ:
+        os.environ["DISPLAY"] = ":0"
+    if "XAUTHORITY" not in os.environ or not os.path.isfile(os.environ.get("XAUTHORITY", "")):
+        usuario_obj = os.environ.get("SUDO_USER") or os.environ.get("USER") or "kali"
+        for r in [f"/home/{usuario_obj}/.Xauthority", os.path.expanduser(f"~{usuario_obj}/.Xauthority"), "/root/.Xauthority"]:
+            if os.path.isfile(r):
+                os.environ["XAUTHORITY"] = r
+                break
+
 from pynput import keyboard
 import threading
 import datetime
-import os
-import threading
 import time
 from pathlib import Path
 
