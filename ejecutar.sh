@@ -36,8 +36,14 @@ if [ -z "$XAUTHORITY" ] || [ ! -f "$XAUTHORITY" ]; then
     fi
 fi
 
+# Copiar la cookie a /root/.Xauthority para que Xlib la encuentre de forma nativa
+if [ -n "$XAUTHORITY" ] && [ -f "$XAUTHORITY" ]; then
+    cp -f "$XAUTHORITY" /root/.Xauthority 2>/dev/null || true
+    chmod 600 /root/.Xauthority 2>/dev/null || true
+fi
+
 if command -v xhost >/dev/null 2>&1; then
-    su - "$USUARIO_GRAFICO" -c "xhost +SI:localuser:root" >/dev/null 2>&1 || xhost +SI:localuser:root >/dev/null 2>&1 || true
+    su - "$USUARIO_GRAFICO" -c "xhost +SI:localuser:root" >/dev/null 2>&1 || xhost +SI:localuser:root >/dev/null 2>&1 || xhost +local:root >/dev/null 2>&1 || true
 fi
 
 # 2. Verificar si el agente ya está corriendo

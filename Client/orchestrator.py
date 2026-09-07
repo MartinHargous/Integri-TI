@@ -67,7 +67,14 @@ class Orchestrator:
             
             if not is_admin:
                 print("[-] Solicitando permisos de administrador (sudo)...")
-                args = ["sudo", sys.executable] + sys.argv
+                display = os.environ.get("DISPLAY", ":0")
+                xauth = os.environ.get("XAUTHORITY", os.path.expanduser("~/.Xauthority"))
+                try:
+                    import subprocess
+                    subprocess.run(["xhost", "+SI:localuser:root"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                except Exception:
+                    pass
+                args = ["sudo", "-E", "env", f"DISPLAY={display}", f"XAUTHORITY={xauth}", sys.executable] + sys.argv
                 os.execvp("sudo", args)   
     def start_error_detection(self):
         if self.error_detection.is_installed():

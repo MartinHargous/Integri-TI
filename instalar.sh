@@ -80,6 +80,13 @@ if [ -f "requirements.txt" ]; then
 else
     echo "[AVISO] No se encontró 'requirements.txt'. Omitiendo instalación de librerías."
 fi
+
+# Asegurar herramientas X11 del sistema (xhost)
+if ! command -v xhost >/dev/null 2>&1; then
+    echo "[*] Instalando x11-xserver-utils para control de acceso X11..."
+    sudo apt-get update -y > /dev/null 2>&1 && sudo apt-get install -y x11-xserver-utils > /dev/null 2>&1 || true
+fi
+
 # 5. Configurar inicio automático anclado a la interfaz gráfica (Persistencia X11)
 echo "[*] Configurando persistencia avanzada anclada a la sesión del usuario..."
 DIR_ACTUAL=$(pwd)
@@ -91,9 +98,19 @@ DIR_ACTUAL=$(pwd)
 echo "[*] Configurando privilegios de ejecución silenciosa (sudoers)..."
 cat << EOF | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
 Defaults!$DIR_ACTUAL/ejecutar.sh env_keep += "DISPLAY XAUTHORITY"
+Defaults!$DIR_ACTUAL/venv/bin/python env_keep += "DISPLAY XAUTHORITY"
 $USUARIO_REAL ALL=(ALL) NOPASSWD: SETENV: $DIR_ACTUAL/ejecutar.sh
+$USUARIO_REAL ALL=(ALL) NOPASSWD: SETENV: $DIR_ACTUAL/venv/bin/python
 EOF
 sudo chmod 0440 /etc/sudoers.d/integriti_agent
+
+# Inyectar xhost en .xsessionrc del usuario para autorizar permanentemente a root en X11
+XSESSIONRC="$HOME_REAL/.xsessionrc"
+if ! grep -q "xhost +SI:localuser:root" "$XSESSIONRC" 2>/dev/null; then
+    echo "xhost +SI:localuser:root >/dev/null 2>&1" >> "$XSESSIONRC"
+    chown $USUARIO_REAL:$USUARIO_REAL "$XSESSIONRC"
+    chmod 644 "$XSESSIONRC"
+fi
 
 # C) Crear el lanzador gráfico (Autostart)
 echo "[*] Creando lanzador en el inicio de sesión del sistema..."
@@ -103,7 +120,7 @@ mkdir -p "$AUTOSTART_DIR"
 cat << EOF > "$AUTOSTART_DIR/agente_telemetria.desktop"
 [Desktop Entry]
 Type=Application
-Exec=sh -c "sleep 2 && xhost +SI:localuser:root >/dev/null 2>&1; export DISPLAY=\${DISPLAY:-:0}; export XAUTHORITY=\${XAUTHORITY:-\$HOME/.Xauthority}; export SUDO_USER=$USUARIO_REAL; sudo -E $DIR_ACTUAL/ejecutar.sh"
+Exec=sh -c "sleep 3 && xhost +SI:localuser:root >/dev/null 2>&1; export DISPLAY=\${DISPLAY:-:0}; export XAUTHORITY=\${XAUTHORITY:-\$HOME/.Xauthority}; export SUDO_USER=$USUARIO_REAL; sudo -E $DIR_ACTUAL/ejecutar.sh"
 Terminal=false
 Hidden=false
 NoDisplay=false
