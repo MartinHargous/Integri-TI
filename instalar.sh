@@ -84,7 +84,7 @@ fi
 echo "[*] Configurando persistencia con privilegios de administrador..."
 
 # Leemos el crontab de root, limpiamos duplicados, y guardamos la nueva regla en root
-(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar.sh"; echo "@reboot cd \"$CARPETA_CLIENTE\" && ./ejecutar.sh") | sudo crontab -u root -
+(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar.sh"; echo "@reboot sleep 15 && cd \"$CARPETA_CLIENTE\" && ./ejecutar.sh > cron_error.log 2>&1") | sudo crontab -u root -
 
 echo "[OK] Agente programado para arrancar automáticamente como ROOT al encender."
 
