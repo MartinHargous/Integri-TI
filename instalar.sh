@@ -135,10 +135,6 @@ sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user start
 
 echo "[OK] Instalación completada. Agente corriendo en segundo plano."
 
-# 6. Iniciar inmediatamente el agente de telemetría
-echo "[*] Iniciando el agente de telemetría de inmediato..."
-"$DIR_ACTUAL/ejecutar.sh"
-
 echo "=================================================="
 echo " INSTALACIÓN COMPLETADA CON ÉXITO."
 echo " El agente ya se encuentra operando en segundo plano."
