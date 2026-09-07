@@ -27,10 +27,24 @@ fi
 sudo pkill -f "client.py" 2>/dev/null
 echo "[OK] Procesos de Python asociados detenidos."
 
-# 3. Eliminar la persistencia en el arranque (crontab de root)
-echo "[*] Limpiando el registro de arranque del sistema..."
-(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar.sh") | sudo crontab -u root -
-echo "[OK] Tarea de inicio automático eliminada."
+# 3. Eliminar la persistencia gráfica y permisos especiales
+echo "[*] Limpiando registros de arranque y pases VIP..."
+
+# A) Limpiar Autostart
+AUTOSTART_FILE="$HOME_REAL/.config/autostart/agente_telemetria.desktop"
+if [ -f "$AUTOSTART_FILE" ]; then
+    sudo rm -f "$AUTOSTART_FILE"
+    echo "[OK] Lanzador gráfico eliminado."
+fi
+
+# B) Limpiar sudoers
+if [ -f "/etc/sudoers.d/integriti_agent" ]; then
+    sudo rm -f "/etc/sudoers.d/integriti_agent"
+    echo "[OK] Permisos silenciosos revocados."
+fi
+
+# C) Limpiar cron (por si quedó alguna versión antigua)
+(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar") | sudo crontab -u root - 2>/dev/null
 
 # 4. Eliminar el inyector global y la bandera
 echo "[*] Eliminando archivos inyectados..."

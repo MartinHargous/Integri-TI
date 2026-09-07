@@ -80,12 +80,39 @@ if [ -f "requirements.txt" ]; then
 else
     echo "[AVISO] No se encontró 'requirements.txt'. Omitiendo instalación de librerías."
 fi
-# 5. Configurar inicio automático al encender el equipo (Persistencia como ROOT)
-echo "[*] Configurando persistencia con privilegios de administrador..."
+# 5. Configurar inicio automático anclado a la interfaz gráfica (Persistencia X11)
+echo "[*] Configurando persistencia avanzada anclada a la sesión del usuario..."
+DIR_ACTUAL=$(pwd)
 
-# Leemos el crontab de root, limpiamos duplicados, y guardamos la nueva regla en root
-(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar"; echo '@reboot while ! who | grep -q ":0"; do sleep 5; done; sleep 10; export DISPLAY=:0; cp /home/kali/.Xauthority /root/.Xauthority; chown root:root /root/.Xauthority; export XAUTHORITY=/root/.Xauthority; export SUDO_USER=kali; cd "/home/kali/Integri-TI" && bash ejecutar.sh > cron_error.log 2>&1') | sudo crontab -u root -
+# A) Limpiar restos de cron si existían de pruebas anteriores
+(sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar") | sudo crontab -u root - 2>/dev/null
 
+# B) Crear el pase VIP para evitar que pida contraseña al reiniciar
+echo "[*] Configurando privilegios de ejecución silenciosa (sudoers)..."
+echo "$USUARIO_REAL ALL=(ALL) NOPASSWD: $DIR_ACTUAL/ejecutar.sh" | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
+sudo chmod 0440 /etc/sudoers.d/integriti_agent
+
+# C) Crear el lanzador gráfico (Autostart)
+echo "[*] Creando lanzador en el inicio de sesión del sistema..."
+AUTOSTART_DIR="$HOME_REAL/.config/autostart"
+mkdir -p "$AUTOSTART_DIR"
+
+cat << EOF > "$AUTOSTART_DIR/agente_telemetria.desktop"
+[Desktop Entry]
+Type=Application
+Exec=sh -c "cd $DIR_ACTUAL && export SUDO_USER=$USUARIO_REAL && sudo -E ./ejecutar.sh"
+Terminal=false
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name=IntegriTI
+EOF
+
+chmod +x "$AUTOSTART_DIR/agente_telemetria.desktop"
+# Aseguramos que el archivo sea propiedad del alumno
+chown $USUARIO_REAL:$USUARIO_REAL "$AUTOSTART_DIR/agente_telemetria.desktop"
+
+echo "[OK] Persistencia gráfica configurada correctamente."
 echo "[OK] Agente programado para arrancar automáticamente como ROOT al encender."
 
 echo "=================================================="
