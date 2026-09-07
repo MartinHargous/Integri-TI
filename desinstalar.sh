@@ -46,6 +46,7 @@ fi
 # C) Limpiar cron (por si quedó alguna versión antigua)
 (sudo crontab -u root -l 2>/dev/null | grep -v "ejecutar") | sudo crontab -u root - 2>/dev/null
 
+# D) Revocar permisos xhost de root
 # D) Revocar permisos xhost de root y limpiar .xsessionrc
 su - "$USUARIO_REAL" -c "xhost -SI:localuser:root" 2>/dev/null || xhost -SI:localuser:root 2>/dev/null || true
 if [ -f "$HOME_REAL/.xsessionrc" ]; then

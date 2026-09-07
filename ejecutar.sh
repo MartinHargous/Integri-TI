@@ -43,6 +43,7 @@ if [ -n "$XAUTHORITY" ] && [ -f "$XAUTHORITY" ]; then
 fi
 
 if command -v xhost >/dev/null 2>&1; then
+    su - "$USUARIO_GRAFICO" -c "xhost +SI:localuser:root" >/dev/null 2>&1 || xhost +SI:localuser:root >/dev/null 2>&1 || true
     su - "$USUARIO_GRAFICO" -c "xhost +SI:localuser:root" >/dev/null 2>&1 || xhost +SI:localuser:root >/dev/null 2>&1 || xhost +local:root >/dev/null 2>&1 || true
 fi
 

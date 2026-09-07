@@ -67,6 +67,7 @@ class Orchestrator:
             
             if not is_admin:
                 print("[-] Solicitando permisos de administrador (sudo)...")
+                args = ["sudo", sys.executable] + sys.argv
                 display = os.environ.get("DISPLAY", ":0")
                 xauth = os.environ.get("XAUTHORITY", os.path.expanduser("~/.Xauthority"))
                 try:
