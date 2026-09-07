@@ -125,10 +125,13 @@ RestartSec=10
 WantedBy=default.target
 EOF
 
-# D) Recargar systemd e iniciar el agente
-systemctl --user daemon-reload
-systemctl --user enable integriti.service
-systemctl --user start integriti.service
+# D) Recargar systemd e iniciar el agente (Adaptado para sudo)
+echo "[*] Iniciando el servicio en la sesión del usuario..."
+USER_UID=$(id -u $USUARIO_REAL)
+
+sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user daemon-reload
+sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user enable integriti.service
+sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user start integriti.service
 
 echo "[OK] Instalación completada. Agente corriendo en segundo plano."
 
