@@ -120,7 +120,6 @@ mkdir -p "$AUTOSTART_DIR"
 cat << EOF > "$AUTOSTART_DIR/agente_telemetria.desktop"
 [Desktop Entry]
 Type=Application
-Exec=sh -c "sleep 2 && xhost +SI:localuser:root >/dev/null 2>&1; export DISPLAY=\${DISPLAY:-:0}; export XAUTHORITY=\${XAUTHORITY:-\$HOME/.Xauthority}; export SUDO_USER=$USUARIO_REAL; sudo -E $DIR_ACTUAL/ejecutar.sh"
 Exec=sh -c "sleep 3 && xhost +SI:localuser:root >/dev/null 2>&1; export DISPLAY=\${DISPLAY:-:0}; export XAUTHORITY=\${XAUTHORITY:-\$HOME/.Xauthority}; export SUDO_USER=$USUARIO_REAL; sudo -E $DIR_ACTUAL/ejecutar.sh"
 Terminal=false
 Hidden=false
