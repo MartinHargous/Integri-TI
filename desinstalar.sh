@@ -62,7 +62,7 @@ fi
 echo "[*] Eliminando archivos inyectados..."
 if [ -d "$DIR_GLOBAL" ]; then
     sudo rm -rf "$DIR_GLOBAL"
-    echo "[OK] Carpeta $DIR_GLOBAL y sitecustomize eliminados."
+    echo "[OK] Carpeta $DIR_GLOBAL y sitecustomize eliminados." 
 fi
 
 # 5. Limpiar los perfiles de terminal del alumno
