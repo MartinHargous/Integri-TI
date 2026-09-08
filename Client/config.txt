@@ -1,2 +1,0 @@
-sync_interval_seconds=15
-discovery_timeout_seconds=0
