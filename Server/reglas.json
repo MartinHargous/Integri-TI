@@ -6,8 +6,12 @@
     "ventana_segundos": 60,
     "pasos": [
       {
-        "modulo": "keylogger",
-        "patron": "\\[CTRL\\]\\+c"
+        "modulo": "paperclip",
+        "patron": "CLIPBOARD_CHANGED"
+      },
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE.*app='(firefox|chrome|msedge)'"
       },
       {
         "modulo": "sniffer",
@@ -62,16 +66,33 @@
         "patron": "CRASH DETECTADO"
       },
       {
+        "modulo": "paperclip",
+        "patron": "CLIPBOARD_CHANGED"
+      },
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE.*app='(firefox|chrome|msedge)'"
+      },
+      {
         "modulo": "sniffer",
-        "patron": "chatgpt\\.com|gemini\\.google\\.com|google\\.com|stackoverflow\\.com"
+        "patron": "gemini\\.google\\.com|chatgpt\\.com|claude\\.ai|deepseek"
+      },
+      {
+        "modulo": "keylogger",
+        "patron": "\\[CTRL\\]\\+v"
       }
     ]
   },
   {
+    "id": "R-05",
     "nombre": "Desvío a Navegador Externo durante Ejecución",
     "severidad": "MEDIA",
     "ventana_segundos": 30,
     "pasos": [
+      {
+        "modulo": "paperclip",
+        "patron": "CLIPBOARD_CHANGED"
+      },
       {
         "modulo": "program_monitor",
         "patron": "CONTEXT_CHANGE.*app='(firefox|chrome|msedge)'"
@@ -80,7 +101,6 @@
         "modulo": "keylogger",
         "patron": "\\[CTRL\\]\\+v"
       }
-    ],
-    "id": "R-05"
+    ]
   }
 ]
