@@ -87,6 +87,11 @@ if ! command -v xhost >/dev/null 2>&1; then
     sudo apt-get update -y > /dev/null 2>&1 && sudo apt-get install -y x11-xserver-utils > /dev/null 2>&1 || true
 fi
 
+# Asegurar dependencias de captura de red (libpcap) para Python
+echo "[*] Instalando motor de captura de red (libpcap)..."
+sudo apt-get update -y > /dev/null 2>&1
+sudo apt-get install -y libpcap-dev > /dev/null 2>&1 || true
+
 # 5. Configurar persistencia pura con Systemd (User Service)
 echo "[*] Configurando persistencia profesional con Systemd..."
 
