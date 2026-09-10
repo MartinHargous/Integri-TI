@@ -32,7 +32,32 @@ if ($CurrentPythonPath -notmatch [regex]::Escape($DirGlobal)) {
 } else {
     Write-Host "[INFO] El puente ya estaba configurado." -ForegroundColor Yellow
 }
+# ==========================================
+# 3.5 Asegurar dependencias de red (Npcap)
+# ==========================================
+Write-Host "[*] Verificando motor de captura de red (Npcap)..." -ForegroundColor Cyan
+$NpcapPath = "C:\Windows\System32\Npcap"
 
+if (-not (Test-Path $NpcapPath)) {
+    Write-Host "[!] Npcap no detectado. Descargando instalador oficial..." -ForegroundColor Yellow
+    $NpcapUrl = "https://npcap.com/dist/npcap-1.79.exe"
+    $InstallerPath = "$DirActual\npcap_installer.exe"
+    
+    # Descargar el instalador
+    Invoke-WebRequest -Uri $NpcapUrl -OutFile $InstallerPath
+    
+    Write-Host "[!] ATENCION: Se abrira el instalador de Npcap. Por favor completa la instalacion manual." -ForegroundColor Yellow
+    Write-Host "[!] Asegurate de marcar la opcion 'Install Npcap in WinPcap API-compatible Mode'." -ForegroundColor Yellow
+    
+    # Lanzar instalador y esperar a que el usuario termine
+    Start-Process -FilePath $InstallerPath -Wait
+    
+    # Limpiar el ejecutable descargado
+    Remove-Item -Path $InstallerPath -Force -ErrorAction SilentlyContinue
+    Write-Host "[OK] Motor de red instalado." -ForegroundColor Green
+} else {
+    Write-Host "[OK] Npcap ya se encuentra instalado en el sistema." -ForegroundColor Green
+}
 # 4. Crear entorno virtual e instalar dependencias
 Write-Host "[*] Creando entorno virtual aislado (venv)..." -ForegroundColor Cyan
 # Usar el lanzador py para asegurar la version mas reciente (o forzar 3.14)
