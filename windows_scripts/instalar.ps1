@@ -12,8 +12,10 @@ if (-not $isAdmin) {
 
 $UsuarioReal = $env:USERNAME
 $DirActual = (Get-Item $PSScriptRoot).Parent.FullName
+# OBLIGAMOS A LA TERMINAL A MOVERSE A LA CARPETA DEL PROYECTO
+Set-Location -Path $DirActual
 $DirGlobal = "$env:USERPROFILE\.telemetria_global"
-
+Start-Transcript -Path "$DirActual\install_log.txt" -Force
 # 2. Crear directorio seguro
 Write-Host "[*] Creando directorio seguro en: $DirGlobal" -ForegroundColor Cyan
 if (-not (Test-Path $DirGlobal)) {
@@ -38,13 +40,13 @@ py -3.14 -m venv venv
 
 if (Test-Path "requirements.txt") {
     Write-Host "[*] Instalando dependencias desde requirements.txt..." -ForegroundColor Cyan
-    & "$DirActual\venv\Scripts\python.exe" -m pip install --upgrade pip | Out-Null
-    & "$DirActual\venv\Scripts\pip.exe" install -r requirements.txt | Out-Null
+    & "$DirActual\venv\Scripts\python.exe" -m pip install --upgrade pip
+    & "$DirActual\venv\Scripts\pip.exe" install -r requirements.txt
     Write-Host "[OK] Dependencias instaladas." -ForegroundColor Green
 }
 
 # 5. Configurar persistencia (Equivalente a Systemd + Sudoers)
-Write-Host "[*] Configurando persistencia profesional (Programador de Tareas)..." -ForegroundColor Cyan
+Write-Host "[*] Configurando persistencia (Programador de Tareas)..." -ForegroundColor Cyan
 
 $TaskName = "Agente_IntegriTI_$UsuarioReal"
 $ScriptPython = "$DirActual\Client\client.py"
@@ -71,7 +73,7 @@ Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Pr
 
 # Iniciar la tarea inmediatamente
 Start-ScheduledTask -TaskName $TaskName
-
+Stop-Transcript
 Write-Host "[OK] Instalacion completada. Agente corriendo en segundo plano." -ForegroundColor Green
 Write-Host "=================================================="
 Write-Host " INSTALACION COMPLETADA CON EXITO."
