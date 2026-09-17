@@ -54,7 +54,7 @@ FLAG_FILE = {str(flag_path)!r}
 # Sólo secuestra los eventos si el gestor encendió la bandera
 if os.path.exists(FLAG_FILE):
     def _log_telemetry(msg):
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         try:
             msg_flat = str(msg).replace('\\r', '').replace('\\n', '\\\\n')
             with open(LOG_FILE, "a", encoding="utf-8") as log_file:
