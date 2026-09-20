@@ -123,7 +123,7 @@ class WindowsDirectoryWatcher(threading.Thread):
                 results = win32file.ReadDirectoryChangesW(
                     self.h_dir,
                     4096,
-                    True,  # Subárbol completo
+                    True,  # Subárbol completo recursivo
                     win32con.FILE_NOTIFY_CHANGE_FILE_NAME |
                     win32con.FILE_NOTIFY_CHANGE_DIR_NAME |
                     win32con.FILE_NOTIFY_CHANGE_LAST_WRITE |
@@ -472,26 +472,58 @@ class WindowsTransferWatcher(threading.Thread):
 
 
 # =====================================================================
-# VIGILANTES PARA LINUX (inotify)
+# VIGILANTES PARA LINUX (inotify, /proc y xdotool)
 # =====================================================================
 
 class LinuxInotifyWatcher(threading.Thread):
-    """Monitorea aperturas, accesos y escrituras en Linux usando el subsistema inotify del kernel."""
+    """Monitorea aperturas, accesos y escrituras en Linux recursivamente usando el subsistema inotify del kernel."""
     def __init__(self, watch_path, device_type, device_name):
         super().__init__(daemon=True)
-        self.watch_path = watch_path
+        self.watch_path = os.path.abspath(watch_path)
         self.device_type = device_type
         self.device_name = device_name
         self.running = True
         self.inotify_fd = None
+        self.wd_to_path = {}
+        self.libc = None
+
+    def _add_watch_single(self, path):
+        if not os.path.isdir(path):
+            return
+        try:
+            IN_ACCESS = 0x00000001
+            IN_MODIFY = 0x00000002
+            IN_CLOSE_WRITE = 0x00000008
+            IN_OPEN = 0x00000020
+            IN_CREATE = 0x00000100
+            IN_DELETE = 0x00000200
+            IN_MOVED_TO = 0x00000080
+            mask = IN_OPEN | IN_ACCESS | IN_CREATE | IN_MODIFY | IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO
+            wd = self.libc.inotify_add_watch(self.inotify_fd, path.encode('utf-8'), mask)
+            if wd >= 0:
+                self.wd_to_path[wd] = path
+        except Exception:
+            pass
+
+    def _add_watch_recursive(self, base_path):
+        count = 0
+        for root, dirs, files in os.walk(base_path):
+            if any(ignore in root for ignore in [".Trash", "$RECYCLE.BIN", ".git"]):
+                continue
+            self._add_watch_single(root)
+            count += 1
+        return count
 
     def run(self):
         try:
-            libc = ctypes.CDLL(ctypes.util.find_library("c"))
-            self.inotify_fd = libc.inotify_init1(0)
+            self.libc = ctypes.CDLL(ctypes.util.find_library("c"))
+            self.inotify_fd = self.libc.inotify_init1(0)
             if self.inotify_fd < 0:
                 print(f"[ERROR] No se pudo iniciar inotify en Linux", flush=True)
                 return
+
+            total_dirs = self._add_watch_recursive(self.watch_path)
+            print(f"    [*] Vigilante inotify recursivo activo en {total_dirs} carpetas de: {self.watch_path}", flush=True)
 
             IN_ACCESS = 0x00000001
             IN_MODIFY = 0x00000002
@@ -500,16 +532,9 @@ class LinuxInotifyWatcher(threading.Thread):
             IN_CREATE = 0x00000100
             IN_DELETE = 0x00000200
             IN_MOVED_TO = 0x00000080
+            IN_ISDIR = 0x40000000
 
-            mask = IN_OPEN | IN_ACCESS | IN_CREATE | IN_CLOSE_WRITE | IN_DELETE | IN_MOVED_TO
-            wd = libc.inotify_add_watch(self.inotify_fd, self.watch_path.encode('utf-8'), mask)
-            if wd < 0:
-                print(f"[ERROR] No se pudo agregar reloj inotify a: {self.watch_path}", flush=True)
-                return
-
-            print(f"    [*] Vigilante inotify activo en: {self.watch_path}", flush=True)
-            
-            buf_size = 4096
+            buf_size = 8192
             while self.running:
                 buf = os.read(self.inotify_fd, buf_size)
                 if not buf:
@@ -525,15 +550,31 @@ class LinuxInotifyWatcher(threading.Thread):
                     if not filename:
                         continue
 
+                    # Ignorar archivos temporales y basura
+                    if filename.startswith('.') or filename.endswith('.tmp'):
+                        continue
+
+                    dir_path = self.wd_to_path.get(wd, self.watch_path)
+                    full_path = os.path.join(dir_path, filename)
+
+                    # Si se crea o mueve un subdirectorio nuevo, agregarlo recursivamente a inotify
+                    if (ev_mask & IN_ISDIR) and (ev_mask & (IN_CREATE | IN_MOVED_TO)):
+                        self._add_watch_recursive(full_path)
+                        continue
+
+                    if ev_mask & IN_ISDIR:
+                        continue
+
                     action = "ACCESO"
                     if ev_mask & IN_OPEN or ev_mask & IN_ACCESS:
                         action = "LECTURA / ARCHIVO ABIERTO"
-                    elif ev_mask & IN_CREATE or ev_mask & IN_MOVED_TO or ev_mask & IN_CLOSE_WRITE:
+                    elif ev_mask & IN_CREATE or ev_mask & IN_MOVED_TO:
                         action = "ARCHIVO CREADO / COPIADO"
+                    elif ev_mask & IN_CLOSE_WRITE or ev_mask & IN_MODIFY:
+                        action = "ARCHIVO MODIFICADO / GUARDADO"
                     elif ev_mask & IN_DELETE:
                         action = "ARCHIVO ELIMINADO"
 
-                    full_path = os.path.join(self.watch_path, filename)
                     log_integrity_alert(
                         device_type=self.device_type,
                         device_name=self.device_name,
@@ -553,68 +594,144 @@ class LinuxInotifyWatcher(threading.Thread):
                 pass
 
 
-# =====================================================================
-# GESTIÓN DE DISPOSITIVOS Y ASIGNACIÓN DE VIGILANTES
-# =====================================================================
+class LinuxOpenHandleWatcher(threading.Thread):
+    """Inspecciona procesos en Linux para detectar cuando un archivo del USB es abierto por una aplicación."""
+    def __init__(self, mount_path, device_name):
+        super().__init__(daemon=True)
+        self.mount_path = os.path.abspath(mount_path)
+        self.device_name = device_name
+        self.running = True
 
-def start_watchers_for_device(dev_key, dev_type, dev_name, target_path=None):
-    """Inicia los observadores correspondientes según el tipo de dispositivo y sistema operativo."""
-    with watchers_lock:
-        if dev_key in active_watchers:
+    def run(self):
+        COMMON_LINUX_APPS = {
+            'evince', 'libreoffice', 'soffice.bin', 'gedit', 'kate', 'kwrite',
+            'vlc', 'mpv', 'totem', 'eog', 'gthumb', 'gimp', 'chrome', 'firefox',
+            'code', 'python', 'python3', 'bash', 'sh', 'nautilus', 'thunar', 'dolphin',
+            'okular', 'xreader', 'xplayer', 'featherpad', 'mousepad', 'viewnior'
+        }
+
+        while self.running:
+            try:
+                for p in psutil.process_iter(['name', 'pid']):
+                    try:
+                        pname = p.info['name']
+                        if not pname or pname.lower() not in COMMON_LINUX_APPS:
+                            continue
+                        for f in p.open_files():
+                            if f.path.startswith(self.mount_path):
+                                if any(ignore in f.path for ignore in [".Trash", "$RECYCLE", ".git"]):
+                                    continue
+                                log_integrity_alert(
+                                    device_type="Pendrive/Disco USB",
+                                    device_name=self.device_name,
+                                    file_path=f.path,
+                                    action="LECTURA / ARCHIVO ABIERTO",
+                                    process_info=f"{pname} (PID: {p.info['pid']})"
+                                )
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        continue
+            except Exception:
+                pass
+            time.sleep(1.0)
+
+    def stop(self):
+        self.running = False
+
+
+class LinuxActiveWindowWatcher(threading.Thread):
+    """Monitorea la ventana activa en Linux (X11 / Wayland) para detectar documentos o imágenes abiertas en pantalla."""
+    def __init__(self, device_name, device_type):
+        super().__init__(daemon=True)
+        self.device_name = device_name
+        self.device_type = device_type
+        self.running = True
+
+    def run(self):
+        import shutil
+        has_xdotool = shutil.which("xdotool") is not None
+        if not has_xdotool:
             return
 
-        watchers = []
-        if dev_type == 'pendrive':
-            if sys.platform.startswith('win') and target_path:
-                print(f"[+] Activando vigilancia On-Access para Pendrive: {target_path} ({dev_name})", flush=True)
-                w1 = WindowsDirectoryWatcher(target_path, dev_name)
-                w2 = WindowsOpenHandleWatcher(target_path, dev_name)
-                w3 = WindowsForegroundWindowWatcher(dev_name, "Pendrive/Disco USB")
-                w1.start()
-                w2.start()
-                w3.start()
-                watchers.extend([w1, w2, w3])
-            elif sys.platform.startswith('linux') and target_path:
-                print(f"[+] Activando vigilancia inotify para Pendrive: {target_path} ({dev_name})", flush=True)
-                w = LinuxInotifyWatcher(target_path, "Pendrive/Disco USB", dev_name)
-                w.start()
-                watchers.append(w)
+        last_title = ""
+        while self.running:
+            try:
+                out = subprocess.check_output(["xdotool", "getactivewindow", "getwindowname"], stderr=subprocess.DEVNULL)
+                title = out.decode('utf-8', errors='ignore').strip()
+                if title and title != last_title:
+                    last_title = title
+                    m = FILE_TITLE_REGEX.search(title)
+                    if m:
+                        filename = m.group(1).strip()
+                        if "usb_detection" in filename.lower():
+                            continue
+                        log_integrity_alert(
+                            device_type=self.device_type,
+                            device_name=self.device_name,
+                            file_path=filename,
+                            action="LECTURA / ARCHIVO VISUALIZADO EN PANTALLA",
+                            process_info=f"Ventana Linux: {title}"
+                        )
+            except Exception:
+                pass
+            time.sleep(0.8)
 
-        elif dev_type == 'smartphone':
-            if sys.platform.startswith('win'):
-                print(f"[+] Activando vigilancia On-Access para Smartphone MTP: {dev_name}", flush=True)
-                print(f"    - Vigilante 1: Explorador de Archivos (Shell COM)", flush=True)
-                print(f"    - Vigilante 2: Ventana en Primer Plano (Fotos, Lectores PDF, Documentos)", flush=True)
-                print(f"    - Vigilante 3: Extracción y Copia (Escritorio, Descargas y Caché)", flush=True)
-                w1 = WindowsShellExplorerWatcher(dev_name)
-                w2 = WindowsForegroundWindowWatcher(dev_name, "Smartphone MTP")
-                w3 = WindowsTransferWatcher(dev_name)
-                w1.start()
-                w2.start()
-                w3.start()
-                watchers.extend([w1, w2, w3])
-            elif sys.platform.startswith('linux'):
-                gvfs_path = find_linux_mtp_mount()
-                if gvfs_path:
-                    print(f"[+] Activando vigilancia inotify para Smartphone MTP en: {gvfs_path}", flush=True)
-                    w = LinuxInotifyWatcher(gvfs_path, "Smartphone MTP", dev_name)
-                    w.start()
-                    watchers.append(w)
-
-        active_watchers[dev_key] = watchers
+    def stop(self):
+        self.running = False
 
 
-def stop_watchers_for_device(dev_key):
-    """Detiene y remueve los vigilantes asociados a un dispositivo desconectado."""
-    with watchers_lock:
-        if dev_key in active_watchers:
-            print(f"[-] Deteniendo vigilancia para dispositivo: {dev_key}", flush=True)
-            for w in active_watchers[dev_key]:
-                try:
-                    w.stop()
-                except Exception:
-                    pass
-            del active_watchers[dev_key]
+# =====================================================================
+# GESTIÓN DE PUNTOS DE MONTAJE Y ASIGNACIÓN DE VIGILANTES
+# =====================================================================
+
+def get_linux_mount_points():
+    """Retorna un conjunto con todos los puntos de montaje actuales en Linux."""
+    mounts = set()
+    if os.path.exists('/proc/mounts'):
+        try:
+            with open('/proc/mounts', 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    parts = line.strip().split()
+                    if len(parts) >= 2:
+                        mounts.add(parts[1])
+        except Exception:
+            pass
+    try:
+        for p in psutil.disk_partitions(all=True):
+            mounts.add(p.mountpoint)
+    except Exception:
+        pass
+    return mounts
+
+
+def find_linux_usb_mount(initial_mounts=None, timeout=3.5):
+    """Busca el punto de montaje real de una unidad USB en Linux (/media/user/..., /run/media/user/..., /mnt/...)."""
+    start_time = time.time()
+    valid_prefixes = ('/media/', '/run/media/', '/mnt/')
+
+    while time.time() - start_time < timeout:
+        current_mounts = get_linux_mount_points()
+        if initial_mounts is not None:
+            # 1. Buscar puntos de montaje nuevos que no estaban antes
+            new_mounts = [m for m in current_mounts if m not in initial_mounts and m.startswith(valid_prefixes)]
+            if new_mounts:
+                # Filtrar para evitar directorios intermedios (ej: /media/usuario)
+                candidate_mounts = [
+                    m for m in new_mounts
+                    if len([p for p in m.split('/') if p]) >= 3 or m.startswith('/mnt/')
+                ]
+                if candidate_mounts:
+                    return max(candidate_mounts, key=len)
+                return max(new_mounts, key=len)
+
+        # 2. Si no hay lista previa o no se detectó cambio, buscar montajes existentes de USB
+        for m in sorted(current_mounts, key=len, reverse=True):
+            if m.startswith(valid_prefixes):
+                parts = [p for p in m.split('/') if p]
+                if len(parts) >= 3 or m.startswith('/mnt/'):
+                    return m
+
+        time.sleep(0.3)
+    return None
 
 
 def find_linux_mtp_mount():
@@ -654,6 +771,80 @@ def get_windows_mtp_device():
     return None
 
 
+def start_watchers_for_device(dev_key, dev_type, dev_name, target_path=None):
+    """Inicia los observadores correspondientes según el tipo de dispositivo y sistema operativo."""
+    with watchers_lock:
+        if dev_key in active_watchers:
+            return
+
+        watchers = []
+        if dev_type == 'pendrive':
+            if sys.platform.startswith('win') and target_path:
+                print(f"[+] Activando vigilancia On-Access para Pendrive: {target_path} ({dev_name})", flush=True)
+                w1 = WindowsDirectoryWatcher(target_path, dev_name)
+                w2 = WindowsOpenHandleWatcher(target_path, dev_name)
+                w3 = WindowsForegroundWindowWatcher(dev_name, "Pendrive/Disco USB")
+                w1.start()
+                w2.start()
+                w3.start()
+                watchers.extend([w1, w2, w3])
+            elif sys.platform.startswith('linux') and target_path:
+                print(f"[+] Activando vigilancia On-Access para Pendrive en Linux: {target_path} ({dev_name})", flush=True)
+                print(f"    - Vigilante 1: Kernel inotify (Recursivo)", flush=True)
+                print(f"    - Vigilante 2: Manejadores de Procesos (/proc/<pid>/fd)", flush=True)
+                print(f"    - Vigilante 3: Ventana Activa (xdotool)", flush=True)
+                w1 = LinuxInotifyWatcher(target_path, "Pendrive/Disco USB", dev_name)
+                w2 = LinuxOpenHandleWatcher(target_path, dev_name)
+                w3 = LinuxActiveWindowWatcher(dev_name, "Pendrive/Disco USB")
+                w1.start()
+                w2.start()
+                w3.start()
+                watchers.extend([w1, w2, w3])
+
+        elif dev_type == 'smartphone':
+            if sys.platform.startswith('win'):
+                print(f"[+] Activando vigilancia On-Access para Smartphone MTP: {dev_name}", flush=True)
+                print(f"    - Vigilante 1: Explorador de Archivos (Shell COM)", flush=True)
+                print(f"    - Vigilante 2: Ventana en Primer Plano (Fotos, Lectores PDF, Documentos)", flush=True)
+                print(f"    - Vigilante 3: Extracción y Copia (Escritorio, Descargas y Caché)", flush=True)
+                w1 = WindowsShellExplorerWatcher(dev_name)
+                w2 = WindowsForegroundWindowWatcher(dev_name, "Smartphone MTP")
+                w3 = WindowsTransferWatcher(dev_name)
+                w1.start()
+                w2.start()
+                w3.start()
+                watchers.extend([w1, w2, w3])
+            elif sys.platform.startswith('linux'):
+                gvfs_path = find_linux_mtp_mount()
+                if gvfs_path:
+                    print(f"[+] Activando vigilancia para Smartphone MTP en Linux: {gvfs_path} ({dev_name})", flush=True)
+                    print(f"    - Vigilante 1: Kernel inotify (Recursivo)", flush=True)
+                    print(f"    - Vigilante 2: Manejadores de Procesos (/proc/<pid>/fd)", flush=True)
+                    print(f"    - Vigilante 3: Ventana Activa (xdotool)", flush=True)
+                    w1 = LinuxInotifyWatcher(gvfs_path, "Smartphone MTP", dev_name)
+                    w2 = LinuxOpenHandleWatcher(gvfs_path, dev_name)
+                    w3 = LinuxActiveWindowWatcher(dev_name, "Smartphone MTP")
+                    w1.start()
+                    w2.start()
+                    w3.start()
+                    watchers.extend([w1, w2, w3])
+
+        active_watchers[dev_key] = watchers
+
+
+def stop_watchers_for_device(dev_key):
+    """Detiene y remueve los vigilantes asociados a un dispositivo desconectado."""
+    with watchers_lock:
+        if dev_key in active_watchers:
+            print(f"[-] Deteniendo vigilancia para dispositivo: {dev_key}", flush=True)
+            for w in active_watchers[dev_key]:
+                try:
+                    w.stop()
+                except Exception:
+                    pass
+            del active_watchers[dev_key]
+
+
 def process_debounced_event(hardware_signature, event_type, device_info):
     """Procesa la conexión o desconexión física de un dispositivo USB."""
     vid, pid = hardware_signature
@@ -680,19 +871,18 @@ def process_debounced_event(hardware_signature, event_type, device_info):
             if gvfs_mtp:
                 start_watchers_for_device(dev_key, 'smartphone', name, gvfs_mtp)
             else:
-                # 2. Buscar punto de montaje en /media o /mnt
-                base_paths = ['/media', '/mnt', f'/run/media/{os.environ.get("USER", "")}']
-                mount_point = None
-                for base in base_paths:
-                    if os.path.exists(base):
-                        for root, dirs, files in os.walk(base):
-                            if root != base:
-                                mount_point = root
-                                break
-                    if mount_point:
-                        break
+                # 2. Buscar punto de montaje real de Pendrive en Linux
+                initial_m = device_info.get('initial_mounts')
+                mount_point = find_linux_usb_mount(initial_mounts=initial_m, timeout=4.0)
                 if mount_point:
                     start_watchers_for_device(dev_key, 'pendrive', name, mount_point)
+                else:
+                    print(f"[AVISO] USB conectado ({name}), esperando montaje en el sistema...", flush=True)
+                    def _wait_late_mount():
+                        late_m = find_linux_usb_mount(timeout=15.0)
+                        if late_m:
+                            start_watchers_for_device(dev_key, 'pendrive', name, late_m)
+                    threading.Thread(target=_wait_late_mount, daemon=True).start()
 
     elif event_type == 'disconnect':
         print(f"\n[-] USB FÍSICO DESCONECTADO -> VID: {vid} | PID: {pid}", flush=True)
@@ -708,6 +898,10 @@ def route_event(device_info, event_type):
     pid = device_info.get('ID_MODEL_ID')
     if not vid or not pid:
         return
+
+    # En Linux, registrar montajes antes de que el pendrive termine de montarse
+    if sys.platform.startswith('linux') and event_type == 'connect':
+        device_info['initial_mounts'] = get_linux_mount_points()
 
     hardware_signature = (vid, pid)
     if hardware_signature in active_events:
@@ -743,6 +937,16 @@ def check_existing_devices():
         if gvfs_path:
             print(f"[*] Smartphone MTP ya conectado en: {gvfs_path}", flush=True)
             start_watchers_for_device("initial_smartphone", 'smartphone', "Smartphone MTP", gvfs_path)
+
+        # 2. Revisar pendrives ya montados en el sistema
+        current_mounts = get_linux_mount_points()
+        for m in current_mounts:
+            if m.startswith(('/media/', '/run/media/', '/mnt/')):
+                parts = [p for p in m.split('/') if p]
+                if len(parts) >= 3 or m.startswith('/mnt/'):
+                    label = os.path.basename(m)
+                    print(f"[*] Pendrive ya conectado detectado en: {m} ({label})", flush=True)
+                    start_watchers_for_device(f"initial_pendrive_{m}", 'pendrive', f"Pendrive ({label})", m)
 
 
 def main():
