@@ -30,6 +30,32 @@
   <!-- Marked.js para renderizar Markdown -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="/static/css/styles.css">
+  <style>
+    @keyframes pulseInfraction {
+      0% { background-color: rgba(239, 68, 68, 0.5); transform: scale(1.002); }
+      50% { background-color: rgba(239, 68, 68, 0.2); }
+      100% { background-color: rgba(239, 68, 68, 0.45); }
+    }
+    @keyframes pulseAntecedent {
+      0% { background-color: rgba(245, 158, 11, 0.45); }
+      50% { background-color: rgba(245, 158, 11, 0.15); }
+      100% { background-color: rgba(245, 158, 11, 0.35); }
+    }
+    .linea-alerta-destacada {
+      animation: pulseInfraction 1.5s ease-in-out infinite alternate !important;
+      outline: 1px solid #ef4444 !important;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+      z-index: 10;
+      position: relative;
+    }
+    .linea-paso-previo-destacada {
+      animation: pulseAntecedent 1.5s ease-in-out infinite alternate !important;
+      outline: 1px dashed #f59e0b !important;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+      z-index: 9;
+      position: relative;
+    }
+  </style>
 </head>
 <body class="min-h-full flex flex-col antialiased text-sm">
   <!-- BARRA DE NAVEGACIÓN SUPERIOR SOBRIA -->
@@ -680,13 +706,14 @@
         const ts = (a.timestamp || '').replace('T', ' ');
         const lineas = a.lineas_afectadas || [];
         const rangoLineas = lineas.length > 0 
-          ? (lineas.length === 1 ? `Línea ${lineas[0]}` : `Líneas ${lineas[0]} - ${lineas[lineas.length - 1]}`)
+          ? (lineas.length === 1 ? `Línea ${lineas[0]}` : `Líneas ${lineas[0]} &rarr; ${lineas[lineas.length - 1]}`)
           : 'En flujo continuo';
 
-        const lineaInicio = a.linea_inicio || (lineas.length > 0 ? lineas[0] : 0);
+        const lineaFin = a.linea_fin || (lineas.length > 0 ? lineas[lineas.length - 1] : 0);
+        const lineasParam = JSON.stringify(lineas);
 
         html += `
-        <div onclick="irALineaLog(${lineaInicio})" class="p-2.5 rounded-lg bg-[#0b0f19] border border-[#1f2937] hover:border-slate-600 cursor-pointer transition-all flex flex-col gap-1.5 group">
+        <div onclick='irALineaLog(${lineaFin}, ${lineasParam})' class="p-2.5 rounded-lg bg-[#0b0f19] border border-[#1f2937] hover:border-slate-600 cursor-pointer transition-all flex flex-col gap-1.5 group">
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-1.5">
               <span class="px-1.5 py-0.2 rounded text-[9px] uppercase font-bold border ${badgeColor}">${niv}</span>
@@ -706,8 +733,8 @@
               </svg>
               ${rangoLineas}
             </span>
-            <span class="text-slate-500 group-hover:text-slate-300 flex items-center gap-0.5 transition-colors">
-              Ver en Log &rarr;
+            <span class="text-slate-500 group-hover:text-slate-300 flex items-center gap-0.5 transition-colors font-medium">
+              Ver infracción &rarr;
             </span>
           </div>
         </div>`;
@@ -753,13 +780,20 @@
       let html = '';
       lineas.forEach(l => {
         const esAlerta = l.es_alerta;
-        const rowClass = esAlerta 
-          ? 'bg-red-950/20 border-l-2 border-red-500 hover:bg-red-950/30' 
-          : 'hover:bg-[#141d2e]/40 border-l-2 border-transparent';
-
-        const alertBadge = esAlerta 
-          ? `<span class="px-1 py-0.2 rounded text-[9px] uppercase font-bold bg-red-900/60 text-red-200 border border-red-700 shrink-0 ml-1">ALERTA ${(l.alerta_tags || []).join(', ')}</span>`
-          : '';
+        const esDisparo = l.es_disparo;
+        
+        let rowClass = 'hover:bg-[#141d2e]/40 border-l-2 border-transparent';
+        let alertBadge = '';
+        
+        if (esAlerta) {
+          if (esDisparo) {
+            rowClass = 'bg-red-950/25 border-l-2 border-red-500 hover:bg-red-950/40';
+            alertBadge = `<span class="px-1.5 py-0.2 rounded text-[9px] uppercase font-bold bg-red-900/80 text-red-100 border border-red-600 shrink-0 ml-1 shadow-sm">INFRACCIÓN ${(l.alerta_tags || []).join(', ')}</span>`;
+          } else {
+            rowClass = 'bg-amber-950/20 border-l-2 border-amber-500 hover:bg-amber-950/35';
+            alertBadge = `<span class="px-1.5 py-0.2 rounded text-[9px] uppercase font-bold bg-amber-900/60 text-amber-200 border border-amber-700 shrink-0 ml-1">PASO PREVIO ${(l.alerta_tags || []).join(', ')}</span>`;
+          }
+        }
 
         let modBadgeClass = 'text-slate-400 bg-slate-800/60';
         if (l.modulo_key === 'sniffer') modBadgeClass = 'text-blue-300 bg-blue-950/60';
@@ -767,6 +801,7 @@
         else if (l.modulo_key === 'paperclip') modBadgeClass = 'text-purple-300 bg-purple-950/60';
         else if (l.modulo_key === 'program_monitor') modBadgeClass = 'text-emerald-300 bg-emerald-950/60';
         else if (l.modulo_key === 'error_detection') modBadgeClass = 'text-rose-300 bg-rose-950/60';
+        else if (l.modulo_key === 'usb_detection') modBadgeClass = 'text-cyan-300 bg-cyan-950/60 border border-cyan-800/60';
 
         html += `
         <div id="log-linea-${l.numero}" class="flex items-baseline py-1 px-1.5 transition-colors gap-2 ${rowClass}">
@@ -799,43 +834,87 @@
       }
     }
 
-    function irALineaLog(numeroLinea) {
+    let timerResaltado = null;
+
+    function irALineaLog(numeroLinea, lineasAfectadas) {
       if (!numeroLinea) return;
+
+      const af = (Array.isArray(lineasAfectadas) && lineasAfectadas.length > 0) 
+        ? lineasAfectadas 
+        : [numeroLinea];
+
+      let requiereReaplicar = false;
 
       const chk = document.getElementById('chk-solo-alertas');
       if (chk && chk.checked) {
         chk.checked = false;
-        aplicarFiltrosLog();
+        requiereReaplicar = true;
       }
 
       const inpFiltro = document.getElementById('filtro-texto-log');
       if (inpFiltro && inpFiltro.value) {
         inpFiltro.value = '';
+        requiereReaplicar = true;
+      }
+
+      const selModulo = document.getElementById('filtro-modulo-log');
+      if (selModulo && selModulo.value !== 'TODOS') {
+        selModulo.value = 'TODOS';
+        requiereReaplicar = true;
+      }
+
+      if (requiereReaplicar) {
         aplicarFiltrosLog();
       }
 
       setTimeout(() => {
-        const el = document.getElementById(`log-linea-${numeroLinea}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          el.classList.add('linea-alerta-destacada');
-          setTimeout(() => el.classList.remove('linea-alerta-destacada'), 3000);
+        // Limpiar cualquier resaltado anterior
+        document.querySelectorAll('.linea-alerta-destacada, .linea-paso-previo-destacada').forEach(el => {
+          el.classList.remove('linea-alerta-destacada', 'linea-paso-previo-destacada');
+        });
+
+        // Aplicar estilos a todas las líneas de la secuencia
+        af.forEach(num => {
+          const el = document.getElementById(`log-linea-${num}`);
+          if (el) {
+            if (num === numeroLinea) {
+              el.classList.add('linea-alerta-destacada');
+            } else {
+              el.classList.add('linea-paso-previo-destacada');
+            }
+          }
+        });
+
+        // Hacer scroll suave hacia la línea de infracción principal
+        const targetEl = document.getElementById(`log-linea-${numeroLinea}`);
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      }, 50);
+
+        if (timerResaltado) clearTimeout(timerResaltado);
+        timerResaltado = setTimeout(() => {
+          document.querySelectorAll('.linea-alerta-destacada, .linea-paso-previo-destacada').forEach(el => {
+            el.classList.remove('linea-alerta-destacada', 'linea-paso-previo-destacada');
+          });
+        }, 5000);
+      }, 60);
     }
 
     function navegarAlerta(direccion) {
-      if (!lineasConAlertaIndices || lineasConAlertaIndices.length === 0) return;
+      if (!alertasFiltradas || alertasFiltradas.length === 0) return;
 
       indiceAlertaActiva += direccion;
-      if (indiceAlertaActiva < 0) indiceAlertaActiva = lineasConAlertaIndices.length - 1;
-      if (indiceAlertaActiva >= lineasConAlertaIndices.length) indiceAlertaActiva = 0;
+      if (indiceAlertaActiva < 0) indiceAlertaActiva = alertasFiltradas.length - 1;
+      if (indiceAlertaActiva >= alertasFiltradas.length) indiceAlertaActiva = 0;
 
-      const numLinea = lineasConAlertaIndices[indiceAlertaActiva];
-      irALineaLog(numLinea);
+      const alerta = alertasFiltradas[indiceAlertaActiva];
+      const lineas = alerta.lineas_afectadas || [];
+      const lineaFin = alerta.linea_fin || (lineas.length > 0 ? lineas[lineas.length - 1] : 0);
+      
+      irALineaLog(lineaFin, lineas);
 
       const ind = document.getElementById('indicador-nav-alerta');
-      if (ind) ind.textContent = `${indiceAlertaActiva + 1}/${lineasConAlertaIndices.length}`;
+      if (ind) ind.textContent = `${indiceAlertaActiva + 1}/${alertasFiltradas.length}`;
     }
 
     function descargarLogCrudo() {

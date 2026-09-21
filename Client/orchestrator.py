@@ -24,6 +24,7 @@ from modules.paperclip.paperclip import Paperclip
 from modules.program_monitor.program_monitor import ProgramMonitor
 from modules.sniffer.sniffer import Sniffer
 from modules.svm_keystroke_dym.svm_keystroke import KeystrokeSVM
+from modules.usb_detection.usb_detection import USBDetection
 import threading
 import ctypes
 import re
@@ -36,6 +37,7 @@ class Orchestrator:
         self.program_monitor = ProgramMonitor()
         self.sniffer = Sniffer()
         self.keystroke_svm = KeystrokeSVM()
+        self.usb_detection = USBDetection()
         self.os_type = sys.platform
         self.request_admin_if_needed()
         self.is_admin = True
@@ -110,6 +112,13 @@ class Orchestrator:
         keystroke_svm_thread = threading.Thread(target=self.keystroke_svm.start, daemon=True)
         keystroke_svm_thread.start()
 
+    def start_usb_detection(self):
+        usb_thread = threading.Thread(target=self.usb_detection.start, daemon=True)
+        usb_thread.start()
+
+    def stop_usb_detection(self):
+        self.usb_detection.stop()
+
     def start_all(self):
         self.start_error_detection()
         self.start_keylogger()
@@ -117,6 +126,7 @@ class Orchestrator:
         self.start_program_monitor()
         self.start_sniffer()
         self.start_keystroke_svm()
+        self.start_usb_detection()
 
     def stop_all(self):
         self.error_detection.stop_monitor()
@@ -125,6 +135,7 @@ class Orchestrator:
         self.program_monitor.stop()
         self.sniffer.stop_sniffing()
         self.keystroke_svm.stop()
+        self.usb_detection.stop()
 
     def reset(self):
         try:
@@ -138,6 +149,7 @@ class Orchestrator:
         self.program_monitor = ProgramMonitor()
         self.sniffer = Sniffer()
         self.keystroke_svm = KeystrokeSVM()
+        self.usb_detection = USBDetection()
     def restart_module(self, module_name):
             import time
             print(f"\n[*] Reiniciando módulo '{module_name}' para aplicar cambios...")
@@ -178,6 +190,12 @@ class Orchestrator:
                 self.program_monitor = ProgramMonitor()
                 self.start_program_monitor()
 
+            elif module_name == "usb_detection":
+                self.usb_detection.stop()
+                time.sleep(1)
+                self.usb_detection = USBDetection()
+                self.start_usb_detection()
+
             else:
                 print(f"[ERROR] Módulo '{module_name}' no válido.")
                 return
@@ -191,7 +209,8 @@ class Orchestrator:
             "keystroke_svm": self.keystroke_svm,
             "keylogger": self.keylogger,
             "paperclip": self.paperclip,
-            "program_monitor": self.program_monitor
+            "program_monitor": self.program_monitor,
+            "usb_detection": self.usb_detection
         }
         
         if module_name not in module_map:
@@ -234,7 +253,8 @@ class Orchestrator:
             "keystroke_svm": self.keystroke_svm,
             "keylogger": self.keylogger,
             "paperclip": self.paperclip,
-            "program_monitor": self.program_monitor
+            "program_monitor": self.program_monitor,
+            "usb_detection": self.usb_detection
         }
         
         if module_name not in module_map:
@@ -251,7 +271,8 @@ class Orchestrator:
             self.paperclip.log_path,
             self.program_monitor.log_path,
             self.sniffer.log_path,
-            self.keystroke_svm.log_path
+            self.keystroke_svm.log_path,
+            self.usb_detection.log_path
         ]
 
         timestamp_re = re.compile(r"^\[(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2})\]\s*(.*)$")
@@ -285,7 +306,8 @@ class Orchestrator:
             self.paperclip.log_path,
             self.program_monitor.log_path,
             self.sniffer.log_path,
-            self.keystroke_svm.log_path
+            self.keystroke_svm.log_path,
+            self.usb_detection.log_path
         ]
 
         for log_file in log_files:

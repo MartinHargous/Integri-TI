@@ -12,7 +12,7 @@ tldextract
 uvicorn
 python-multipart
 scikit-learn
-usbmonitor
+usb-monitor
 
 # Windows-only active-window support
 pywin32; sys_platform == "win32"

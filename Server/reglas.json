@@ -102,5 +102,33 @@
         "patron": "\\[CTRL\\]\\+v"
       }
     ]
+  },
+  {
+    "id": "R-06",
+    "nombre": "Acceso a Dispositivo USB o Celular",
+    "severidad": "CRÍTICA",
+    "ventana_segundos": 60,
+    "pasos": [
+      {
+        "modulo": "usb_detection",
+        "patron": "ALERTA_USB"
+      }
+    ]
+  },
+  {
+    "id": "R-07",
+    "nombre": "Copia de Archivo desde USB y Pegado de Código",
+    "severidad": "CRÍTICA",
+    "ventana_segundos": 60,
+    "pasos": [
+      {
+        "modulo": "usb_detection",
+        "patron": "ALERTA_USB"
+      },
+      {
+        "modulo": "keylogger",
+        "patron": "\\[CTRL\\]\\+v"
+      }
+    ]
   }
 ]

@@ -66,6 +66,15 @@ class LogCorrelator:
                 {"modulo": "program_monitor", "patron": r"CONTEXT_CHANGE.*app='(firefox|chrome|msedge)\.exe'"},
                 {"modulo": "keylogger", "patron": r"\[CTRL\]\+v"}
             ]
+        },
+        {
+            "id": "R-06",
+            "nombre": "Acceso a Dispositivo USB o Celular",
+            "severidad": "CRÍTICA",
+            "ventana_segundos": 60,
+            "pasos": [
+                {"modulo": "usb_detection", "patron": r"ALERTA_USB"}
+            ]
         }
     ]
 
@@ -83,6 +92,9 @@ class LogCorrelator:
 
         # Buffer en memoria por cliente: { client_id: list of parsed events }
         self.historial_eventos_por_cliente: Dict[str, List[Dict[str, Any]]] = {}
+
+        # Contador de líneas acumuladas por cliente para correlación precisa de números de línea
+        self.total_lineas_por_cliente: Dict[str, int] = {}
 
         # Registro de último disparo para evitar duplicar alertas sobre la misma secuencia:
         # { client_id: { regla_id: ultimo_timestamp_disparado } }
@@ -102,6 +114,8 @@ class LogCorrelator:
             return "keylogger"
         elif mod == "paperclip":
             return "paperclip"
+        elif mod in ("usb detection", "usb_detection", "usb"):
+            return "usb_detection"
         return mod
 
     def parsear_timestamp(self, ts_str: str) -> float:
@@ -288,21 +302,26 @@ class LogCorrelator:
         buscar_paso(0, 0, [])
         return alertas
 
-    def procesar_nuevos_eventos(self, client_id: str, lineas: List[str]) -> List[Dict[str, Any]]:
+    def procesar_nuevos_eventos(self, client_id: str, lineas: List[str], offset_lineas: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Parsea un lote de nuevas líneas recibidas para un cliente,
         las agrega al buffer y evalúa todas las reglas activas.
-        Retorna alertas generadas.
+        Retorna alertas generadas con números de línea exactos.
         """
         if client_id not in self.historial_eventos_por_cliente:
             self.historial_eventos_por_cliente[client_id] = []
         if client_id not in self.ultimo_disparo:
             self.ultimo_disparo[client_id] = {}
 
-        # Calcular número de línea aproximado
-        offset_lineas = len(self.historial_eventos_por_cliente[client_id])
+        if offset_lineas is not None:
+            inicio_offset = int(offset_lineas)
+            self.total_lineas_por_cliente[client_id] = inicio_offset + len(lineas)
+        else:
+            inicio_offset = self.total_lineas_por_cliente.get(client_id, 0)
+            self.total_lineas_por_cliente[client_id] = inicio_offset + len(lineas)
+
         nuevos = []
-        for idx, l in enumerate(lineas, start=offset_lineas + 1):
+        for idx, l in enumerate(lineas, start=inicio_offset + 1):
             ev = self.parsear_linea(l, numero_linea=idx, ignorar_heartbeats=True)
             if ev:
                 nuevos.append(ev)
@@ -371,6 +390,7 @@ class LogCorrelator:
 
         eventos.sort(key=lambda x: x["ts"])
         self.historial_eventos_por_cliente[client_id] = eventos
+        self.total_lineas_por_cliente[client_id] = len(lineas)
 
         if client_id not in self.ultimo_disparo:
             self.ultimo_disparo[client_id] = {}

@@ -1,0 +1,19 @@
+# =====================================================================
+# Configuración del Módulo de Detección USB y Celulares (Integri-TI)
+# =====================================================================
+
+enabled=true
+log_file=usb_detection.log
+
+# Intervalo de exportación periódica de logs en segundos (0 para desactivar)
+export_interval_seconds=60
+export_file=usb_export.log
+
+# Tiempo de enfriamiento (cooldown) en segundos para evitar alertas consecutivas duplicadas del mismo archivo
+cooldown_seconds=3.0
+
+# Intervalo de consulta al Explorador de Windows para celulares MTP (segundos)
+shell_poll_seconds=3.0
+
+# Extensiones de archivos vigiladas (separadas por coma)
+monitored_extensions=.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.txt,.rtf,.odt,.csv,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.raw,.mp4,.mkv,.avi,.mov,.mp3,.wav,.m4a,.aac,.zip,.rar,.7z,.tar,.gz,.py,.java,.c,.cpp,.cs,.html,.css,.js,.ts,.sql,.sh,.bat,.ps1

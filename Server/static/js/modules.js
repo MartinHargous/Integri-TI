@@ -13,7 +13,9 @@ const mapaCheckboxes = {
   'error_detection': 'toggle-error_detection',
   'paperclip': 'toggle-paperclip',
   'program monitor': 'toggle-program_monitor',
-  'program_monitor': 'toggle-program_monitor'
+  'program_monitor': 'toggle-program_monitor',
+  'usb_detection': 'toggle-usb_detection',
+  'usb detection': 'toggle-usb_detection'
 };
 
 const mapaSubtitulos = {
@@ -22,7 +24,9 @@ const mapaSubtitulos = {
   'keystrokes svm': 'sub-keystrokes_svm',
   'error_detection': 'sub-error_detection',
   'paperclip': 'sub-paperclip',
-  'program monitor': 'sub-program_monitor'
+  'program monitor': 'sub-program_monitor',
+  'usb_detection': 'sub-usb_detection',
+  'usb detection': 'sub-usb_detection'
 };
 
 async function cargarConfiguracionModulos() {

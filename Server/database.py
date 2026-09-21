@@ -51,33 +51,30 @@ def inicializar_db(ruta_json_defaults: Optional[str] = None, db_path: str = DB_P
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_insights_client ON insights (client_id)")
 
-        # 3. Verificar si la tabla de reglas está vacía para sembrarla desde el JSON por defecto
-        cursor.execute("SELECT COUNT(*) FROM reglas")
-        count_reglas = cursor.fetchone()[0]
-
-        if count_reglas == 0:
-            print(f"[*] Tabla 'reglas' vacía en SQLite. Cargando valores por defecto desde {ruta_json_defaults}...")
-            reglas_default = []
-            if os.path.exists(ruta_json_defaults):
-                try:
-                    with open(ruta_json_defaults, "r", encoding="utf-8") as f:
-                        reglas_default = json.load(f)
-                except Exception as e:
-                    print(f"[!] Error leyendo {ruta_json_defaults} para semillas: {e}")
-
-            if reglas_default:
+        # 3. Cargar o sincronizar reglas por defecto desde reglas.json
+        if os.path.exists(ruta_json_defaults):
+            try:
+                with open(ruta_json_defaults, "r", encoding="utf-8") as f:
+                    reglas_default = json.load(f)
+                nuevas = 0
                 for r in reglas_default:
                     r_id = r.get("id")
-                    nombre = r.get("nombre", "Regla")
-                    severidad = r.get("severidad", "MEDIA")
-                    ventana = int(r.get("ventana_segundos", 30))
-                    pasos_json = json.dumps(r.get("pasos", []), ensure_ascii=False)
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO reglas (id, nombre, severidad, ventana_segundos, pasos)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (r_id, nombre, severidad, ventana, pasos_json))
+                    cursor.execute("SELECT id FROM reglas WHERE id = ?", (r_id,))
+                    if not cursor.fetchone():
+                        nombre = r.get("nombre", "Regla")
+                        severidad = r.get("severidad", "MEDIA")
+                        ventana = int(r.get("ventana_segundos", 30))
+                        pasos_json = json.dumps(r.get("pasos", []), ensure_ascii=False)
+                        cursor.execute("""
+                            INSERT INTO reglas (id, nombre, severidad, ventana_segundos, pasos)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (r_id, nombre, severidad, ventana, pasos_json))
+                        nuevas += 1
                 conn.commit()
-                print(f"[*] {len(reglas_default)} reglas por defecto cargadas en SQLite.")
+                if nuevas > 0:
+                    print(f"[*] {nuevas} reglas nuevas sincronizadas desde {ruta_json_defaults} en SQLite.")
+            except Exception as e:
+                print(f"[!] Error sincronizando reglas desde {ruta_json_defaults}: {e}")
 
 # --- MÉTODOS CRUD PARA REGLAS ---
 

@@ -58,7 +58,8 @@ CONFIGS_POR_DEFECTO = {
     "keystrokes svm": {"enabled": "True", "show_interface": "false", "log_file": "alerts.log", "train_chars": "100", "time_window": "60", "alert_threshold": "0.25", "max_hold_time": "0.5", "max_flight_time": "1.5", "svm_nu": "0.05", "svm_kernel": "rbf", "svm_gamma": "scale"},
     "error_detection": {"enabled": "True", "log_file": "auditoria_python.log", "sitecustomize_path": "", "capture_errors": "true", "capture_input": "true", "capture_print": "true", "monitor_poll_seconds": "0.5", "excluded_scripts": "pip,pip.exe,error_detection.py,manager_telemetria.py"},
     "paperclip": {"enabled": "True", "log_file": "paperclip.log", "poll_seconds": "0.5", "log_content": "true", "max_content_length": "1000"},
-    "program monitor": {"enabled": "True", "log_file": "program_monitor.log", "poll_seconds": "1.0", "log_title_changes": "true"}
+    "program monitor": {"enabled": "True", "log_file": "program_monitor.log", "poll_seconds": "1.0", "log_title_changes": "true"},
+    "usb_detection": {"enabled": "true", "log_file": "usb_detection.log", "export_interval_seconds": "60", "export_file": "usb_export.log", "cooldown_seconds": "3.0", "shell_poll_seconds": "3.0", "monitored_extensions": ".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.txt,.rtf,.odt,.csv,.jpg,.jpeg,.png,.gif,.webp,.bmp,.heic,.raw,.mp4,.mkv,.avi,.mov,.mp3,.wav,.m4a,.aac,.zip,.rar,.7z,.tar,.gz,.py,.java,.c,.cpp,.cs,.html,.css,.js,.ts,.sql,.sh,.bat,.ps1"}
 }
 
 def inicializar_alertas_desde_historial():
@@ -111,12 +112,21 @@ async def recibir_telemetria(
         ruta_destino = os.path.join(CARPETA_DATOS, f"{client_id}.log")
         contenido = await archivo_log.read()
         bytes_log = len(contenido)
+
+        lineas_previas = 0
+        if os.path.exists(ruta_destino):
+            try:
+                with open(ruta_destino, "rb") as f_prev:
+                    lineas_previas = sum(1 for _ in f_prev)
+            except Exception:
+                lineas_previas = correlador.total_lineas_por_cliente.get(client_id, 0)
+
         with open(ruta_destino, "ab") as f:
             f.write(contenido)
 
-        # Analizar las nuevas líneas a través del motor de correlación secuencial
+        # Analizar las nuevas líneas a través del motor de correlación secuencial con offset de línea exacto
         texto_lineas = contenido.decode("utf-8", errors="ignore").splitlines()
-        alertas_correlacion = correlador.procesar_nuevos_eventos(client_id, texto_lineas)
+        alertas_correlacion = correlador.procesar_nuevos_eventos(client_id, texto_lineas, offset_lineas=lineas_previas)
         for a in alertas_correlacion:
             print(f"\n[ALERTA SECUENCIAL DISPARADA - {client_id}] {a['nivel']}: {a['mensaje']}")
             historial_alertas.insert(0, a)
@@ -376,16 +386,34 @@ def obtener_auditoria_cliente(client_id: str):
     if not os.path.exists(ruta):
         return {"status": "error", "mensaje": f"No hay logs registrados para {client_id}"}
 
-    alertas_cliente = [a for a in historial_alertas if a.get("client_id") == client_id]
+    # 1. Obtener alertas directamente analizando el archivo completo para garantizar
+    # sincronización 1:1 absoluta de números de línea con el archivo visualizado
+    alertas_archivo = correlador.analizar_archivo_completo(client_id, ruta)
     
+    # Combinar con alertas explícitas de cliente (ej. SVM o Crash) si existen
+    alertas_cliente_locales = [
+        a for a in historial_alertas
+        if a.get("client_id") == client_id and a.get("regla_id") == "CLIENTE"
+    ]
+    alertas_cliente = alertas_archivo + alertas_cliente_locales
+    alertas_cliente.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+
+    # 2. Mapear líneas afectadas distinguiendo entre línea de disparo (infracción) y pasos previos
     lineas_con_alerta = {}
     for a in alertas_cliente:
         r_id = a.get("regla_id", "ALERTA")
-        for num_l in a.get("lineas_afectadas", []):
+        lineas_af = a.get("lineas_afectadas", [])
+        linea_fin = a.get("linea_fin", lineas_af[-1] if lineas_af else 0)
+        for num_l in lineas_af:
             if num_l not in lineas_con_alerta:
-                lineas_con_alerta[num_l] = []
-            if r_id not in lineas_con_alerta[num_l]:
-                lineas_con_alerta[num_l].append(r_id)
+                lineas_con_alerta[num_l] = {
+                    "alertas": [],
+                    "es_disparo": False
+                }
+            if r_id not in lineas_con_alerta[num_l]["alertas"]:
+                lineas_con_alerta[num_l]["alertas"].append(r_id)
+            if num_l == linea_fin:
+                lineas_con_alerta[num_l]["es_disparo"] = True
 
     lineas_parseadas = []
     modulos_encontrados = set()
@@ -393,10 +421,24 @@ def obtener_auditoria_cliente(client_id: str):
         with open(ruta, "r", encoding="utf-8", errors="ignore") as f:
             for idx, raw_line in enumerate(f, start=1):
                 raw_clean = raw_line.rstrip("\r\n")
+                alerta_info = lineas_con_alerta.get(idx, {"alertas": [], "es_disparo": False})
+                tiene_alerta = len(alerta_info["alertas"]) > 0
+
                 if not raw_clean.strip():
+                    lineas_parseadas.append({
+                        "numero": idx,
+                        "raw": "",
+                        "timestamp": "",
+                        "modulo": "General",
+                        "modulo_key": "general",
+                        "contenido": "",
+                        "es_alerta": False,
+                        "es_disparo": False,
+                        "alerta_tags": []
+                    })
                     continue
+
                 ev = correlador.parsear_linea(raw_clean, numero_linea=idx)
-                alerta_tags = lineas_con_alerta.get(idx, [])
                 if ev:
                     modulos_encontrados.add(ev["modulo_orig"])
                     lineas_parseadas.append({
@@ -406,8 +448,9 @@ def obtener_auditoria_cliente(client_id: str):
                         "modulo": ev["modulo_orig"],
                         "modulo_key": ev["modulo"],
                         "contenido": ev["contenido"],
-                        "es_alerta": len(alerta_tags) > 0,
-                        "alerta_tags": alerta_tags
+                        "es_alerta": tiene_alerta,
+                        "es_disparo": alerta_info["es_disparo"],
+                        "alerta_tags": alerta_info["alertas"]
                     })
                 else:
                     lineas_parseadas.append({
@@ -417,8 +460,9 @@ def obtener_auditoria_cliente(client_id: str):
                         "modulo": "General",
                         "modulo_key": "general",
                         "contenido": raw_clean,
-                        "es_alerta": len(alerta_tags) > 0,
-                        "alerta_tags": alerta_tags
+                        "es_alerta": tiene_alerta,
+                        "es_disparo": alerta_info["es_disparo"],
+                        "alerta_tags": alerta_info["alertas"]
                     })
     except Exception as e:
         return {"status": "error", "mensaje": str(e)}
