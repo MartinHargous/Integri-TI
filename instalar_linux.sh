@@ -75,7 +75,7 @@ python3 -m venv venv
 if [ -f "requirements.txt" ]; then
     echo "[*] Instalando dependencias desde requirements.txt..."
     ./venv/bin/pip install --upgrade pip > /dev/null 2>&1
-    ./venv/bin/pip install -r requirements.txt > /dev/null 2>&1
+    ./venv/bin/pip install -r requirements.txt 2>&1
     echo "[OK] Dependencias instaladas."
 else
     echo "[AVISO] No se encontró 'requirements.txt'. Omitiendo instalación de librerías."
