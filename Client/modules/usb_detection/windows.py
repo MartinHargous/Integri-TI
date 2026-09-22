@@ -103,13 +103,16 @@ class WindowsShellExplorerWatcher(threading.Thread):
         pythoncom.CoInitialize()
         try:
             shell = win32com.client.Dispatch("Shell.Application")
+            last_seen_selections = {}  # (hwnd, folder_title) -> set of filenames
             while self.running:
                 try:
                     windows = shell.Windows()
                     count = windows.Count
+                    current_keys = set()
                     for i in range(count):
                         try:
                             w = windows.Item(i)
+                            hwnd = getattr(w, 'HWND', i)
                             loc = str(getattr(w, 'LocationName', ''))
                             doc = getattr(w, 'Document', None)
                             if not doc:
@@ -133,37 +136,58 @@ class WindowsShellExplorerWatcher(threading.Thread):
                             if not is_mtp:
                                 continue
 
-                            # 1. Detectar archivo enfocado/clicado
-                            focused = getattr(doc, 'FocusedItem', None)
-                            if focused:
-                                item_name = str(getattr(focused, 'Name', '')).replace('\u200e', '').strip()
-                                if item_name and not any(k in item_name.lower() for k in ["almacenamiento interno", "disco"]):
-                                    _, ext = os.path.splitext(item_name)
-                                    if ext.lower() in self.user_extensions:
-                                        self.on_alert(
-                                            device_type="Smartphone MTP",
-                                            device_name=self.device_name,
-                                            file_path=item_name,
-                                            action="SELECCIÓN / APERTURA EN EL TELÉFONO",
-                                            process_info=f"Explorador de Windows (Carpeta: {folder_title})"
-                                        )
+                            win_key = (hwnd, folder_title)
+                            current_keys.add(win_key)
 
-                            # 2. Detectar archivos seleccionados
+                            current_files = set()
+
+                            # 1. Detectar archivos seleccionados
                             selected = getattr(doc, 'SelectedItems', None)
                             if selected and callable(selected):
-                                for s in selected():
-                                    s_name = str(getattr(s, 'Name', '')).replace('\u200e', '').strip()
-                                    _, ext = os.path.splitext(s_name)
-                                    if ext.lower() in self.user_extensions:
-                                        self.on_alert(
-                                            device_type="Smartphone MTP",
-                                            device_name=self.device_name,
-                                            file_path=s_name,
-                                            action="ARCHIVO SELECCIONADO EN DISPOSITIVO",
-                                            process_info=f"Explorador de Windows (Carpeta: {folder_title})"
-                                        )
+                                try:
+                                    for s in selected():
+                                        s_name = str(getattr(s, 'Name', '')).replace('\u200e', '').strip()
+                                        if s_name and not any(k in s_name.lower() for k in ["almacenamiento interno", "disco"]):
+                                            _, ext = os.path.splitext(s_name)
+                                            if ext.lower() in self.user_extensions:
+                                                current_files.add(s_name)
+                                except Exception:
+                                    pass
+
+                            # 2. Si no hubo elementos en SelectedItems, revisar FocusedItem
+                            if not current_files:
+                                focused = getattr(doc, 'FocusedItem', None)
+                                if focused:
+                                    try:
+                                        item_name = str(getattr(focused, 'Name', '')).replace('\u200e', '').strip()
+                                        if item_name and not any(k in item_name.lower() for k in ["almacenamiento interno", "disco"]):
+                                            _, ext = os.path.splitext(item_name)
+                                            if ext.lower() in self.user_extensions:
+                                                current_files.add(item_name)
+                                    except Exception:
+                                        pass
+
+                            prev_files = last_seen_selections.get(win_key, set())
+                            new_files = current_files - prev_files
+
+                            for s_name in new_files:
+                                self.on_alert(
+                                    device_type="Smartphone MTP",
+                                    device_name=self.device_name,
+                                    file_path=s_name,
+                                    action="ARCHIVO SELECCIONADO EN DISPOSITIVO",
+                                    process_info=f"Explorador de Windows (Carpeta: {folder_title})"
+                                )
+
+                            last_seen_selections[win_key] = current_files
                         except Exception:
                             continue
+
+                    # Limpiar ventanas cerradas para evitar fugas de memoria
+                    for k in list(last_seen_selections.keys()):
+                        if k not in current_keys:
+                            last_seen_selections.pop(k, None)
+
                 except Exception:
                     pass
                 step = 0.2

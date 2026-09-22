@@ -136,7 +136,7 @@ def format_one_line_log(timestamp, device_type, device_name, file_path, action, 
     clean_dev_type = str(device_type).replace('\n', ' ').replace('\r', ' ').strip()
     clean_dev_name = str(device_name).replace('\n', ' ').replace('\r', ' ').strip()
 
-    return f"[{timestamp}] [ALERTA_USB] Dispositivo={clean_dev_type} ({clean_dev_name}) | Archivo={clean_file} | Accion={clean_action} | Proceso={clean_proc}\n"
+    return f"[{timestamp}] ALERTA_USB Dispositivo={clean_dev_type} ({clean_dev_name}) | Archivo={clean_file} | Accion={clean_action} | Proceso={clean_proc}\n"
 
 def format_event_log(timestamp, event_type, device_type, device_name, details=""):
     """Formatea un evento de actividad de hardware (conexión, desconexión, detección) en una única línea estructurada."""
@@ -145,14 +145,14 @@ def format_event_log(timestamp, event_type, device_type, device_name, details=""
     clean_name = str(device_name).replace('\n', ' ').replace('\r', ' ').strip()
     clean_det = str(details).replace('\n', ' ').replace('\r', ' ').strip()
 
-    return f"[{timestamp}] [ACTIVIDAD_USB] Estado={clean_event} | Tipo={clean_type} | Dispositivo={clean_name} | Detalle={clean_det}\n"
+    return f"[{timestamp}] ACTIVIDAD_USB Estado={clean_event} | Tipo={clean_type} | Dispositivo={clean_name} | Detalle={clean_det}\n"
 
 def write_log_entry(log_path, device_type, device_name, file_path, action, process_info="Desconocido"):
     """Escribe la notificación de acceso a archivo en formato de una línea en el archivo de log."""
     log_file = Path(log_path)
     try:
         log_file.parent.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         line = format_one_line_log(timestamp, device_type, device_name, file_path, action, process_info)
 
         with _log_lock:
@@ -161,14 +161,14 @@ def write_log_entry(log_path, device_type, device_name, file_path, action, proce
         return timestamp
     except Exception as e:
         print(f"[ERROR] Error al escribir en log {log_path}: {e}")
-        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 def write_event_entry(log_path, event_type, device_type, device_name, details=""):
     """Escribe un evento de actividad de hardware (conexión, desconexión, detección) en el archivo de log."""
     log_file = Path(log_path)
     try:
         log_file.parent.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         line = format_event_log(timestamp, event_type, device_type, device_name, details)
 
         with _log_lock:
@@ -177,7 +177,7 @@ def write_event_entry(log_path, event_type, device_type, device_name, details=""
         return timestamp
     except Exception as e:
         print(f"[ERROR] Error al escribir evento en log {log_path}: {e}")
-        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
 def export_logs(log_path, export_path):
     """Exporta de forma segura el log actual hacia la ruta de exportación."""
@@ -189,7 +189,7 @@ def export_logs(log_path, export_path):
         dest.parent.mkdir(parents=True, exist_ok=True)
         with _log_lock:
             shutil.copyfile(str(source), str(dest))
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         print(f"[{timestamp}] [INFO] Logs de USB exportados exitosamente a: {dest}")
         return True
     except Exception as e:

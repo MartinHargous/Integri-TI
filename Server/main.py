@@ -7,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
-
+from collections import deque
+from comparator import LogComparator
 from correlator import LogCorrelator
 import database
 import ai_insight
@@ -45,12 +46,20 @@ if templates:
 # Motor de correlación secuencial de logs
 correlador = LogCorrelator(RUTA_REGLAS)
 
+# Motor de comparación y similitud multi-señal de logs
+comparador_logs = LogComparator(CARPETA_DATOS)
+
 # El servidor DEBE iniciar en estado ESPERANDO
 comando_global = "ESPERANDO" 
+comparador_logs.establecer_estado_examen(comando_global)
+comparador_logs.iniciar_scheduler()
+
 clientes_conectados = {}
 historial_alertas = []
 configuraciones_pendientes = {}
 configuraciones_globales = {}
+eventos_telemetria_recientes = deque(maxlen=20)
+_clientes_inicializados_desde_disco = False
 
 CONFIGS_POR_DEFECTO = {
     "sniffer": {"enabled": "true", "log_file": "sniffer.log", "method": "regex", "cooldown_seconds": "1"},
@@ -133,6 +142,16 @@ async def recibir_telemetria(
             if len(historial_alertas) > 100:
                 historial_alertas.pop()
 
+        for l in texto_lineas[-10:]:
+            l_str = l.strip()
+            if l_str and "--- IGNORE ---" not in l_str:
+                eventos_telemetria_recientes.append({
+                    "client_id": client_id,
+                    "timestamp": timestamp,
+                    "nivel": "Info",
+                    "mensaje": l_str
+                })
+
     # 2. Parsear configuraciones reportadas por HTTP desde el cliente remoto
     configs_recibidas = {}
     try:
@@ -195,6 +214,10 @@ def cambiar_estado_clase(nuevo_comando: str):
     if comando_upper in comandos_validos:
         comando_global = comando_upper
         print(f"\n[+] COMANDO GLOBAL CAMBIADO A: {comando_global}")
+        try:
+            comparador_logs.establecer_estado_examen(comando_global)
+        except Exception as e:
+            print(f"[!] Error actualizando estado de examen en comparador: {e}")
         return {"status": "OK", "comando_actual": comando_global}
     return {"status": "ERROR"}
 
@@ -216,31 +239,29 @@ def verificar_descubrimiento():
         "mensaje": "Servidor listo para recibir y establecer conexiones de agentes."
     }
 
-@app.get("/api/status")
-def obtener_estado_actual():
-    # Recopilar últimos eventos de telemetría y asegurar presencia de clientes conocidos
-    eventos_logs = []
-    if os.path.exists(CARPETA_DATOS):
-        for arch in os.listdir(CARPETA_DATOS):
-            if arch.endswith(".log"):
-                cid = arch[:-4]
-                ruta = os.path.join(CARPETA_DATOS, arch)
-                
-                # Si el cliente ya tiene archivo de log pero no ha hecho ping en esta sesión, registrarlo en ESPERANDO
-                if cid not in clientes_conectados:
-                    clientes_conectados[cid] = {
-                        "estado": "ESPERANDO",
-                        "ultimo_visto": "",
-                        "ip": "127.0.0.1",
-                        "bytes_recibidos": os.path.getsize(ruta) if os.path.exists(ruta) else 0,
-                        "configs": {}
-                    }
-
+def _inicializar_clientes_desde_disco():
+    """Inicializa clientes y eventos una sola vez desde disco."""
+    global clientes_conectados, eventos_telemetria_recientes
+    if not os.path.exists(CARPETA_DATOS):
+        return
+    for arch in os.listdir(CARPETA_DATOS):
+        if arch.endswith(".log"):
+            cid = arch[:-4]
+            ruta = os.path.join(CARPETA_DATOS, arch)
+            if cid not in clientes_conectados:
+                clientes_conectados[cid] = {
+                    "estado": "ESPERANDO",
+                    "ultimo_visto": "",
+                    "ip": "127.0.0.1",
+                    "bytes_recibidos": os.path.getsize(ruta) if os.path.exists(ruta) else 0,
+                    "configs": {}
+                }
+            if len(eventos_telemetria_recientes) < 15:
                 try:
                     with open(ruta, "r", encoding="utf-8", errors="ignore") as f:
                         lineas = [l.strip() for l in f.readlines() if l.strip() and "--- IGNORE ---" not in l]
-                        for linea in lineas[-5:]:
-                            eventos_logs.append({
+                        for linea in lineas[-2:]:
+                            eventos_telemetria_recientes.append({
                                 "client_id": cid,
                                 "timestamp": "",
                                 "nivel": "Info",
@@ -249,11 +270,18 @@ def obtener_estado_actual():
                 except Exception:
                     pass
 
+@app.get("/api/status")
+def obtener_estado_actual():
+    global _clientes_inicializados_desde_disco
+    if not _clientes_inicializados_desde_disco:
+        _inicializar_clientes_desde_disco()
+        _clientes_inicializados_desde_disco = True
+
     return {
         "comando_global": comando_global,
         "clientes": clientes_conectados,
-        "alertas": historial_alertas, # ÚNICAMENTE ALERTAS REALES GENERADAS POR REGLAS O AGENTES
-        "eventos_logs": eventos_logs[-12:]
+        "alertas": historial_alertas,
+        "eventos_logs": list(eventos_telemetria_recientes)[-12:]
     }
 
 @app.post("/api/alertas/limpiar")
@@ -559,6 +587,60 @@ async def generar_insight_cliente(client_id: str, request: Request):
         "insight": guardado,
         "secciones": resultado["secciones"]
     }
+
+# --- ENDPOINTS DEL COMPARADOR DE LOGS Y SIMILITUD MULTI-SEÑAL ---
+
+@app.get("/api/comparador/config")
+def obtener_config_comparador():
+    """Retorna la configuración actual del comparador y el estado de su scheduler."""
+    return {
+        "status": "ok",
+        "config": comparador_logs.obtener_config(),
+        "estado": comparador_logs.obtener_estado()
+    }
+
+@app.post("/api/comparador/config")
+async def guardar_config_comparador_endpoint(request: Request):
+    """Actualiza la configuración del comparador y la persiste en SQLite."""
+    try:
+        body = await request.json()
+        cfg_actualizada = comparador_logs.actualizar_config(body)
+        return {
+            "status": "ok",
+            "mensaje": "Configuración del comparador actualizada exitosamente.",
+            "config": cfg_actualizada,
+            "estado": comparador_logs.obtener_estado()
+        }
+    except Exception as e:
+        return {"status": "error", "mensaje": str(e)}
+
+@app.get("/api/comparador/resultados")
+def obtener_resultados_comparador():
+    """Retorna el resultado más reciente del análisis comparativo."""
+    res = comparador_logs.obtener_ultimo_resultado()
+    if not res:
+        res = comparador_logs.ejecutar_analisis()
+    return {
+        "status": "ok",
+        "resultado": res,
+        "estado": comparador_logs.obtener_estado()
+    }
+
+@app.post("/api/comparador/ejecutar")
+def ejecutar_comparador_ahora():
+    """Dispara un análisis comparativo manual inmediato y retorna los resultados."""
+    try:
+        res = comparador_logs.ejecutar_analisis()
+        return {
+            "status": "ok",
+            "mensaje": "Análisis comparativo ejecutado exitosamente.",
+            "resultado": res,
+            "estado": comparador_logs.obtener_estado()
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "mensaje": str(e)}
 
 @app.get("/auditoria/{client_id}")
 def ver_auditoria_html(request: Request, client_id: str):

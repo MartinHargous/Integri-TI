@@ -18,7 +18,11 @@ async function refrescarDashboard() {
       connStatus.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Activo';
     }
 
-    actualizarBotonesComando(data.comando_global || 'ESPERANDO');
+    const cmd = data.comando_global || 'ESPERANDO';
+    actualizarBotonesComando(cmd);
+    if (typeof notificarEstadoExamenAComparador === 'function') {
+      notificarEstadoExamenAComparador(cmd);
+    }
 
     clientesConectadosCache = data.clientes || {};
     renderizarAgentesEnVivo(clientesConectadosCache);
@@ -39,6 +43,9 @@ async function refrescarDashboard() {
 // 2. CAMBIO DE COMANDO GLOBAL DEL EXAMEN
 async function cambiarComando(nuevoComando) {
   actualizarBotonesComando(nuevoComando);
+  if (typeof notificarEstadoExamenAComparador === 'function') {
+    notificarEstadoExamenAComparador(nuevoComando);
+  }
   try {
     await Api.cambiarComando(nuevoComando);
     mostrarToast(`Comando global: ${nuevoComando}`);
@@ -72,5 +79,8 @@ document.addEventListener('DOMContentLoaded', () => {
   refrescarDashboard();
   cargarConfiguracionModulos();
   cargarReglas();
+  if (typeof cargarResultadosComparador === 'function') {
+    cargarResultadosComparador();
+  }
   setInterval(refrescarDashboard, 2000);
 });

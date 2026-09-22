@@ -69,6 +69,34 @@ const Api = {
     const res = await fetch('/api/reglas/reanalizar', { method: 'POST' });
     if (!res.ok) throw new Error('Error reanalizando logs');
     return await res.json();
+  },
+
+  async getComparatorConfig() {
+    const res = await fetch('/api/comparador/config?t=' + Date.now());
+    if (!res.ok) throw new Error('Error obteniendo configuración del comparador');
+    return await res.json();
+  },
+
+  async saveComparatorConfig(config) {
+    const res = await fetch('/api/comparador/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    if (!res.ok) throw new Error('Error guardando configuración del comparador');
+    return await res.json();
+  },
+
+  async getComparatorResults() {
+    const res = await fetch('/api/comparador/resultados?t=' + Date.now());
+    if (!res.ok) throw new Error('Error obteniendo resultados del comparador');
+    return await res.json();
+  },
+
+  async runComparatorNow() {
+    const res = await fetch('/api/comparador/ejecutar', { method: 'POST' });
+    if (!res.ok) throw new Error('Error ejecutando análisis del comparador');
+    return await res.json();
   }
 };
 

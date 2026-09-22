@@ -8,6 +8,23 @@
     </h1>
   </div>
   
+  <!-- SELECTOR DE PESTAÑAS PRINCIPAL -->
+  <div class="flex items-center gap-1 bg-[#0b0f19] border border-[#1f2937] p-0.5 rounded-lg text-xs font-mono">
+    <button id="tab-btn-monitoreo" onclick="cambiarPestana('monitoreo')" class="px-3 py-1.5 rounded-md text-xs font-medium bg-[#1f2937] text-white border border-[#374151] flex items-center gap-1.5 transition-all shadow-sm" type="button">
+      <svg class="w-3.5 h-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+      <span>Monitoreo en Vivo</span>
+    </button>
+    <button id="tab-btn-comparador" onclick="cambiarPestana('comparador')" class="px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 border border-transparent flex items-center gap-1.5 transition-all" type="button">
+      <svg class="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+      </svg>
+      <span>Comparador & Similitud</span>
+      <span id="badge-pares-header" class="hidden px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-purple-900/60 text-purple-300 border border-purple-700/60">0</span>
+    </button>
+  </div>
+
   <!-- ACCIONES RÁPIDAS Y ESTADO EN EL HEADER -->
   <div class="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm font-mono self-end sm:self-auto">
     <div class="inline-flex rounded border border-[#1f2937] bg-[#0b0f19] p-0.5 gap-1" role="group">
@@ -22,7 +39,6 @@
       </button>
     </div>
 
-    </span>
     <span id="last-sync-time" class="text-slate-400 text-xs hidden xs:inline">Sinc: --:--:--</span>
   </div>
 </header>

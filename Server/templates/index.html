@@ -39,15 +39,21 @@
   <!-- SECCIÓN 1: ENCABEZADO Y CONTROL DE COMANDOS -->
   {% include 'components/header.html' %}
 
-  <!-- SECCIÓN 2: GRID SUPERIOR (AGENTES, MÓDULOS Y REGLAS CON EDITOR PLEGABLE) -->
-  <main class="grid grid-cols-1 md:grid-cols-12 xl:grid-cols-12 gap-2.5 flex-1 items-start">
-    {% include 'components/agents.html' %}
-    {% include 'components/modules.html' %}
-    {% include 'components/rules.html' %}
-  </main>
+  <!-- VISTA 1: MONITOREO EN VIVO (AGENTES, MÓDULOS, REGLAS Y ALERTAS) -->
+  <div id="vista-monitoreo" class="flex flex-col gap-2.5 flex-1">
+    <main class="grid grid-cols-1 md:grid-cols-12 xl:grid-cols-12 gap-2.5 flex-1 items-start">
+      {% include 'components/agents.html' %}
+      {% include 'components/modules.html' %}
+      {% include 'components/rules.html' %}
+    </main>
 
-  <!-- SECCIÓN 3: ALERTAS RECIENTES (MÁXIMO 4) Y TELEMETRÍA -->
-  {% include 'components/alerts.html' %}
+    {% include 'components/alerts.html' %}
+  </div>
+
+  <!-- VISTA 2: COMPARADOR Y SIMILITUD MULTI-SEÑAL DE LOGS -->
+  <div id="vista-comparador" class="hidden flex flex-col gap-2.5 flex-1">
+    {% include 'components/comparator.html' %}
+  </div>
 
 </div>
 
@@ -55,11 +61,12 @@
 {% include 'components/modal.html' %}
 
 <!-- SCRIPTS MODULARES -->
-<script src="/static/js/api.js"></script>
-<script src="/static/js/agents.js"></script>
-<script src="/static/js/modules.js"></script>
-<script src="/static/js/rules.js"></script>
-<script src="/static/js/alerts.js"></script>
-<script src="/static/js/main.js"></script>
+<script src="/static/js/api.js?v=6"></script>
+<script src="/static/js/agents.js?v=6"></script>
+<script src="/static/js/modules.js?v=6"></script>
+<script src="/static/js/rules.js?v=6"></script>
+<script src="/static/js/alerts.js?v=6"></script>
+<script src="/static/js/comparator.js?v=6"></script>
+<script src="/static/js/main.js?v=6"></script>
 </body>
 </html>

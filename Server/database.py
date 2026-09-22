@@ -51,6 +51,26 @@ def inicializar_db(ruta_json_defaults: Optional[str] = None, db_path: str = DB_P
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_insights_client ON insights (client_id)")
 
+        # 3. Tablas del Comparador de Logs (configuración y ejecuciones históricas)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS comparator_config (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                config_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS comparator_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                total_alumnos INTEGER NOT NULL,
+                total_pares INTEGER NOT NULL,
+                resultados_json TEXT NOT NULL,
+                config_json TEXT NOT NULL
+            )
+        """)
+
         # 3. Cargar o sincronizar reglas por defecto desde reglas.json
         if os.path.exists(ruta_json_defaults):
             try:
@@ -185,4 +205,83 @@ def obtener_historial_insights(client_id: str, db_path: str = DB_PATH) -> List[D
         """, (client_id,))
         rows = cursor.fetchall()
         return [dict(r) for r in rows]
+
+
+# --- MÉTODOS PARA EL COMPARADOR DE LOGS ---
+
+def guardar_config_comparador(config: Dict[str, Any], db_path: str = DB_PATH) -> Dict[str, Any]:
+    """Guarda o actualiza la configuración del comparador en la base de datos."""
+    config_json = json.dumps(config, ensure_ascii=False)
+    updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO comparator_config (id, config_json, updated_at)
+            VALUES (1, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                config_json=excluded.config_json,
+                updated_at=excluded.updated_at
+        """, (config_json, updated_at))
+        conn.commit()
+    return config
+
+def obtener_config_comparador(db_path: str = DB_PATH) -> Optional[Dict[str, Any]]:
+    """Recupera la configuración guardada del comparador, o None si no existe."""
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT config_json FROM comparator_config WHERE id = 1")
+        row = cursor.fetchone()
+        if not row:
+            return None
+        try:
+            return json.loads(row["config_json"])
+        except Exception:
+            return None
+
+def guardar_resultado_comparador(
+    total_alumnos: int,
+    total_pares: int,
+    resultados: List[Dict[str, Any]],
+    config_usada: Dict[str, Any],
+    timestamp: Optional[str] = None,
+    db_path: str = DB_PATH
+) -> int:
+    """Registra una ejecución del comparador en el historial de base de datos."""
+    ts = timestamp or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    resultados_json = json.dumps(resultados, ensure_ascii=False)
+    config_json = json.dumps(config_usada, ensure_ascii=False)
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO comparator_runs (timestamp, total_alumnos, total_pares, resultados_json, config_json)
+            VALUES (?, ?, ?, ?, ?)
+        """, (ts, total_alumnos, total_pares, resultados_json, config_json))
+        conn.commit()
+        return cursor.lastrowid
+
+def obtener_ultimo_resultado_comparador(db_path: str = DB_PATH) -> Optional[Dict[str, Any]]:
+    """Obtiene los datos del análisis de logs más reciente registrado en SQLite."""
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, timestamp, total_alumnos, total_pares, resultados_json, config_json
+            FROM comparator_runs
+            ORDER BY id DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        if not row:
+            return None
+        try:
+            return {
+                "id": row["id"],
+                "timestamp": row["timestamp"],
+                "total_alumnos": row["total_alumnos"],
+                "total_pares": row["total_pares"],
+                "pares": json.loads(row["resultados_json"]),
+                "config_usada": json.loads(row["config_json"])
+            }
+        except Exception:
+            return None
+
 
