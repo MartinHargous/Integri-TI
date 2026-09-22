@@ -1,4 +1,3 @@
-1. revisar el problema de doble tag de los logs del USB detection
-2. Revisar los logs duplicados del USB detection
-3. correlacion de varios logs entre alumnos
-4. prueba globar de varios
+1. probar mint/ ubuntu/kali
+2. probar con varios logs distintos (min 1000 lineas)
+3. redactar hito 1 entregable
