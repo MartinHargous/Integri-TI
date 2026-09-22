@@ -7,21 +7,33 @@ import json
 from pathlib import Path
 import concurrent.futures
 import traceback
-
+import pwd
 # Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar orchestrator
 if sys.platform.startswith("linux"):
     if "DISPLAY" not in os.environ:
         os.environ["DISPLAY"] = ":0"
+        
     if "XAUTHORITY" not in os.environ or not os.path.isfile(os.environ.get("XAUTHORITY", "")):
         usuario_obj = os.environ.get("SUDO_USER") or os.environ.get("USER") or "kali"
+        
+        try:
+            # Obtenemos el ID numérico del usuario (ej. 1000 en Ubuntu)
+            uid = pwd.getpwnam(usuario_obj).pw_uid
+        except KeyError:
+            uid = 1000
+            
         rutas_posibles = [
             f"/home/{usuario_obj}/.Xauthority",
             os.path.expanduser(f"~{usuario_obj}/.Xauthority"),
+            f"/run/user/{uid}/gdm/Xauthority",  # <--- RUTA CLAVE PARA UBUNTU
+            f"/run/user/{uid}/.Xauthority",     # <--- RUTA CLAVE PARA UBUNTU MODERNO
             "/root/.Xauthority",
         ]
+        
         for r in rutas_posibles:
             if os.path.isfile(r):
                 os.environ["XAUTHORITY"] = r
+                # print(f"[*] X11 Autorizado con: {r}") # Descomenta esto para ver si lo encontró
                 break
 
 # Importamos tu Orquestador
