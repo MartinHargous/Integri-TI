@@ -62,6 +62,35 @@ echo "[*] Instalando dependencias del sistema (X11, pcap, xdotool, xclip, compil
 sudo apt-get update -y > /dev/null 2>&1
 sudo apt-get install -y build-essential python3-dev x11-xserver-utils libpcap-dev xdotool xclip > /dev/null 2>&1 || true
 
+# =========================================================
+# 3.8 Bypass de Seguridad Gráfica (Fuerza Xorg en Ubuntu)
+# =========================================================
+echo "[*] Verificando compatibilidad del sistema operativo..."
+
+# Revisamos el archivo oficial de identidad de Linux
+if grep -q '^ID=ubuntu' /etc/os-release; then
+    echo "[*] Distribución Ubuntu detectada. Evaluando motor gráfico (Wayland/Xorg)..."
+    
+    ARCHIVO_GDM="/etc/gdm3/custom.conf"
+    
+    if [ -f "$ARCHIVO_GDM" ]; then
+        # Si la línea está comentada (Wayland activo), la descomentamos
+        if grep -q "^#WaylandEnable=false" "$ARCHIVO_GDM"; then
+            echo "[!] Wayland detectado (Bloquea telemetría). Desactivando..."
+            sudo sed -i 's/^#WaylandEnable=false/WaylandEnable=false/' "$ARCHIVO_GDM"
+            echo "[OK] Wayland desactivado. Se usará Xorg en el próximo inicio."
+            REQUIERE_REINICIO=true
+        else
+            echo "[OK] Ubuntu ya está configurado para usar Xorg."
+        fi
+    else
+        echo "[AVISO] No se encontró custom.conf de GDM3. Omitiendo parche de Wayland."
+    fi
+else
+    # Si es Mint (linuxmint), Kali (kali) o Debian (debian), saltamos esto
+    echo "[OK] Entorno compatible por defecto (No-Ubuntu). Omitiendo parche."
+fi
+
 # 4. Crear entorno virtual e instalar dependencias
 echo "[*] Creando entorno virtual aislado (venv)..."
 python3 -m venv venv
