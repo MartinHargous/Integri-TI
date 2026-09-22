@@ -111,32 +111,40 @@ class ProgramMonitor:
         import psutil
         
         try:
-            # Usamos xdotool (requiere X11) para consultar el gestor de ventanas
-            window_id = subprocess.check_output(['xdotool', 'getactivewindow'], stderr=subprocess.DEVNULL).decode().strip()
-            window_title = subprocess.check_output(['xdotool', 'getwindowname', window_id], stderr=subprocess.DEVNULL).decode().strip()
+            # Le pasamos env=os.environ para que xdotool use el DISPLAY y XAUTHORITY parcheados
+            window_id = subprocess.check_output(
+                ['xdotool', 'getactivewindow'], 
+                env=os.environ, 
+                stderr=subprocess.DEVNULL
+            ).decode().strip()
+            
+            window_title = subprocess.check_output(
+                ['xdotool', 'getwindowname', window_id], 
+                env=os.environ, 
+                stderr=subprocess.DEVNULL
+            ).decode().strip()
             
             # Para el PID usamos xprop
-            pid_str = subprocess.check_output(['xprop', '-id', window_id, '_NET_WM_PID'], stderr=subprocess.DEVNULL).decode().strip()
+            pid_str = subprocess.check_output(
+                ['xprop', '-id', window_id, '_NET_WM_PID'], 
+                env=os.environ, 
+                stderr=subprocess.DEVNULL
+            ).decode().strip()
             
-            # Validación blindada: Si no hay PID asignado (ej. escritorio, barra superior)
             if "not found" in pid_str.lower():
                 app_name = "Sistema / Entorno Gráfico"
             else:
-                # Si hay PID, extraemos el número con seguridad
                 pid = int(pid_str.split("=")[-1].strip())
                 try:
                     app_name = psutil.Process(pid).name()
                 except psutil.NoSuchProcess:
-                    # La ventana se cerró en el milisegundo entre obtener el PID y leer su nombre
                     app_name = "Proceso Terminado"
                     
             return app_name, window_title
             
         except subprocess.CalledProcessError:
-            # Ocurre típicamente si el usuario minimiza todo o no hay interfaz gráfica activa
             return "Sistema", "Escritorio Activo"
         except Exception as e:
-            # Evita que cualquier otro error raro crashee el hilo completo
             return "Error", f"Fallo al leer ventana: {str(e)}"
 
     def _monitor(self):
