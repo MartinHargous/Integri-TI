@@ -1,8 +1,19 @@
 #!/bin/bash
 
 echo "=================================================="
-echo " Instalador de Telemetría Académica (Linux/macOS) "
+echo " Instalador de Telemetría Académica (Linux) "
 echo "=================================================="
+echo ""
+echo "|================ ADVERTENCIA: REINICIO AUTOMÁTICO ================|"
+echo " Para aplicar las configuraciones a nivel de kernel y motor gráfico,"
+echo " este instalador REINICIARÁ EL EQUIPO AUTOMÁTICAMENTE al finalizar."
+echo ""
+read -p "¿Deseas proceder con la instalación? (s/n): " confirmar
+if [[ ! "$confirmar" =~ ^[sS]$ ]]; then
+    echo "[*] Instalación cancelada por el usuario."
+    exit 0
+fi
+echo ""
 
 # 1. Detectar el usuario real y su carpeta Home (Evadiendo la trampa de sudo)
 if [ -n "$SUDO_USER" ]; then
@@ -63,32 +74,37 @@ sudo apt-get update -y > /dev/null 2>&1
 sudo apt-get install -y build-essential python3-dev x11-xserver-utils libpcap-dev xdotool xclip > /dev/null 2>&1 || true
 
 # =========================================================
-# 3.8 Bypass de Seguridad Gráfica (Fuerza Xorg en Ubuntu)
+# 3.8 Bypass de Seguridad Gráfica (Fuerza Xorg en Debian)
 # =========================================================
 echo "[*] Verificando compatibilidad del sistema operativo..."
 
-# Revisamos el archivo oficial de identidad de Linux
-if grep -q '^ID=ubuntu' /etc/os-release; then
-    echo "[*] Distribución Ubuntu detectada. Evaluando motor gráfico (Wayland/Xorg)..."
+# Revisamos si es Debian 
+if grep -q '^ID=debian' /etc/os-release; then
+    echo "[*] Distribución Debian detectada. Evaluando motor gráfico (Wayland/Xorg)..."
     
-    ARCHIVO_GDM="/etc/gdm3/custom.conf"
+    # En Debian GNOME el archivo suele ser daemon.conf, en otros es custom.conf
+    if [ -f "/etc/gdm3/daemon.conf" ]; then
+        ARCHIVO_GDM="/etc/gdm3/daemon.conf"
+    elif [ -f "/etc/gdm3/custom.conf" ]; then
+        ARCHIVO_GDM="/etc/gdm3/custom.conf"
+    else
+        ARCHIVO_GDM=""
+    fi
     
-    if [ -f "$ARCHIVO_GDM" ]; then
-        # Si la línea está comentada (Wayland activo), la descomentamos
-        if grep -q "^#WaylandEnable=false" "$ARCHIVO_GDM"; then
+    if [ -n "$ARCHIVO_GDM" ]; then
+        # Usamos -E y \s* para evadir los espacios trampa que ponen los desarrolladores
+        if grep -E -q "^#\s*WaylandEnable=false" "$ARCHIVO_GDM"; then
             echo "[!] Wayland detectado (Bloquea telemetría). Desactivando..."
-            sudo sed -i 's/^#WaylandEnable=false/WaylandEnable=false/' "$ARCHIVO_GDM"
-            echo "[OK] Wayland desactivado. Se usará Xorg en el próximo inicio."
-            REQUIERE_REINICIO=true
+            sudo sed -i -E 's/^#\s*WaylandEnable=false/WaylandEnable=false/' "$ARCHIVO_GDM"
+            echo "[OK] Wayland desactivado. Se usará Xorg tras el reinicio."
         else
-            echo "[OK] Ubuntu ya está configurado para usar Xorg."
+            echo "[OK] Debian ya está configurado para usar Xorg."
         fi
     else
-        echo "[AVISO] No se encontró custom.conf de GDM3. Omitiendo parche de Wayland."
+        echo "[AVISO] No se encontró GDM3 (Quizás usas XFCE). Omitiendo parche de Wayland."
     fi
 else
-    # Si es Mint (linuxmint), Kali (kali) o Debian (debian), saltamos esto
-    echo "[OK] Entorno compatible por defecto (No-Ubuntu). Omitiendo parche."
+    echo "[OK] Entorno compatible por defecto (No-Debian). Omitiendo parche."
 fi
 
 # 4. Crear entorno virtual e instalar dependencias
@@ -98,7 +114,6 @@ python3 -m venv venv
 if [ -f "requirements.txt" ]; then
     echo "[*] Instalando dependencias desde requirements.txt... (Silencioso)"
     ./venv/bin/pip install --upgrade pip > /dev/null 2>&1
-    # Se mantiene silencioso para producción, ya sabemos que evdev compilará bien
     ./venv/bin/pip install -r requirements.txt > /dev/null 2>&1
     echo "[OK] Dependencias de Python instaladas."
 else
@@ -141,17 +156,20 @@ WantedBy=default.target
 EOF
 
 # D) Recargar systemd e iniciar el agente
-echo "[*] Iniciando el servicio en la sesión del usuario..."
+echo "[*] Configurando el servicio en la sesión del usuario..."
 USER_UID=$(id -u $USUARIO_REAL)
 
 sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user daemon-reload
 sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user enable integriti.service
 sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user start integriti.service
 
-echo "[OK] Instalación completada. Agente corriendo en segundo plano."
+echo "[OK] Instalación completada. Agente configurado para el inicio."
 
 echo "=================================================="
 echo " INSTALACIÓN COMPLETADA CON ÉXITO."
-echo " El agente ya se encuentra operando en segundo plano."
-echo " Se reiniciará de forma automática en cada inicio de sesión."
+echo " El agente operará silenciosamente en segundo plano."
 echo "=================================================="
+echo ""
+echo "[!] Aplicando cambios... Reiniciando el sistema en 10 segundos..."
+sleep 10
+sudo reboot
