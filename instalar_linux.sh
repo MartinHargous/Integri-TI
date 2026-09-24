@@ -71,7 +71,7 @@ fi
 # 3.5 Instalar dependencias del Sistema Operativo ANTES de usar pip
 echo "[*] Instalando dependencias del sistema (X11, pcap, xdotool, xclip, compiladores)..."
 sudo apt-get update -y > /dev/null 2>&1
-sudo apt-get install -y build-essential python3-dev x11-xserver-utils libpcap-dev xdotool xclip > /dev/null 2>&1 || true
+sudo apt-get install -y build-essential python3-dev python3-venv x11-xserver-utils libpcap-dev xdotool xclip > /dev/null 2>&1 || true
 
 # =========================================================
 # 3.8 Bypass de Seguridad Gráfica (Fuerza Xorg en Debian)

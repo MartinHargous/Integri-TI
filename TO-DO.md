@@ -1,9 +1,9 @@
 ### 1. probar En distintos SO:  
 
-- [ ] kali
+- [x] kali
 - [ ] mint
 - [ ] debian
-- [ ] Windows 11
+- [x] Windows 11
 
 ### 2. probar comparacion con varios logs distintos (min 1000 lineas c/u )
 - [ ] identificacion correcta de pares
