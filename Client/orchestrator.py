@@ -150,59 +150,34 @@ class Orchestrator:
         self.sniffer = Sniffer()
         self.keystroke_svm = KeystrokeSVM()
         self.usb_detection = USBDetection()
-    def restart_module(self, module_name):
-            import time
-            print(f"\n[*] Reiniciando módulo '{module_name}' para aplicar cambios...")
+    @staticmethod
+    def normalize_module_name(name):
+        if not name:
+            return ""
+        clean = str(name).strip().lower().replace("-", "_")
+        normalized = clean.replace(" ", "_")
+        aliases = {
+            "sniffer": "sniffer",
+            "keylogger": "keylogger",
+            "keystroke_svm": "keystroke_svm",
+            "keystrokes_svm": "keystroke_svm",
+            "keystrokes": "keystroke_svm",
+            "keystrokes_svm_dym": "keystroke_svm",
+            "svm_keystroke": "keystroke_svm",
+            "svm": "keystroke_svm",
+            "error_detection": "error_detection",
+            "error": "error_detection",
+            "paperclip": "paperclip",
+            "program_monitor": "program_monitor",
+            "programmonitor": "program_monitor",
+            "usb_detection": "usb_detection",
+            "usbdetection": "usb_detection",
+            "usb": "usb_detection",
+        }
+        return aliases.get(normalized, normalized)
 
-            if module_name == "error_detection":
-                self.error_detection.stop_monitor()
-                time.sleep(1)  # Damos 1 segundo para que el hilo muera limpiamente
-                self.error_detection = ErrorDetection()  # Crea una instancia fresca leyendo el config.txt
-                self.start_error_detection()  # Lanza el nuevo hilo
-
-            elif module_name == "sniffer":
-                self.sniffer.stop_sniffing()
-                time.sleep(1)
-                self.sniffer = Sniffer()
-                self.start_sniffer()
-
-            elif module_name == "keystroke_svm":
-                self.keystroke_svm.stop()
-                time.sleep(1)
-                self.keystroke_svm = KeystrokeSVM()
-                self.start_keystroke_svm()
-
-            elif module_name == "keylogger":
-                self.keylogger.stop()
-                time.sleep(1)
-                self.keylogger = Keylogger()
-                self.start_keylogger()
-                
-            elif module_name == "paperclip":
-                self.paperclip.stop()
-                time.sleep(1)
-                self.paperclip = Paperclip()
-                self.start_paperclip()
-
-            elif module_name == "program_monitor":
-                self.program_monitor.stop()
-                time.sleep(1)
-                self.program_monitor = ProgramMonitor()
-                self.start_program_monitor()
-
-            elif module_name == "usb_detection":
-                self.usb_detection.stop()
-                time.sleep(1)
-                self.usb_detection = USBDetection()
-                self.start_usb_detection()
-
-            else:
-                print(f"[ERROR] Módulo '{module_name}' no válido.")
-                return
-
-            print(f"[OK] Módulo '{module_name}' reiniciado y operando en segundo plano.\n")
-
-    def change_config(self, module_name, key, value):
+    def _get_module_instance(self, module_name):
+        canonical = self.normalize_module_name(module_name)
         module_map = {
             "error_detection": self.error_detection,
             "sniffer": self.sniffer,
@@ -212,57 +187,190 @@ class Orchestrator:
             "program_monitor": self.program_monitor,
             "usb_detection": self.usb_detection
         }
-        
-        if module_name not in module_map:
-            print(f"[ERROR] El módulo '{module_name}' no es válido.")
-            return
+        return module_map.get(canonical)
 
-        module = module_map[module_name]
-        key_lower = key.lower()
-        
-        if key_lower not in module.config:
-            print(f"[ERROR] La clave '{key}' no existe en {module_name}.")
-            return
+    def _reinstantiate_module(self, module_name):
+        canonical = self.normalize_module_name(module_name)
+        if canonical == "error_detection":
+            self.error_detection = ErrorDetection()
+        elif canonical == "sniffer":
+            self.sniffer = Sniffer()
+        elif canonical == "keystroke_svm":
+            self.keystroke_svm = KeystrokeSVM()
+        elif canonical == "keylogger":
+            self.keylogger = Keylogger()
+        elif canonical == "paperclip":
+            self.paperclip = Paperclip()
+        elif canonical == "program_monitor":
+            self.program_monitor = ProgramMonitor()
+        elif canonical == "usb_detection":
+            self.usb_detection = USBDetection()
 
-        module.config[key_lower] = str(value)
-
-        try:
-            content = module.config_path.read_text(encoding="utf-8-sig")
-            new_lines = []
-            
-            for line in content.splitlines():
-                if line.strip() and not line.startswith(("#", ";")) and "=" in line:
-                    k, v = line.split("=", 1)
-                    if k.strip().lower() == key_lower:
-                        new_lines.append(f"{k.strip()}={value}")
-                        continue
-                new_lines.append(line)
-                
-            module.config_path.write_text("\n".join(new_lines), encoding="utf-8")
-            print(f"[OK] Archivo guardado: {module_name}.{key} = {value}")
-            
-        except Exception as e:
-            print(f"[ERROR] No se pudo guardar en el archivo: {e}")
-
-        self.restart_module(module_name)
+    def get_all_configs(self):
+        """Retorna las configuraciones actuales de todos los módulos estructuradas para el servidor."""
+        return {
+            "sniffer": dict(self.sniffer.config),
+            "keylogger": dict(self.keylogger.config),
+            "keystrokes svm": dict(self.keystroke_svm.config),
+            "error_detection": dict(self.error_detection.config),
+            "paperclip": dict(self.paperclip.config),
+            "program monitor": dict(self.program_monitor.config),
+            "usb_detection": dict(self.usb_detection.config)
+        }
 
     def get_config(self, module_name):
-        module_map = {
-            "error_detection": self.error_detection,
-            "sniffer": self.sniffer,
-            "keystroke_svm": self.keystroke_svm,
-            "keylogger": self.keylogger,
-            "paperclip": self.paperclip,
-            "program_monitor": self.program_monitor,
-            "usb_detection": self.usb_detection
-        }
-        
-        if module_name not in module_map:
+        module = self._get_module_instance(module_name)
+        if not module:
             print(f"[ERROR] El módulo '{module_name}' no es válido.")
             return None
+        return dict(module.config)
 
-        module = module_map[module_name]
-        return module.config
+    def apply_module_config(self, module_name, new_settings, is_recording=False):
+        """
+        Aplica un diccionario de parámetros a un módulo específico.
+        Actualiza el archivo config.txt correspondiente y reinicia o recarga el módulo.
+        """
+        canonical = self.normalize_module_name(module_name)
+        module = self._get_module_instance(canonical)
+        if not module:
+            print(f"[ERROR] El módulo '{module_name}' no es válido.")
+            return False
+
+        if not isinstance(new_settings, dict):
+            return False
+
+        cambios = {}
+        for k, v in new_settings.items():
+            k_clean = str(k).strip().lower()
+            v_str = str(v).strip()
+            actual_val = str(module.config.get(k_clean, "")).strip()
+
+            # Normalizar comparación booleana
+            if v_str.lower() in ("true", "false") or actual_val.lower() in ("true", "false"):
+                if v_str.lower() != actual_val.lower():
+                    cambios[k_clean] = v_str
+            else:
+                if v_str != actual_val:
+                    cambios[k_clean] = v_str
+
+        if not cambios:
+            return True
+
+        # Actualizar archivo config.txt
+        try:
+            content = ""
+            if module.config_path.exists():
+                try:
+                    content = module.config_path.read_text(encoding="utf-8-sig")
+                except Exception:
+                    content = module.config_path.read_text(encoding="utf-8", errors="ignore")
+
+            existing_lines = content.splitlines()
+            new_lines = []
+            keys_updated = set()
+
+            for line in existing_lines:
+                stripped = line.strip()
+                if stripped and not stripped.startswith(("#", ";")) and "=" in line:
+                    k, _ = line.split("=", 1)
+                    k_lower = k.strip().lower()
+                    if k_lower in cambios:
+                        new_lines.append(f"{k.strip()}={cambios[k_lower]}")
+                        keys_updated.add(k_lower)
+                        continue
+                new_lines.append(line)
+
+            for k_lower, val in cambios.items():
+                if k_lower not in keys_updated:
+                    new_lines.append(f"{k_lower}={val}")
+
+            module.config_path.write_text("\n".join(new_lines), encoding="utf-8")
+
+            # Actualizar en memoria
+            for k_lower, val in cambios.items():
+                module.config[k_lower] = val
+
+            print(f"[OK] Configuración guardada en disco para '{canonical}': {cambios}")
+        except Exception as e:
+            print(f"[ERROR] No se pudo guardar en el archivo de '{canonical}': {e}")
+            return False
+
+        # Si la telemetría está activa, reiniciar el hilo para aplicar en caliente
+        if is_recording:
+            self.restart_module(canonical)
+        else:
+            self._reinstantiate_module(canonical)
+            print(f"[OK] Módulo '{canonical}' reconfigurado (se iniciará al comenzar el examen).")
+
+        return True
+
+    def apply_configs(self, configs_dict, is_recording=False):
+        """
+        Aplica un lote de configuraciones recibidas desde el servidor.
+        configs_dict = { "modulo": {"clave": "valor", ...}, ... }
+        """
+        if not configs_dict or not isinstance(configs_dict, dict):
+            return
+
+        for raw_mod_name, new_settings in configs_dict.items():
+            if isinstance(new_settings, dict):
+                self.apply_module_config(raw_mod_name, new_settings, is_recording=is_recording)
+
+    def change_config(self, module_name, key, value):
+        """Compatibilidad hacia atrás para modificar una sola clave."""
+        self.apply_module_config(module_name, {key: value}, is_recording=True)
+
+    def restart_module(self, module_name):
+        mod_name = self.normalize_module_name(module_name)
+        print(f"\n[*] Reiniciando módulo '{mod_name}' para aplicar cambios...")
+
+        if mod_name == "error_detection":
+            self.error_detection.stop_monitor()
+            time.sleep(0.5)
+            self.error_detection = ErrorDetection()
+            self.start_error_detection()
+
+        elif mod_name == "sniffer":
+            self.sniffer.stop_sniffing()
+            time.sleep(0.5)
+            self.sniffer = Sniffer()
+            self.start_sniffer()
+
+        elif mod_name == "keystroke_svm":
+            self.keystroke_svm.stop()
+            time.sleep(0.5)
+            self.keystroke_svm = KeystrokeSVM()
+            self.start_keystroke_svm()
+
+        elif mod_name == "keylogger":
+            self.keylogger.stop()
+            time.sleep(0.5)
+            self.keylogger = Keylogger()
+            self.start_keylogger()
+
+        elif mod_name == "paperclip":
+            self.paperclip.stop()
+            time.sleep(0.5)
+            self.paperclip = Paperclip()
+            self.start_paperclip()
+
+        elif mod_name == "program_monitor":
+            self.program_monitor.stop()
+            time.sleep(0.5)
+            self.program_monitor = ProgramMonitor()
+            self.start_program_monitor()
+
+        elif mod_name == "usb_detection":
+            self.usb_detection.stop()
+            time.sleep(0.5)
+            self.usb_detection = USBDetection()
+            self.start_usb_detection()
+
+        else:
+            print(f"[ERROR] Módulo '{module_name}' no válido.")
+            return
+
+        print(f"[OK] Módulo '{mod_name}' reiniciado y operando en segundo plano.\n")
 
     def combine_logs(self):
         log_files = [

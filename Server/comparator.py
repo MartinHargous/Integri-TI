@@ -55,7 +55,22 @@ CONFIG_DEFAULT: Dict[str, Any] = {
     "umbral_codigo": 0.35,            # Umbral de similitud de código para candidatos LSH (0-1)
     "umbral_portapapeles": 0.50,      # Umbral de similitud para portapapeles (0-1)
     "apps_permitidas": "code, python, pythonw", # Whitelist de ejecutables permitidos
-    "titulos_permitidos": "integri-ti"          # Whitelist de títulos de ventana
+    "titulos_permitidos": "integri-ti",         # Whitelist de títulos de ventana
+    # Ponderaciones del Score Compuesto
+    "peso_codigo": 0.45,              # Peso de similitud de código Jaccard (0-1)
+    "peso_portapapeles": 0.35,        # Peso de similitud de portapapeles (0-1)
+    "peso_fugas": 0.15,               # Peso de fugas de contexto simultáneas (0-1)
+    "peso_ejecucion": 0.05,           # Peso de ejecución sincronizada (0-1)
+    # Consideraciones y Escalación
+    "boost_clip_umbral": 0.85,        # Umbral de portapapeles para activar escalación (0-1)
+    "boost_clip_exec_score": 0.70,    # Score mínimo garantizado si portapapeles alto + ejecución (0-1)
+    "boost_clip_score": 0.50,         # Score mínimo garantizado si solo portapapeles alto (0-1)
+    # Umbrales de Severidad
+    "umbral_critico_score": 0.55,     # Score para clasificar como CRÍTICO (0-1)
+    "umbral_critico_jaccard": 0.65,   # Similitud Jaccard para forzar CRÍTICO (0-1)
+    "umbral_alto_score": 0.35,        # Score para clasificar como ALTO (0-1)
+    "umbral_alto_jaccard": 0.45,      # Similitud Jaccard para forzar ALTO (0-1)
+    "umbral_alto_clip": 0.70,         # Similitud de portapapeles para forzar ALTO (0-1)
 }
 
 
@@ -105,34 +120,141 @@ def parsear_timestamp(ts: str) -> datetime:
 
 
 def reconstruir_texto(fragmentos_keylogger: List[str]) -> str:
-    """Reconstruye el texto final simulando la posición exacta del cursor en O(N) lineal."""
+    """Reconstruye el texto tecleado en O(N), con dos listas (left/right)
+    para simular el cursor sin insert()/pop() en el medio.
+
+    Si el log trae los cierres [/SHIFT] / [/CTRL] (keylogger con
+    on_release), usa el modo PRECISO: sabe exactamente cuándo se soltó
+    el modificador, así que Ctrl+A + Ctrl+C sin soltar Ctrl en el medio
+    se descarta por completo, sin ambigüedad.
+
+    Si el log es de una versión anterior del keylogger (sin esos
+    cierres), cae al modo HEREDADO: solo puede recuperar con certeza UN
+    caracter después de cada "+", la mejor aproximación posible sin esa
+    información adicional.
+    """
+    log_crudo_completo = "".join(fragmentos_keylogger)
+    modo_preciso = "[/SHIFT]" in log_crudo_completo or "[/CTRL]" in log_crudo_completo
+
     left: List[str] = []
     right: List[str] = []
-    log_crudo = "".join(fragmentos_keylogger)
-    partes = re.split(r"(\[.*?\])", log_crudo)
 
-    for parte in partes:
-        if not parte:
-            continue
-        parte_upper = parte.upper()
+    def procesar_heredado(partes: List[str]):
+        i, n = 0, len(partes)
+        while i < n:
+            parte = partes[i]
+            combo = re.match(r"^\[(SHIFT|CTRL)\+(.+)\]$", parte, re.IGNORECASE)
+            if combo:
+                modificador, tecla = combo.group(1).upper(), combo.group(2)
+                if modificador == "SHIFT":
+                    if tecla.upper() == "ENTER":
+                        left.append("\n")
+                    elif tecla.upper() not in ("LEFT", "RIGHT", "UP", "DOWN"):
+                        left.extend(list(tecla))
+                i += 1
+                continue
+            pu = parte.upper()
+            if pu in ("[BACKSPACE]", "[BASKSPACE]"):
+                if left:
+                    left.pop()
+                i += 1
+            elif pu == "[LEFT]":
+                if left:
+                    right.append(left.pop())
+                i += 1
+            elif pu == "[RIGHT]":
+                if right:
+                    left.append(right.pop())
+                i += 1
+            elif pu in ("[UP]", "[DOWN]"):
+                i += 1
+            elif pu == "[ENTER]":
+                left.append("\n")
+                i += 1
+            elif pu in ("[SHIFT]", "[CTRL]"):
+                siguiente = partes[i + 1] if i + 1 < n else ""
+                if siguiente == "+" and i + 2 < n and partes[i + 2].startswith("[") and partes[i + 2].endswith("]"):
+                    tecla_especial = partes[i + 2]
+                    if pu == "[SHIFT]" and tecla_especial.upper() == "[ENTER]":
+                        left.append("\n")
+                    i += 3
+                    continue
+                if siguiente.startswith("+") and len(siguiente) > 1:
+                    tecla = siguiente[1]
+                    resto = siguiente[2:]
+                    if pu == "[SHIFT]":
+                        left.append(tecla)
+                    partes[i + 1] = resto
+                    i += 1
+                    continue
+                i += 1
+            elif parte.startswith("[") and parte.endswith("]"):
+                i += 1
+            else:
+                left.extend(list(parte))
+                i += 1
 
-        if parte_upper in ("[BACKSPACE]", "[BASKSPACE]"):
-            if left:
-                left.pop()
-        elif parte_upper == "[LEFT]":
-            if left:
-                right.append(left.pop())
-        elif parte_upper == "[RIGHT]":
-            if right:
-                left.append(right.pop())
-        elif parte_upper in ("[UP]", "[DOWN]"):
-            pass
-        elif parte_upper == "[ENTER]":
-            left.append("\n")
-        elif parte.startswith("[") and parte.endswith("]"):
-            pass
-        else:
-            left.extend(list(parte))
+    def procesar_preciso(partes: List[str]):
+        """Se reinicia el estado (ctrl/shift mantenidos) en cada fragmento
+        (cada intervalo de sondeo) como válvula de seguridad, por si algún
+        release se perdiera -- así el daño queda acotado a esa ventana."""
+        ctrl_held = shift_held = False
+        i, n = 0, len(partes)
+        while i < n:
+            parte = partes[i]
+            pu = parte.upper()
+
+            if pu == "[SHIFT]":
+                shift_held = True
+                if i + 1 < n and partes[i + 1].startswith("+"):
+                    partes[i + 1] = partes[i + 1][1:]
+                i += 1
+                continue
+            if pu == "[CTRL]":
+                ctrl_held = True
+                if i + 1 < n and partes[i + 1].startswith("+"):
+                    partes[i + 1] = partes[i + 1][1:]
+                i += 1
+                continue
+            if pu == "[/SHIFT]":
+                shift_held = False
+                i += 1
+                continue
+            if pu == "[/CTRL]":
+                ctrl_held = False
+                i += 1
+                continue
+
+            if ctrl_held:
+                i += 1  # Ctrl+lo-que-sea es un atajo/comando, no toca el texto
+                continue
+
+            if pu in ("[BACKSPACE]", "[BASKSPACE]"):
+                if left:
+                    left.pop()
+            elif pu == "[LEFT]":
+                if left:
+                    right.append(left.pop())
+            elif pu == "[RIGHT]":
+                if right:
+                    left.append(right.pop())
+            elif pu in ("[UP]", "[DOWN]"):
+                pass
+            elif pu == "[ENTER]":
+                left.append("\n")
+            elif parte.startswith("[") and parte.endswith("]"):
+                pass  # TAB, ALT u otras teclas especiales sin efecto en el texto
+            else:
+                left.extend(list(parte))
+            i += 1
+
+    if modo_preciso:
+        for fragmento in fragmentos_keylogger:
+            partes = [p for p in re.split(r"(\[.*?\])", fragmento) if p != ""]
+            procesar_preciso(partes)
+    else:
+        partes = [p for p in re.split(r"(\[.*?\])", log_crudo_completo) if p != ""]
+        procesar_heredado(partes)
 
     right.reverse()
     return "".join(left) + "".join(right)
@@ -218,6 +340,36 @@ class LogComparator:
                 self.config["apps_permitidas"] = str(nueva_config["apps_permitidas"]).strip()
             if "titulos_permitidos" in nueva_config:
                 self.config["titulos_permitidos"] = str(nueva_config["titulos_permitidos"]).strip()
+
+            # Ponderaciones del Score Compuesto
+            if "peso_codigo" in nueva_config:
+                self.config["peso_codigo"] = max(0.0, min(1.0, float(nueva_config["peso_codigo"])))
+            if "peso_portapapeles" in nueva_config:
+                self.config["peso_portapapeles"] = max(0.0, min(1.0, float(nueva_config["peso_portapapeles"])))
+            if "peso_fugas" in nueva_config:
+                self.config["peso_fugas"] = max(0.0, min(1.0, float(nueva_config["peso_fugas"])))
+            if "peso_ejecucion" in nueva_config:
+                self.config["peso_ejecucion"] = max(0.0, min(1.0, float(nueva_config["peso_ejecucion"])))
+
+            # Consideraciones y Escalación
+            if "boost_clip_umbral" in nueva_config:
+                self.config["boost_clip_umbral"] = max(0.0, min(1.0, float(nueva_config["boost_clip_umbral"])))
+            if "boost_clip_exec_score" in nueva_config:
+                self.config["boost_clip_exec_score"] = max(0.0, min(1.0, float(nueva_config["boost_clip_exec_score"])))
+            if "boost_clip_score" in nueva_config:
+                self.config["boost_clip_score"] = max(0.0, min(1.0, float(nueva_config["boost_clip_score"])))
+
+            # Umbrales de Severidad
+            if "umbral_critico_score" in nueva_config:
+                self.config["umbral_critico_score"] = max(0.0, min(1.0, float(nueva_config["umbral_critico_score"])))
+            if "umbral_critico_jaccard" in nueva_config:
+                self.config["umbral_critico_jaccard"] = max(0.0, min(1.0, float(nueva_config["umbral_critico_jaccard"])))
+            if "umbral_alto_score" in nueva_config:
+                self.config["umbral_alto_score"] = max(0.0, min(1.0, float(nueva_config["umbral_alto_score"])))
+            if "umbral_alto_jaccard" in nueva_config:
+                self.config["umbral_alto_jaccard"] = max(0.0, min(1.0, float(nueva_config["umbral_alto_jaccard"])))
+            if "umbral_alto_clip" in nueva_config:
+                self.config["umbral_alto_clip"] = max(0.0, min(1.0, float(nueva_config["umbral_alto_clip"])))
 
             self.segundos_restantes = self.config["intervalo_segundos"]
 
@@ -576,25 +728,42 @@ class LogComparator:
             fuga_con_red = any("con red en ambos" in h for h in fuga_sync)
             exec_sync = self.sincronia_ejecucion(a, b)
 
-            # Score compuesto ponderado (código 45%, portapapeles 35%, fugas 15%, ejecución 5%)
+            # Score compuesto ponderado configurable
+            peso_cod = float(self.config.get("peso_codigo", 0.45))
+            peso_clip = float(self.config.get("peso_portapapeles", 0.35))
+            peso_fug = float(self.config.get("peso_fugas", 0.15))
+            peso_exec = float(self.config.get("peso_ejecucion", 0.05))
+
             score = (
-                0.45 * jaccard_exacto
-                + 0.35 * sim_clip
-                + 0.15 * (1.0 if fuga_con_red else (0.5 if fuga_sync else 0.0))
-                + 0.05 * (1.0 if exec_sync else 0.0)
+                peso_cod * jaccard_exacto
+                + peso_clip * sim_clip
+                + peso_fug * (1.0 if fuga_con_red else (0.5 if fuga_sync else 0.0))
+                + peso_exec * (1.0 if exec_sync else 0.0)
             )
 
-            # Si el portapapeles es idéntico o casi idéntico con ejecución simultánea, elevar score
-            if sim_clip >= 0.85 and exec_sync:
-                score = max(score, 0.70)
-            elif sim_clip >= 0.85:
-                score = max(score, 0.50)
+            # Consideraciones y escalación de score
+            boost_clip_umbral = float(self.config.get("boost_clip_umbral", 0.85))
+            boost_clip_exec_score = float(self.config.get("boost_clip_exec_score", 0.70))
+            boost_clip_score = float(self.config.get("boost_clip_score", 0.50))
 
-            # Nivel de severidad
-            if score >= 0.55 or jaccard_exacto >= 0.65 or (sim_clip >= 0.85 and exec_sync):
+            if sim_clip >= boost_clip_umbral and exec_sync:
+                score = max(score, boost_clip_exec_score)
+            elif sim_clip >= boost_clip_umbral:
+                score = max(score, boost_clip_score)
+
+            score = min(1.0, max(0.0, score))
+
+            # Umbrales de severidad configurables
+            u_crit_score = float(self.config.get("umbral_critico_score", 0.55))
+            u_crit_jaccard = float(self.config.get("umbral_critico_jaccard", 0.65))
+            u_alto_score = float(self.config.get("umbral_alto_score", 0.35))
+            u_alto_jaccard = float(self.config.get("umbral_alto_jaccard", 0.45))
+            u_alto_clip = float(self.config.get("umbral_alto_clip", 0.70))
+
+            if score >= u_crit_score or jaccard_exacto >= u_crit_jaccard or (sim_clip >= boost_clip_umbral and exec_sync):
                 nivel_riesgo = "CRÍTICO"
                 color_riesgo = "red"
-            elif score >= 0.35 or jaccard_exacto >= 0.45 or sim_clip >= 0.70:
+            elif score >= u_alto_score or jaccard_exacto >= u_alto_jaccard or sim_clip >= u_alto_clip:
                 nivel_riesgo = "ALTO"
                 color_riesgo = "amber"
             else:

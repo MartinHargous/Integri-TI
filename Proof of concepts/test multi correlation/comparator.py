@@ -1,5 +1,5 @@
 """
-comparator.py
+analisis_similitud_logs.py
 ---------------------------------
 Revisa todos los logs de examen de una carpeta y calcula qué tan
 relacionados están entre sí (posible copia/colusión).
@@ -25,8 +25,8 @@ Estrategia (pensada para bajo consumo de recursos):
   5. Combina todo en un score de riesgo compuesto por par de alumnos.
 
 Uso:
-    python comparator.py /ruta/a/carpeta_logs
-    python comparator.py /ruta/a/carpeta_logs --umbral 0.35 --salida reporte.json
+    python analisis_similitud_logs.py /ruta/a/carpeta_logs
+    python analisis_similitud_logs.py /ruta/a/carpeta_logs --umbral 0.35 --salida reporte.json
 
 Requisitos:
     pip install datasketch --break-system-packages
@@ -111,40 +111,147 @@ class PerfilAlumno:
 # ---------------------------------------------------------------------
 
 def reconstruir_texto(fragmentos_keylogger: List[str]) -> str:
-    """Reconstruye el texto final simulando la posición del cursor,
-    igual que limpiar_keylogger_avanzado, pero sobre TODO el log
-    concatenado en orden cronológico."""
+    """Reconstruye el texto tecleado.
+
+    Si el log trae los cierres [/SHIFT] / [/CTRL] (keylogger con
+    on_release agregado), usa el modo PRECISO: sabe exactamente cuándo
+    se soltó el modificador, así que un Ctrl+A + Ctrl+C sin soltar Ctrl
+    en el medio se descarta por completo, sin ambigüedad.
+
+    Si el log es de la versión vieja del keylogger (sin esos cierres),
+    cae al modo HEREDADO: solo puede recuperar con certeza UN caracter
+    después de cada "+", que es la mejor aproximación posible sin esa
+    información adicional.
+    """
+    log_crudo_completo = "".join(fragmentos_keylogger)
+    modo_preciso = "[/SHIFT]" in log_crudo_completo or "[/CTRL]" in log_crudo_completo
+
     texto_final: List[str] = []
     cursor = 0
-    log_crudo = "".join(fragmentos_keylogger)
-    partes = re.split(r"(\[.*?\])", log_crudo)
 
-    for parte in partes:
-        if not parte:
-            continue
-        parte_upper = parte.upper()
+    def procesar_heredado(partes: List[str]):
+        nonlocal cursor
+        i, n = 0, len(partes)
+        while i < n:
+            parte = partes[i]
+            combo = re.match(r"^\[(SHIFT|CTRL)\+(.+)\]$", parte, re.IGNORECASE)
+            if combo:
+                modificador, tecla = combo.group(1).upper(), combo.group(2)
+                if modificador == "SHIFT":
+                    if tecla.upper() == "ENTER":
+                        texto_final.insert(cursor, "\n"); cursor += 1
+                    elif tecla.upper() not in ("LEFT", "RIGHT", "UP", "DOWN"):
+                        for ch in tecla:
+                            texto_final.insert(cursor, ch); cursor += 1
+                i += 1
+                continue
+            pu = parte.upper()
+            if pu in ("[BACKSPACE]", "[BASKSPACE]"):
+                if cursor > 0:
+                    cursor -= 1
+                    texto_final.pop(cursor)
+                i += 1
+            elif pu == "[LEFT]":
+                if cursor > 0:
+                    cursor -= 1
+                i += 1
+            elif pu == "[RIGHT]":
+                if cursor < len(texto_final):
+                    cursor += 1
+                i += 1
+            elif pu in ("[UP]", "[DOWN]"):
+                i += 1
+            elif pu == "[ENTER]":
+                texto_final.insert(cursor, "\n"); cursor += 1
+                i += 1
+            elif pu in ("[SHIFT]", "[CTRL]"):
+                siguiente = partes[i + 1] if i + 1 < n else ""
+                if siguiente == "+" and i + 2 < n and partes[i + 2].startswith("[") and partes[i + 2].endswith("]"):
+                    tecla_especial = partes[i + 2]
+                    if pu == "[SHIFT]" and tecla_especial.upper() == "[ENTER]":
+                        texto_final.insert(cursor, "\n"); cursor += 1
+                    i += 3
+                    continue
+                if siguiente.startswith("+") and len(siguiente) > 1:
+                    tecla = siguiente[1]
+                    resto = siguiente[2:]
+                    if pu == "[SHIFT]":
+                        texto_final.insert(cursor, tecla); cursor += 1
+                    partes[i + 1] = resto
+                    i += 1
+                    continue
+                i += 1
+            elif parte.startswith("[") and parte.endswith("]"):
+                i += 1
+            else:
+                for ch in parte:
+                    texto_final.insert(cursor, ch); cursor += 1
+                i += 1
 
-        if parte_upper in ("[BACKSPACE]", "[BASKSPACE]"):
-            if cursor > 0:
-                cursor -= 1
-                texto_final.pop(cursor)
-        elif parte_upper == "[LEFT]":
-            if cursor > 0:
-                cursor -= 1
-        elif parte_upper == "[RIGHT]":
-            if cursor < len(texto_final):
-                cursor += 1
-        elif parte_upper == "[UP]" or parte_upper == "[DOWN]":
-            pass  # no afecta al cursor horizontal simulado
-        elif parte_upper == "[ENTER]":
-            texto_final.insert(cursor, "\n")
-            cursor += 1
-        elif parte.startswith("[") and parte.endswith("]"):
-            pass  # CTRL, SHIFT, TAB, etc. se ignoran
-        else:
-            for char in parte:
-                texto_final.insert(cursor, char)
-                cursor += 1
+    def procesar_preciso(partes: List[str]):
+        """Se reinicia el estado (ctrl/shift mantenidos) en cada fragmento
+        (cada intervalo de sondeo) como válvula de seguridad, por si algún
+        release se perdiera -- así el daño queda acotado a esa ventana."""
+        nonlocal cursor
+        ctrl_held = shift_held = False
+        i, n = 0, len(partes)
+        while i < n:
+            parte = partes[i]
+            pu = parte.upper()
+
+            if pu == "[SHIFT]":
+                shift_held = True
+                if i + 1 < n and partes[i + 1].startswith("+"):
+                    partes[i + 1] = partes[i + 1][1:]  # quita solo el '+', no es una tecla
+                i += 1
+                continue
+            if pu == "[CTRL]":
+                ctrl_held = True
+                if i + 1 < n and partes[i + 1].startswith("+"):
+                    partes[i + 1] = partes[i + 1][1:]
+                i += 1
+                continue
+            if pu == "[/SHIFT]":
+                shift_held = False
+                i += 1
+                continue
+            if pu == "[/CTRL]":
+                ctrl_held = False
+                i += 1
+                continue
+
+            if ctrl_held:
+                i += 1  # Ctrl+lo-que-sea es un atajo/comando, no toca el texto
+                continue
+
+            if pu in ("[BACKSPACE]", "[BASKSPACE]"):
+                if cursor > 0:
+                    cursor -= 1
+                    texto_final.pop(cursor)
+            elif pu == "[LEFT]":
+                if cursor > 0:
+                    cursor -= 1
+            elif pu == "[RIGHT]":
+                if cursor < len(texto_final):
+                    cursor += 1
+            elif pu in ("[UP]", "[DOWN]"):
+                pass
+            elif pu == "[ENTER]":
+                texto_final.insert(cursor, "\n"); cursor += 1
+            elif parte.startswith("[") and parte.endswith("]"):
+                pass  # TAB, ALT u otras teclas especiales sin efecto en el texto
+            else:
+                for ch in parte:
+                    texto_final.insert(cursor, ch); cursor += 1
+            i += 1
+
+    if modo_preciso:
+        for fragmento in fragmentos_keylogger:
+            partes = [p for p in re.split(r"(\[.*?\])", fragmento) if p != ""]
+            procesar_preciso(partes)
+    else:
+        partes = [p for p in re.split(r"(\[.*?\])", log_crudo_completo) if p != ""]
+        procesar_heredado(partes)
 
     return "".join(texto_final)
 

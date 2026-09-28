@@ -24,6 +24,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CARPETA_DATOS = os.path.join(BASE_DIR, "datos_alumnos")
 os.makedirs(CARPETA_DATOS, exist_ok=True)
@@ -196,9 +197,20 @@ async def recibir_telemetria(
 
     if configuraciones_globales:
         for mod, cambios in configuraciones_globales.items():
-            if mod not in configs_a_enviar:
-                configs_a_enviar[mod] = {}
-            configs_a_enviar[mod].update(cambios)
+            cliente_mod = configs_recibidas.get(mod, {})
+            if not cliente_mod:
+                for k_c, v_c in configs_recibidas.items():
+                    if k_c.replace(" ", "_") == mod.replace(" ", "_"):
+                        cliente_mod = v_c
+                        break
+            cambios_faltantes = {}
+            for k, v in cambios.items():
+                if str(cliente_mod.get(k, "")).strip().lower() != str(v).strip().lower():
+                    cambios_faltantes[k] = v
+            if cambios_faltantes:
+                if mod not in configs_a_enviar:
+                    configs_a_enviar[mod] = {}
+                configs_a_enviar[mod].update(cambios_faltantes)
 
     return {
         "comando_global": comando_global,
@@ -372,8 +384,13 @@ async def actualizar_modulo(nombre: str, request: Request):
                 configuraciones_pendientes[cid][nombre_normalizado] = {}
             configuraciones_pendientes[cid][nombre_normalizado].update(valores)
 
-            if "configs" in clientes_conectados[cid] and nombre_normalizado in clientes_conectados[cid]["configs"]:
-                clientes_conectados[cid]["configs"][nombre_normalizado].update(valores)
+            if "configs" in clientes_conectados[cid]:
+                for k in clientes_conectados[cid]["configs"].keys():
+                    if k.replace(" ", "_") == nombre_normalizado.replace(" ", "_"):
+                        clientes_conectados[cid]["configs"][k].update(valores)
+                        break
+                else:
+                    clientes_conectados[cid]["configs"][nombre_normalizado] = dict(valores)
 
         print(f"\n[HTTP] Configuración global encolada para '{nombre_normalizado}': {valores}")
         return {
@@ -390,8 +407,12 @@ async def actualizar_modulo(nombre: str, request: Request):
         configuraciones_pendientes[destino][nombre_normalizado].update(valores)
 
         if destino in clientes_conectados and "configs" in clientes_conectados[destino]:
-            if nombre_normalizado in clientes_conectados[destino]["configs"]:
-                clientes_conectados[destino]["configs"][nombre_normalizado].update(valores)
+            for k in clientes_conectados[destino]["configs"].keys():
+                if k.replace(" ", "_") == nombre_normalizado.replace(" ", "_"):
+                    clientes_conectados[destino]["configs"][k].update(valores)
+                    break
+            else:
+                clientes_conectados[destino]["configs"][nombre_normalizado] = dict(valores)
 
         print(f"\n[HTTP] Configuración encolada para {destino} en '{nombre_normalizado}': {valores}")
         return {

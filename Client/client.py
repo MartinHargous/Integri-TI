@@ -7,9 +7,10 @@ import json
 from pathlib import Path
 import concurrent.futures
 import traceback
-import pwd
+
 # Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar orchestrator
 if sys.platform.startswith("linux"):
+    import pwd
     if "DISPLAY" not in os.environ:
         os.environ["DISPLAY"] = ":0"
         
@@ -56,9 +57,9 @@ class TelemetryClient:
         self.client_id = "Desconocido"
         self.server_url = ""
         
-        self.estado_local = "ESPERANDO"
+        self.StateMachine = "ESPERANDO"
         self.conectado = False
-        self.alertas_pendientes = []
+        self.AlertBuffer = []
         
         self.orchestrator = Orchestrator()
 
@@ -113,7 +114,7 @@ class TelemetryClient:
             pass
         return None
 
-    def descubrir_servidor(self, puerto_api=8000):
+    def DiscoveryEngine(self, puerto_api=8000):
         """Escanea la red buscando la API, cruzando barreras NAT si es necesario."""
         
         # 1. Bypass manual: Si se configuró una IP explícita en config.txt
@@ -170,10 +171,10 @@ class TelemetryClient:
     def iniciar_agente(self):
         print(f"\n[INFO] Iniciando agente. Sincronizando con {self.server_url} cada {self.interval}s...")
         try:
-            self._loop_sincronizacion()
+            self.SyncManager()
         except KeyboardInterrupt:
             print("\n[!] Interrupción detectada. Apagando agente cliente...")
-            if self.estado_local == "GRABANDO":
+            if self.StateMachine == "GRABANDO":
                 self.orchestrator.stop_all()
 
     def registrar_alerta(self, nivel, mensaje):
@@ -182,28 +183,48 @@ class TelemetryClient:
             "nivel": nivel,
             "mensaje": mensaje
         }
-        self.alertas_pendientes.append(alerta)
+        self.AlertBuffer.append(alerta)
 
-    def _loop_sincronizacion(self):
+    def RemoteConfigDispatcher(self, configs_servidor):
+        """
+        Procesa y aplica las configuraciones de módulos enviadas remotamente por el servidor.
+        Actualiza los archivos config.txt locales y reinicia los módulos si la telemetría está activa.
+        """
+        if not configs_servidor or not isinstance(configs_servidor, dict):
+            return
+
+        configs_validas = {k: v for k, v in configs_servidor.items() if isinstance(v, dict) and v}
+        if not configs_validas:
+            return
+
+        print(f"\n[CONFIG] Configuraciones remotas recibidas del servidor para: {list(configs_validas.keys())}")
+        is_recording = (self.StateMachine == "GRABANDO")
+        self.orchestrator.apply_configs(configs_validas, is_recording=is_recording)
+
+    def _procesar_configuraciones(self, configs_servidor):
+        self.RemoteConfigDispatcher(configs_servidor)
+
+    def SyncManager(self):
         fallos_consecutivos = 0
         while True:
             try:
                 logs_pendientes = []
                 ruta_log = Path("combined_log.log")
                 
-                if self.estado_local == "GRABANDO":
+                if self.StateMachine == "GRABANDO":
                     logs_pendientes = self.orchestrator.combine_logs()
 
                 data_payload = {
                     "client_id": self.client_id,
-                    "estado_local": self.estado_local,
+                    "estado_local": self.StateMachine,
                     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                    "alertas": json.dumps(self.alertas_pendientes)
+                    "alertas": json.dumps(self.AlertBuffer),
+                    "configs": json.dumps(self.orchestrator.get_all_configs())
                 }
                 
                 archivo_abierto = None
                 
-                if self.estado_local == "GRABANDO" and ruta_log.exists() and ruta_log.stat().st_size > 0:
+                if self.StateMachine == "GRABANDO" and ruta_log.exists() and ruta_log.stat().st_size > 0:
                     archivo_abierto = open(ruta_log, "rb")
                     archivos = {"archivo_log": archivo_abierto}
                 else:
@@ -217,7 +238,7 @@ class TelemetryClient:
                 if respuesta.status_code == 200:
                     fallos_consecutivos = 0
                     if not self.conectado:
-                        print(f"[OK] Conexión establecida con el profesor ({self.server_url}). Estado: {self.estado_local}")
+                        print(f"[OK] Conexión establecida con el profesor ({self.server_url}). Estado: {self.StateMachine}")
                         self.conectado = True
                         
                     datos_servidor = respuesta.json()
@@ -226,10 +247,16 @@ class TelemetryClient:
                         print(f"[*] {len(logs_pendientes)} registros enviados al servidor correctamente.")
                         self.orchestrator.clear_logs() 
                         
-                    if self.alertas_pendientes:
-                        print(f"[*] {len(self.alertas_pendientes)} alertas enviadas al servidor.")
-                        self.alertas_pendientes.clear()
-                        
+                    if self.AlertBuffer:
+                        print(f"[*] {len(self.AlertBuffer)} alertas enviadas al servidor.")
+                        self.AlertBuffer.clear()
+
+                    # 1. Procesar configuraciones de módulos recibidas remotamente desde el servidor
+                    configs_servidor = datos_servidor.get("configuraciones")
+                    if configs_servidor and isinstance(configs_servidor, dict):
+                        self.RemoteConfigDispatcher(configs_servidor)
+
+                    # 2. Procesar comando de estado global del examen
                     comando_global = datos_servidor.get("comando_global")
                     accion = self._procesar_comando(comando_global)
                     
@@ -249,7 +276,8 @@ class TelemetryClient:
                             "client_id": self.client_id,
                             "estado_local": "FINALIZADO",
                             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                            "alertas": json.dumps(self.alertas_pendientes)
+                            "alertas": json.dumps(self.AlertBuffer),
+                            "configs": json.dumps(self.orchestrator.get_all_configs())
                         }
                         
                         try:
@@ -262,14 +290,14 @@ class TelemetryClient:
                                 archivo_final.close()
                                 
                         self.orchestrator.clear_logs()
-                        self.alertas_pendientes.clear()
+                        self.AlertBuffer.clear()
                         self.orchestrator.reset()
                         
                         print("[INFO] Sesión de examen cerrada.")
                         print("[INFO] El cliente queda buscando el servidor del profesor (esperando que esté en ESPERANDO)...\n")
                         self.conectado = False
                         self.server_url = ""
-                        self.estado_local = "ESPERANDO"
+                        self.StateMachine = "ESPERANDO"
                         break
                         
                 else:
@@ -285,12 +313,12 @@ class TelemetryClient:
                 
                 if fallos_consecutivos >= 3:
                     print("\n[AVISO] El servidor no responde tras 3 intentos. Volviendo a búsqueda automática...")
-                    if self.estado_local == "GRABANDO":
+                    if self.StateMachine == "GRABANDO":
                         self.orchestrator.stop_all()
                     self.orchestrator.reset()
                     self.conectado = False
                     self.server_url = ""
-                    self.estado_local = "ESPERANDO"
+                    self.StateMachine = "ESPERANDO"
                     break
             
             time.sleep(self.interval)
@@ -299,24 +327,24 @@ class TelemetryClient:
         if not estado_servidor: 
             return None
             
-        if estado_servidor == "GRABANDO" and self.estado_local != "GRABANDO":
+        if estado_servidor == "GRABANDO" and self.StateMachine != "GRABANDO":
             print("\n[+] Orden recibida: INICIAR TELEMETRÍA.")
-            self.estado_local = "GRABANDO"
+            self.StateMachine = "GRABANDO"
             self.orchestrator.start_all()
             return "GRABANDO"
 
-        elif estado_servidor == "ESPERANDO" and self.estado_local != "ESPERANDO":
+        elif estado_servidor == "ESPERANDO" and self.StateMachine != "ESPERANDO":
             print("\n[*] Orden recibida: EN ESPERA (Telemetría pausada).")
-            if self.estado_local == "GRABANDO":
+            if self.StateMachine == "GRABANDO":
                 self.orchestrator.stop_all()
-            self.estado_local = "ESPERANDO"
+            self.StateMachine = "ESPERANDO"
             return "ESPERANDO"
             
         elif estado_servidor == "FINALIZADO":
             print("\n[!] Orden recibida: DETENER Y FINALIZAR EXAMEN.")
-            if self.estado_local == "GRABANDO":
+            if self.StateMachine == "GRABANDO":
                 self.orchestrator.stop_all()
-            self.estado_local = "FINALIZADO"
+            self.StateMachine = "FINALIZADO"
             return "FINALIZADO"
 
         return None
@@ -333,7 +361,7 @@ if __name__ == "__main__":
     try:
         while True:
             # El agente buscará dependiendo de su configuración en config.txt
-            url_profesor = agente.descubrir_servidor()
+            url_profesor = agente.DiscoveryEngine()
             
             if url_profesor:
                 agente.server_url = url_profesor
@@ -348,7 +376,7 @@ if __name__ == "__main__":
             
     except KeyboardInterrupt:
         print("\n[!] Proceso detenido por el usuario.")
-        if agente.estado_local == "GRABANDO":
+        if agente.StateMachine == "GRABANDO":
             agente.orchestrator.stop_all()
         
     except Exception as e:

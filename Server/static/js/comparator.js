@@ -3,6 +3,31 @@
  * Orquestación de pestañas, configuración dinámica y renderizado de relaciones entre alumnos.
  */
 
+// Valores por defecto canónicos para calibración heurística y scoring
+const CONFIG_COMPARADOR_DEFAULT = Object.freeze({
+  intervalo_segundos: 60,
+  auto_analisis: true,
+  k_shingle: 5,
+  num_perm: 128,
+  ventana_sincronia_seg: 8,
+  umbral_codigo: 0.35,
+  umbral_portapapeles: 0.50,
+  apps_permitidas: 'code, python, pythonw',
+  titulos_permitidos: 'integri-ti',
+  peso_codigo: 0.45,
+  peso_portapapeles: 0.35,
+  peso_fugas: 0.15,
+  peso_ejecucion: 0.05,
+  boost_clip_umbral: 0.85,
+  boost_clip_exec_score: 0.70,
+  boost_clip_score: 0.50,
+  umbral_critico_score: 0.55,
+  umbral_critico_jaccard: 0.65,
+  umbral_alto_score: 0.35,
+  umbral_alto_jaccard: 0.45,
+  umbral_alto_clip: 0.70
+});
+
 let paresComparadorCache = [];
 let paresFiltradosCache = [];
 let parDetalleActivo = null;
@@ -21,8 +46,8 @@ function notificarEstadoExamenAComparador(estado) {
   }
 
   actualizarEstadoScheduler({
-    auto_analisis: configComparadorCache?.auto_analisis ?? true,
-    intervalo_segundos: configComparadorCache?.intervalo_segundos ?? 60,
+    auto_analisis: configComparadorCache?.auto_analisis ?? CONFIG_COMPARADOR_DEFAULT.auto_analisis,
+    intervalo_segundos: configComparadorCache?.intervalo_segundos ?? CONFIG_COMPARADOR_DEFAULT.intervalo_segundos,
     estado_examen: estadoExamenGlobal,
     pausado_por_finalizacion: (estadoExamenGlobal === 'FINALIZADO'),
     segundos_restantes: (estadoExamenGlobal === 'FINALIZADO') ? 0 : compSegundosRestantesLocales
@@ -61,15 +86,48 @@ function cambiarPestana(nombre) {
   }
 }
 
-// 2. TOGGLE DEL PANEL DE CONFIGURACIÓN
-function toggleConfigComparador() {
+// 2. TOGGLE Y SUBPESTAÑAS DEL MODAL DE CONFIGURACIÓN
+function toggleConfigComparador(forzarEstado) {
   const panel = document.getElementById('panel-config-comparador');
-  if (panel) {
-    panel.classList.toggle('hidden');
-    if (!panel.classList.contains('hidden')) {
-      cargarConfigComparador();
+  if (!panel) return;
+
+  const abrir = (typeof forzarEstado === 'boolean') ? forzarEstado : panel.classList.contains('hidden');
+  if (abrir) {
+    if (!configComparadorCache) {
+      actualizarFormularioConfig(CONFIG_COMPARADOR_DEFAULT);
     }
+    panel.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+    cargarConfigComparador();
+  } else {
+    panel.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
   }
+}
+
+function cerrarModalConfigSiBackdrop(e) {
+  if (e && e.target && e.target.id === 'panel-config-comparador') {
+    toggleConfigComparador(false);
+  }
+}
+
+function cambiarSubpestanaConfig(subpestanaId) {
+  const tabs = ['general', 'ponderaciones', 'umbrales'];
+  tabs.forEach(t => {
+    const btn = document.getElementById(`tab-cfg-btn-${t}`);
+    const sec = document.getElementById(`tab-cfg-sec-${t}`);
+    if (t === subpestanaId) {
+      if (btn) {
+        btn.className = 'px-3 py-1.5 rounded-md text-xs font-semibold bg-purple-950/80 text-purple-300 border border-purple-800/80 shadow-sm flex items-center gap-1.5 transition-all';
+      }
+      if (sec) sec.classList.remove('hidden');
+    } else {
+      if (btn) {
+        btn.className = 'px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 border border-transparent flex items-center gap-1.5 transition-all';
+      }
+      if (sec) sec.classList.add('hidden');
+    }
+  });
 }
 
 // Helper de notificación seguro (usa mostrarToast si existe, o fallback)
@@ -132,36 +190,76 @@ async function apiGetComparatorResults() {
 async function cargarConfigComparador() {
   try {
     const data = await apiGetComparatorConfig();
-    if (data.status === 'ok') {
+    if (data && data.status === 'ok') {
       configComparadorCache = data.config || {};
       actualizarFormularioConfig(configComparadorCache);
       actualizarEstadoScheduler(data.estado || {});
+    } else {
+      actualizarFormularioConfig(CONFIG_COMPARADOR_DEFAULT);
     }
   } catch (err) {
     console.warn('No se pudo cargar la configuración del comparador:', err);
+    if (!configComparadorCache) {
+      actualizarFormularioConfig(CONFIG_COMPARADOR_DEFAULT);
+    }
+  }
+}
+
+function actualizarSumaPesosUI() {
+  const c = parseFloat(document.getElementById('cfg-comp-pesocodigo')?.value) || 0;
+  const p = parseFloat(document.getElementById('cfg-comp-pesoclip')?.value) || 0;
+  const f = parseFloat(document.getElementById('cfg-comp-pesofugas')?.value) || 0;
+  const e = parseFloat(document.getElementById('cfg-comp-pesoexec')?.value) || 0;
+  const suma = Math.round((c + p + f + e) * 100) / 100;
+  const el = document.getElementById('cfg-comp-suma-pesos');
+  if (el) {
+    el.textContent = `${suma.toFixed(2)} (${Math.round(suma * 100)}%)`;
+    if (Math.abs(suma - 1.0) < 0.01) {
+      el.className = 'font-bold text-emerald-400 font-mono';
+    } else {
+      el.className = 'font-bold text-amber-400 font-mono';
+    }
   }
 }
 
 function actualizarFormularioConfig(cfg) {
-  const elIntervalo = document.getElementById('cfg-comp-intervalo');
-  const elAuto = document.getElementById('cfg-comp-auto');
-  const elKShingle = document.getElementById('cfg-comp-kshingle');
-  const elNumPerm = document.getElementById('cfg-comp-numperm');
-  const elVentana = document.getElementById('cfg-comp-ventanasync');
-  const elUmbralCodigo = document.getElementById('cfg-comp-umbralcodigo');
-  const elUmbralClip = document.getElementById('cfg-comp-umbralclip');
-  const elApps = document.getElementById('cfg-comp-apps');
-  const elTitulos = document.getElementById('cfg-comp-titulos');
+  const datos = Object.assign({}, CONFIG_COMPARADOR_DEFAULT, cfg || {});
 
-  if (elIntervalo) elIntervalo.value = cfg.intervalo_segundos ?? 60;
-  if (elAuto) elAuto.checked = !!cfg.auto_analisis;
-  if (elKShingle) elKShingle.value = cfg.k_shingle ?? 5;
-  if (elNumPerm) elNumPerm.value = String(cfg.num_perm ?? 128);
-  if (elVentana) elVentana.value = cfg.ventana_sincronia_seg ?? 8;
-  if (elUmbralCodigo) elUmbralCodigo.value = cfg.umbral_codigo ?? 0.35;
-  if (elUmbralClip) elUmbralClip.value = cfg.umbral_portapapeles ?? 0.50;
-  if (elApps) elApps.value = cfg.apps_permitidas || 'code, python, pythonw';
-  if (elTitulos) elTitulos.value = cfg.titulos_permitidos || 'integri-ti';
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = (val !== undefined && val !== null) ? val : '';
+  };
+
+  setVal('cfg-comp-intervalo', datos.intervalo_segundos);
+  const elAuto = document.getElementById('cfg-comp-auto');
+  if (elAuto) elAuto.checked = Boolean(datos.auto_analisis);
+  setVal('cfg-comp-kshingle', datos.k_shingle);
+  setVal('cfg-comp-numperm', String(datos.num_perm));
+  setVal('cfg-comp-ventanasync', datos.ventana_sincronia_seg);
+  setVal('cfg-comp-umbralcodigo', datos.umbral_codigo);
+  setVal('cfg-comp-umbralclip', datos.umbral_portapapeles);
+  setVal('cfg-comp-apps', datos.apps_permitidas);
+  setVal('cfg-comp-titulos', datos.titulos_permitidos);
+
+  // Ponderaciones del Score
+  setVal('cfg-comp-pesocodigo', datos.peso_codigo);
+  setVal('cfg-comp-pesoclip', datos.peso_portapapeles);
+  setVal('cfg-comp-pesofugas', datos.peso_fugas);
+  setVal('cfg-comp-pesoexec', datos.peso_ejecucion);
+
+  // Consideraciones y Escalación
+  setVal('cfg-comp-boostclipumbral', datos.boost_clip_umbral);
+  setVal('cfg-comp-boostclipexec', datos.boost_clip_exec_score);
+  setVal('cfg-comp-boostclipscore', datos.boost_clip_score);
+
+  // Umbrales de Severidad
+  setVal('cfg-comp-criticoscore', datos.umbral_critico_score);
+  setVal('cfg-comp-criticojaccard', datos.umbral_critico_jaccard);
+  setVal('cfg-comp-altoscore', datos.umbral_alto_score);
+  setVal('cfg-comp-altojaccard', datos.umbral_alto_jaccard);
+  setVal('cfg-comp-altoclip', datos.umbral_alto_clip);
+
+  actualizarSumaPesosUI();
 }
 
 function actualizarEstadoScheduler(est) {
@@ -211,16 +309,43 @@ function actualizarEstadoScheduler(est) {
 async function guardarConfigComparador(e) {
   if (e) e.preventDefault();
 
+  const getFloat = (id, def) => {
+    const val = parseFloat(document.getElementById(id)?.value);
+    return isNaN(val) ? def : val;
+  };
+  const getInt = (id, def) => {
+    const val = parseInt(document.getElementById(id)?.value, 10);
+    return isNaN(val) ? def : val;
+  };
+
   const payload = {
-    intervalo_segundos: parseInt(document.getElementById('cfg-comp-intervalo').value, 10) || 0,
-    auto_analisis: document.getElementById('cfg-comp-auto').checked,
-    k_shingle: parseInt(document.getElementById('cfg-comp-kshingle').value, 10) || 5,
-    num_perm: parseInt(document.getElementById('cfg-comp-numperm').value, 10) || 128,
-    ventana_sincronia_seg: parseInt(document.getElementById('cfg-comp-ventanasync').value, 10) || 8,
-    umbral_codigo: parseFloat(document.getElementById('cfg-comp-umbralcodigo').value) || 0.35,
-    umbral_portapapeles: parseFloat(document.getElementById('cfg-comp-umbralclip').value) || 0.50,
-    apps_permitidas: document.getElementById('cfg-comp-apps').value.trim(),
-    titulos_permitidos: document.getElementById('cfg-comp-titulos').value.trim()
+    intervalo_segundos: getInt('cfg-comp-intervalo', CONFIG_COMPARADOR_DEFAULT.intervalo_segundos),
+    auto_analisis: !!document.getElementById('cfg-comp-auto')?.checked,
+    k_shingle: getInt('cfg-comp-kshingle', CONFIG_COMPARADOR_DEFAULT.k_shingle),
+    num_perm: getInt('cfg-comp-numperm', CONFIG_COMPARADOR_DEFAULT.num_perm),
+    ventana_sincronia_seg: getInt('cfg-comp-ventanasync', CONFIG_COMPARADOR_DEFAULT.ventana_sincronia_seg),
+    umbral_codigo: getFloat('cfg-comp-umbralcodigo', CONFIG_COMPARADOR_DEFAULT.umbral_codigo),
+    umbral_portapapeles: getFloat('cfg-comp-umbralclip', CONFIG_COMPARADOR_DEFAULT.umbral_portapapeles),
+    apps_permitidas: (document.getElementById('cfg-comp-apps')?.value || CONFIG_COMPARADOR_DEFAULT.apps_permitidas).trim(),
+    titulos_permitidos: (document.getElementById('cfg-comp-titulos')?.value || CONFIG_COMPARADOR_DEFAULT.titulos_permitidos).trim(),
+
+    // Ponderaciones del Score Compuesto
+    peso_codigo: getFloat('cfg-comp-pesocodigo', CONFIG_COMPARADOR_DEFAULT.peso_codigo),
+    peso_portapapeles: getFloat('cfg-comp-pesoclip', CONFIG_COMPARADOR_DEFAULT.peso_portapapeles),
+    peso_fugas: getFloat('cfg-comp-pesofugas', CONFIG_COMPARADOR_DEFAULT.peso_fugas),
+    peso_ejecucion: getFloat('cfg-comp-pesoexec', CONFIG_COMPARADOR_DEFAULT.peso_ejecucion),
+
+    // Consideraciones y Escalación
+    boost_clip_umbral: getFloat('cfg-comp-boostclipumbral', CONFIG_COMPARADOR_DEFAULT.boost_clip_umbral),
+    boost_clip_exec_score: getFloat('cfg-comp-boostclipexec', CONFIG_COMPARADOR_DEFAULT.boost_clip_exec_score),
+    boost_clip_score: getFloat('cfg-comp-boostclipscore', CONFIG_COMPARADOR_DEFAULT.boost_clip_score),
+
+    // Umbrales de Severidad
+    umbral_critico_score: getFloat('cfg-comp-criticoscore', CONFIG_COMPARADOR_DEFAULT.umbral_critico_score),
+    umbral_critico_jaccard: getFloat('cfg-comp-criticojaccard', CONFIG_COMPARADOR_DEFAULT.umbral_critico_jaccard),
+    umbral_alto_score: getFloat('cfg-comp-altoscore', CONFIG_COMPARADOR_DEFAULT.umbral_alto_score),
+    umbral_alto_jaccard: getFloat('cfg-comp-altojaccard', CONFIG_COMPARADOR_DEFAULT.umbral_alto_jaccard),
+    umbral_alto_clip: getFloat('cfg-comp-altoclip', CONFIG_COMPARADOR_DEFAULT.umbral_alto_clip)
   };
 
   try {
@@ -228,8 +353,9 @@ async function guardarConfigComparador(e) {
     if (res.status === 'ok') {
       configComparadorCache = res.config;
       actualizarEstadoScheduler(res.estado || {});
-      notificarComp('Configuración del comparador guardada.');
-      toggleConfigComparador();
+      notificarComp('Ponderaciones y configuración guardadas. Re-ejecutando análisis...');
+      toggleConfigComparador(false);
+      await ejecutarComparadorAhora();
     } else {
       notificarComp('Error al guardar configuración: ' + (res.mensaje || 'Error desconocido'), true);
     }
@@ -240,17 +366,8 @@ async function guardarConfigComparador(e) {
 }
 
 function restablecerConfigComparadorDefecto() {
-  actualizarFormularioConfig({
-    intervalo_segundos: 60,
-    auto_analisis: true,
-    k_shingle: 5,
-    num_perm: 128,
-    ventana_sincronia_seg: 8,
-    umbral_codigo: 0.35,
-    umbral_portapapeles: 0.50,
-    apps_permitidas: 'code, python, pythonw',
-    titulos_permitidos: 'integri-ti'
-  });
+  actualizarFormularioConfig(CONFIG_COMPARADOR_DEFAULT);
+  notificarComp('Valores por defecto aplicados.');
 }
 
 // 5. EJECUTAR ANÁLISIS BAJO DEMANDA
@@ -595,7 +712,7 @@ function renderizarDetallePar(p) {
       </div>
 
       <div class="text-[11px] text-slate-400 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <span>Fórmula ponderada: 45% Código + 35% Portapapeles + 15% Fugas Contexto + 5% Ejecución</span>
+        <span>Fórmula ponderada: ${Math.round((configComparadorCache?.peso_codigo ?? 0.45) * 100)}% Código + ${Math.round((configComparadorCache?.peso_portapapeles ?? 0.35) * 100)}% Portapapeles + ${Math.round((configComparadorCache?.peso_fugas ?? 0.15) * 100)}% Fugas + ${Math.round((configComparadorCache?.peso_ejecucion ?? 0.05) * 100)}% Ejecución</span>
         <span class="text-slate-300 font-semibold">Score numérico exacto: ${p.score_riesgo}</span>
       </div>
 
@@ -709,6 +826,12 @@ function tickComparador() {
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
+  // Inicializar formulario con defaults inmediatamente para que nunca esté vacío
+  actualizarFormularioConfig(CONFIG_COMPARADOR_DEFAULT);
+
+  // Cargar configuración persistida y estado inicial desde el servidor
+  cargarConfigComparador();
+
   // Iniciar tick local de cuenta regresiva
   setInterval(tickComparador, 1000);
 
@@ -722,5 +845,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }, 5000);
+
+  // Escuchar tecla Escape para cerrar el modal de configuración
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const panel = document.getElementById('panel-config-comparador');
+      if (panel && !panel.classList.contains('hidden')) {
+        toggleConfigComparador(false);
+      }
+    }
+  });
 });
 

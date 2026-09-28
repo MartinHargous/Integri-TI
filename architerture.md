@@ -250,108 +250,230 @@ graph TD
 
 ```mermaid
 graph TB
-    subgraph "Estación del Alumno"
-        Agent["🖥️ Agente de Telemetría<br/>(TelemetryClient + Orchestrator)<br/>Python daemon con 7 módulos<br/>de captura concurrentes"]
+    Profesor["👨‍🏫 Profesor<br/>(Persona)"]
+
+    subgraph SYS["Sistema Integri-TI"]
+        Browser["🌍 Navegador Web<br/>[Contenedor: HTML/JS/Tailwind]<br/>Dashboard renderizado por el<br/>servidor (Jinja2), auditoría por alumno"]
+
+        subgraph DEPLOY["Estación del Alumno (fuera de la infraestructura propia — PC del alumno)"]
+            TelemetryClient["🖥️ Agente de Telemetría<br/>[Contenedor: Python 3.12+]<br/>client.py + orchestrator.py<br/>7 módulos de captura concurrentes<br/>(ver detalle en 3.3.1)"]
+        end
+
+        APIServer["🌐 Servidor de Aplicación<br/>[Contenedor: FastAPI + Uvicorn]<br/>API REST, dashboard, motor de<br/>correlación (LogCorrelator) y<br/>comparación (LogComparator)<br/>(ver detalle en 3.3.2) — Puerto 8000"]
+
+        Database["🗄️ Base de Datos<br/>[Contenedor: SQLite]<br/>integri_ti.db — reglas, insights,<br/>config del comparador, runs"]
+
+        LogStore["📁 Almacén de Logs<br/>[Contenedor: Sistema de archivos]<br/>datos_alumnos/ — telemetría<br/>cruda persistida por alumno"]
     end
 
-    subgraph "Servidor Central"
-        API["🌐 Servidor FastAPI + Uvicorn<br/>(main.py)<br/>API REST + Dashboard Web<br/>Puerto 8000"]
-        DB["🗄️ SQLite<br/>(integri_ti.db)<br/>Reglas, insights,<br/>config comparador, runs"]
-        LogStore["📁 datos_alumnos/<br/>Archivos .log por alumno<br/>Telemetría cruda persistida"]
-        Correlator["🔗 LogCorrelator<br/>(correlator.py)<br/>Motor de correlación<br/>secuencial temporal"]
-        Comparator["📊 LogComparator<br/>(comparator.py)<br/>Comparador multiseñal<br/>MinHash/LSH"]
-        AIModule["🤖 AI Insight<br/>(ai_insight.py)<br/>Análisis pedagógico<br/>asistido por LLM"]
-        Rules["📋 reglas.json<br/>7 reglas de detección<br/>sincronizadas a SQLite"]
-    end
+    LLM["🤖 API Remota de LLM<br/>[Sistema Externo]<br/>OpenAI / vLLM hospedado"]
 
-    subgraph "Servicio Externo (Requiere API Key)"
-        LLMService["🧠 API Remota de LLM<br/>(OpenAI / vLLM hospedado)<br/>Chat Completions endpoint"]
-    end
+    Profesor -->|"Usa vía HTTPS"| Browser
+    Browser -->|"HTTP GET/POST/PUT/DELETE"| APIServer
+    APIServer -->|"HTML renderizado"| Browser
 
-    Browser["🌍 Navegador Web<br/>del Profesor"]
+    TelemetryClient -->|"GET /api/discovery<br/>POST /sync (multipart/HTTP)"| APIServer
+    APIServer -->|"Comando global +<br/>configs pendientes"| TelemetryClient
 
-    Agent -->|"POST /sync<br/>(multipart/form-data:<br/>client_id, log, alertas)"| API
-    API -->|"Lee/Escribe"| DB
-    API -->|"Anexa logs entrantes"| LogStore
-    API -->|"Dispara correlación<br/>en tiempo real"| Correlator
-    Correlator -->|"Lee reglas"| Rules
-    Correlator -->|"Analiza"| LogStore
-    API -->|"Programa análisis<br/>periódico"| Comparator
-    Comparator -->|"Analiza pares"| LogStore
-    Comparator -->|"Persiste config y runs"| DB
-    API -->|"Solicita insight"| AIModule
-    AIModule -->|"POST chat/completions"| LLMService
-    AIModule -->|"Cachea en"| DB
-    Browser -->|"HTTP GET/POST/PUT/DELETE"| API
-    API -->|"HTML + Tailwind + JS<br/>(Dashboard)"| Browser
+    APIServer -->|"SQL (lectura/escritura)"| Database
+    APIServer -->|"Anexa/lee archivos .log"| LogStore
+    APIServer -->|"POST /chat/completions<br/>(HTTPS/JSON, opcional)"| LLM
 
-    style Agent fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
-    style API fill:#1a1a2e,stroke:#e94560,stroke-width:3px,color:#fff
-    style DB fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style LogStore fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style Correlator fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
-    style Comparator fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
-    style AIModule fill:#533483,stroke:#e94560,stroke-width:2px,color:#fff
-    style Rules fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style LLMService fill:#533483,stroke:#e94560,stroke-width:2px,color:#fff
+    style Profesor fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
     style Browser fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
+    style TelemetryClient fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#fff
+    style APIServer fill:#1a1a2e,stroke:#e94560,stroke-width:3px,color:#fff
+    style Database fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
+    style LogStore fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
+    style LLM fill:#533483,stroke:#e94560,stroke-width:2px,color:#fff
 ```
+
+> **Nota de despliegue:** el contenedor "Agente de Telemetría" es desarrollado y versionado por el equipo de Integri-TI (por eso es parte del sistema, no un sistema externo), pero se **despliega en hardware que no pertenece a la infraestructura del servidor** — el PC de cada alumno. El subgraph de arriba marca ese límite de despliegue sin sacar el contenedor del límite del sistema.
 
 ### 3.3 Diagrama de Componentes
 
 #### 3.3.1 Componentes del Agente de Telemetría (Cliente)
 
 ```mermaid
-graph LR
-    subgraph "Agente de Telemetría"
-        Client["TelemetryClient<br/>(client.py)<br/>Descubrimiento de servidor,<br/>máquina de estados,<br/>loop de sincronización"]
-        Orch["Orchestrator<br/>(orchestrator.py)<br/>Elevación de privilegios,<br/>gestión de módulos,<br/>compilación de logs"]
-
-        subgraph "7 Módulos de Telemetría"
-            PM["ProgramMonitor<br/>Ventana activa<br/>y cambios de contexto"]
-            KL["Keylogger<br/>Pulsaciones de teclado<br/>y atajos"]
-            SN["Sniffer<br/>Paquetes de red,<br/>DNS y HTTP"]
-            PP["Paperclip<br/>Monitoreo del<br/>portapapeles"]
-            ED["ErrorDetection<br/>Errores de ejecución,<br/>prints y stdin de Python"]
-            SVM["KeystrokeSVM<br/>Dinámica de tecleo<br/>biométrica (One-Class SVM)"]
-            USB["USBDetection<br/>Dispositivos USB,<br/>integridad de archivos"]
-        end
-
-        Client --> Orch
-        Orch --> PM
-        Orch --> KL
-        Orch --> SN
-        Orch --> PP
-        Orch --> ED
-        Orch --> SVM
-        Orch --> USB
+graph TB
+    subgraph "TelemetryClient (client.py)"
+        TC_Discovery["DiscoveryEngine<br/>Escaneo LAN concurrente<br/>GET /api/discovery"]
+        TC_State["StateMachine<br/>Control de estado local:<br/>ESPERANDO | GRABANDO | FINALIZADO"]
+        TC_Sync["SyncManager<br/>Loop periódico de sincronización,<br/>subida multipart y control de errores"]
+        TC_Config["RemoteConfigDispatcher<br/>Procesa configs_pendientes del servidor<br/>y las delega al orquestador"]
+        TC_AlertBuffer["AlertBuffer<br/>Cola en memoria de alertas<br/>biométricas y del sistema"]
     end
 
-    LogFiles["📄 Logs individuales<br/>por módulo (.log)"]
-    Combined["📦 combined_log.log<br/>Log unificado y<br/>ordenado cronológicamente"]
-    Server["🌐 Servidor FastAPI"]
+    subgraph "Orchestrator (orchestrator.py)"
+        OC_Supervisor["ProcessSupervisor<br/>Gestión de ciclo de vida de hilos:<br/>start_all, stop_all, restart_module, reset"]
+        OC_Privilege["PrivilegeGuard<br/>Validación y elevación UAC<br/>(ShellExecuteW runas / sudo)"]
+        OC_Config["ConfigHandler<br/>Lectura y escritura en caliente<br/>de config.txt por módulo"]
+        OC_Merger["LogMerger<br/>combine_logs(): parseo de timestamps,<br/>normalización ISO y merge ordenado"]
+    end
 
-    PM --> LogFiles
-    KL --> LogFiles
-    SN --> LogFiles
-    PP --> LogFiles
-    ED --> LogFiles
-    SVM --> LogFiles
-    USB --> LogFiles
-    Orch -->|"combine_logs()<br/>merge + sort temporal"| Combined
-    Client -->|"POST /sync<br/>multipart upload"| Server
+    subgraph "Módulos de Telemetría (Client/modules/)"
+        subgraph "1. Program Monitor"
+            PM_Core["ProgramMonitor (program_monitor.py)<br/>Loop de muestreo (poll_seconds)"]
+            PM_Win["WindowTracker<br/>win32gui (Win) / xdotool (Linux)<br/>Ventana en primer plano"]
+            PM_Proc["ProcessInspector<br/>psutil: PID y nombre de ejecutable"]
+            PM_Cfg["program_monitor/config.txt"]
+            PM_Log["program_monitor.log"]
+        end
 
-    style Client fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#fff
-    style Orch fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
-    style PM fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style KL fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style SN fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style PP fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style ED fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style SVM fill:#16213e,stroke:#533483,stroke-width:2px,color:#fff
-    style USB fill:#16213e,stroke:#0f3460,stroke-width:2px,color:#fff
-    style Server fill:#533483,stroke:#e94560,stroke-width:2px,color:#fff
+        subgraph "2. Keylogger"
+            KL_Core["Keylogger (keylogger.py)<br/>Listener asíncrono"]
+            KL_Hook["KeyboardHook<br/>pynput.keyboard.Listener"]
+            KL_Short["ShortcutDetector<br/>Atajos (Ctrl+C, Ctrl+V, etc.) y foco"]
+            KL_Cfg["keylogger/config.txt"]
+            KL_Log["keylogger.log"]
+        end
+
+        subgraph "3. Network Sniffer"
+            SN_Core["Sniffer (sniffer.py)<br/>Hilo de captura continua"]
+            SN_Scapy["RawSniffer<br/>scapy.sniff sobre Npcap / libpcap"]
+            SN_Parser["ProtocolParser<br/>DNS (puerto 53), HTTP y destinos IP"]
+            SN_Cfg["sniffer/config.txt"]
+            SN_Log["sniffer.log"]
+        end
+
+        subgraph "4. Paperclip (Portapapeles)"
+            PP_Core["Paperclip (paperclip.py)<br/>Loop de sondeo de portapapeles"]
+            PP_Hook["ClipboardWatcher<br/>pyperclip.paste()"]
+            PP_Hash["ContentHasher<br/>Detección de cambios y hashes de texto"]
+            PP_Cfg["paperclip/config.txt"]
+            PP_Log["paperclip.log"]
+        end
+
+        subgraph "5. Error Detection & Python Auditor"
+            ED_Core["ErrorDetection (error_detection.py)<br/>Supervisor de instalación y logs"]
+            ED_Hook["RuntimeHook (mod_site_customize.py)<br/>Inyección en PYTHONPATH / sitecustomize"]
+            ED_Audit["Auditor de Ejecuciones<br/>sys.excepthook, sys.stdin, sys.stdout"]
+            ED_Cfg["error_detection/config.txt"]
+            ED_Log["auditoria_python.log"]
+        end
+
+        subgraph "6. Keystroke Dynamics SVM"
+            SVM_Core["KeystrokeSVM (svm_keystroke.py)<br/>Captura de dinámicas y scoring"]
+            SVM_Feat["FeatureExtractor<br/>Dwell time (presión) y Flight time (vuelo)"]
+            SVM_Model["OneClassSVM Classifier<br/>scikit-learn: Detección de anomalías"]
+            SVM_Cfg["svm_keystroke_dym/config.txt"]
+            SVM_Log["alerts.log"]
+        end
+
+        subgraph "7. USB Detection"
+            USB_Core["USBDetection (usb_detection.py)<br/>Supervisor multiplataforma"]
+            USB_OS["OSAdapter<br/>windows.py (WMI Win32_DiskDrive)<br/>linux.py (pyudev / sysfs)"]
+            USB_Scan["VolumeAuditor & Hasher<br/>utils.py: Escaneo y SHA-256 de archivos"]
+            USB_Cfg["usb_detection/config.txt"]
+            USB_Log["usb_detection.log<br/>usb_export.log"]
+        end
+    end
+
+    CombinedFile["📦 combined_log.log<br/>Log consolidado cronológico"]
+    ServerAPI["🌐 Servidor Central FastAPI<br/>Endpoints /sync y /api/discovery"]
+
+    %% Flujos TelemetryClient <-> Orchestrator
+    TC_State -->|"Comandos start / stop / reset"| OC_Supervisor
+    TC_Config -->|"change_config(modulo, clave, valor)"| OC_Config
+    TC_Sync -->|"Solicita combine_logs()"| OC_Merger
+
+    %% Orchestrator -> Módulos
+    OC_Supervisor -->|"Inicia / detiene hilos daemon"| PM_Core
+    OC_Supervisor -->|"Inicia / detiene hilos daemon"| KL_Core
+    OC_Supervisor -->|"Inicia / detiene hilos daemon"| SN_Core
+    OC_Supervisor -->|"Inicia / detiene hilos daemon"| PP_Core
+    OC_Supervisor -->|"Inicia / instala / detiene"| ED_Core
+    OC_Supervisor -->|"Inicia / detiene hilos daemon"| SVM_Core
+    OC_Supervisor -->|"Inicia / detiene hilos daemon"| USB_Core
+
+    OC_Config -->|"Lee y actualiza parámetros en"| PM_Cfg
+    OC_Config -->|"Lee y actualiza parámetros en"| KL_Cfg
+    OC_Config -->|"Lee y actualiza parámetros en"| SN_Cfg
+    OC_Config -->|"Lee y actualiza parámetros en"| PP_Cfg
+    OC_Config -->|"Lee y actualiza parámetros en"| ED_Cfg
+    OC_Config -->|"Lee y actualiza parámetros en"| SVM_Cfg
+    OC_Config -->|"Lee y actualiza parámetros en"| USB_Cfg
+
+    %% Internos de cada módulo
+    PM_Core --> PM_Win
+    PM_Core --> PM_Proc
+    PM_Core -->|"Escribe"| PM_Log
+    PM_Cfg -.-> PM_Core
+
+    KL_Core --> KL_Hook
+    KL_Core --> KL_Short
+    KL_Core -->|"Escribe"| KL_Log
+    KL_Cfg -.-> KL_Core
+
+    SN_Core --> SN_Scapy
+    SN_Core --> SN_Parser
+    SN_Core -->|"Escribe"| SN_Log
+    SN_Cfg -.-> SN_Core
+
+    PP_Core --> PP_Hook
+    PP_Core --> PP_Hash
+    PP_Core -->|"Escribe"| PP_Log
+    PP_Cfg -.-> PP_Core
+
+    ED_Core --> ED_Hook
+    ED_Hook --> ED_Audit
+    ED_Audit -->|"Escribe"| ED_Log
+    ED_Cfg -.-> ED_Core
+
+    SVM_Core --> SVM_Feat
+    SVM_Core --> SVM_Model
+    SVM_Core -->|"Escribe alertas"| SVM_Log
+    SVM_Core -->|"Encola alerta en"| TC_AlertBuffer
+    SVM_Cfg -.-> SVM_Core
+
+    USB_Core --> USB_OS
+    USB_Core --> USB_Scan
+    USB_Core -->|"Escribe eventos y hashes"| USB_Log
+    USB_Cfg -.-> USB_Core
+
+    %% Salidas hacia LogMerger y Servidor
+    PM_Log --> OC_Merger
+    KL_Log --> OC_Merger
+    SN_Log --> OC_Merger
+    PP_Log --> OC_Merger
+    ED_Log --> OC_Merger
+    SVM_Log --> OC_Merger
+    USB_Log --> OC_Merger
+
+    OC_Merger -->|"Escribe"| CombinedFile
+    CombinedFile -->|"Leído por"| TC_Sync
+    TC_AlertBuffer -->|"Leído por"| TC_Sync
+
+    TC_Discovery -->|"GET /api/discovery"| ServerAPI
+    TC_Sync -->|"POST /sync (multipart upload)"| ServerAPI
+    ServerAPI -->|"Responde comando y configs_pendientes"| TC_Sync
+    TC_Sync --> TC_State
+    TC_Sync --> TC_Config
+
+    style TC_Sync fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#fff
+    style TC_State fill:#1a1a2e,stroke:#e94560,stroke-width:2px,color:#fff
+    style TC_Discovery fill:#1a1a2e,stroke:#0f3460,stroke-width:2px,color:#fff
+    style TC_Config fill:#1a1a2e,stroke:#0f3460,stroke-width:2px,color:#fff
+    style TC_AlertBuffer fill:#1a1a2e,stroke:#533483,stroke-width:2px,color:#fff
+    style OC_Supervisor fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
+    style OC_Privilege fill:#0f3460,stroke:#0f3460,stroke-width:2px,color:#fff
+    style OC_Config fill:#0f3460,stroke:#0f3460,stroke-width:2px,color:#fff
+    style OC_Merger fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
+    style CombinedFile fill:#0f3460,stroke:#e94560,stroke-width:2px,color:#fff
+    style ServerAPI fill:#533483,stroke:#e94560,stroke-width:2px,color:#fff
 ```
+
+##### Resumen de Módulos del Cliente de Telemetría
+
+| # | Módulo | Script Principal | Librerías / Drivers | Archivo de Configuración | Archivo de Log Generado | Descripción y Telemetría Capturada |
+|---|---|---|---|---|---|---|
+| **1** | **Program Monitor** | `program_monitor.py` | `psutil`, `win32gui` (Win) / `xdotool` (Linux) | `program_monitor/config.txt` | `program_monitor.log` | Muestrea a intervalos configurables la ventana activa en primer plano, título de ventana, nombre del ejecutable y PID. |
+| **2** | **Keylogger** | `keylogger.py` | `pynput.keyboard` | `keylogger/config.txt` | `keylogger.log` | Captura pulsaciones de teclas y atajos contextuales (Ctrl+C, Ctrl+V, etc.) registrando la ventana donde ocurrieron. |
+| **3** | **Network Sniffer** | `sniffer.py` | `scapy`, `Npcap 1.79` (Win) / `libpcap` (Linux) | `sniffer/config.txt` | `sniffer.log` | Sniffer en modo promiscuo que intercepta consultas DNS (puerto 53), peticiones HTTP y destinos IP externos. |
+| **4** | **Paperclip** | `paperclip.py` | `pyperclip` | `paperclip/config.txt` | `paperclip.log` | Monitorea el portapapeles del sistema detectando nuevo contenido copiado/pegado, longitud y hash para correlación. |
+| **5** | **Error Detection** | `error_detection.py` + `mod_site_customize.py` | `sys.excepthook`, `sitecustomize` | `error_detection/config.txt` | `auditoria_python.log` | Hook inyectado en `PYTHONPATH` (`.telemetria_global`) que audita ejecuciones de Python, tracebacks, prints y entradas `stdin`. |
+| **6** | **Keystroke Dynamics SVM** | `svm_keystroke.py` | `pynput`, `scikit-learn` (`OneClassSVM`), `numpy` | `svm_keystroke_dym/config.txt` | `alerts.log` | Extrae tiempos de vuelo (*flight time*) y permanencia (*dwell time*); entrena un modelo One-Class SVM para detectar suplantación o tipeo anómalo. |
+| **7** | **USB Detection** | `usb_detection.py`, `windows.py`, `linux.py`, `utils.py` | `wmi` (Win), `pyudev` (Linux), `hashlib` | `usb_detection/config.txt` | `usb_detection.log`, `usb_export.log` | Detecta conexión y desconexión de dispositivos de almacenamiento USB, indexa archivos contenidos y calcula hashes SHA-256. |
 
 #### 3.3.2 Componentes del Servidor
 
@@ -524,59 +646,59 @@ Los 7 módulos de telemetría **no se comunican directamente entre sí**. Cada u
 | Campo | Detalle |
 |---|---|
 | **Estado** | Aceptada |
-| **Contexto** | Se necesita un lenguaje multiplataforma con acceso profundo al sistema operativo para captura de eventos de bajo nivel (teclado, red, procesos, USB, filesystem). |
-| **Decisión** | Utilizar **Python ≥ 3.10** tanto para el agente como para el servidor. |
-| **Justificación** | (1) Librerías maduras para instrumentación del SO: `psutil`, `pynput`, `scapy`, `wmi`, `ctypes` para inotify/Win32; (2) `scikit-learn` y `numpy` para ML biométrico en el agente; (3) `FastAPI` como framework web moderno con soporte async; (4) `datasketch` para algoritmos de similitud sub-cuadrática; (5) amplia adopción en ciberseguridad y desarrollo rápido. |
-| **Consecuencias** | El agente consume más recursos que una implementación en C/Rust, pero el trade-off es aceptable dado el contexto educativo y la riqueza del ecosistema de librerías. Python 3.14 se selecciona para Windows por mejoras de rendimiento en el lanzador `py`. |
+| **Contexto** | El proyecto abarca tres frentes de naturaleza distinta: instrumentación de bajo nivel del sistema operativo, un servidor web, y modelos de aprendizaje automático. Se requiere un lenguaje capaz de cubrir los tres sin fragmentar el desarrollo en múltiples stacks. Adicionalmente, el dominio de aplicación son evaluaciones de programación que, en el contexto académico del autor, se imparten en Python — lo que impone como restricción funcional desde el diseño inicial la capacidad de auditar la ejecución de código Python del alumno, no como una extensión posterior. |
+| **Decisión** | Utilizar Python ≥ 3.10 tanto para el agente como para el servidor. |
+| **Justificación** | (1) Un único lenguaje cubre los tres frentes del proyecto, evitando la sobrecarga de coordinar herramientas y entornos distintos; (2) soporte multiplataforma nativo, que reduce la necesidad de lógica específica por sistema operativo a los puntos estrictamente requeridos (WMI/udev, ShellExecuteW/sudo); (3) frente a un lenguaje de bajo nivel como C, evita la gestión manual de memoria y de APIs específicas por SO, complejidad no justificada por los objetivos del proyecto; (4) disponibilidad de librerías maduras para cada frente: `psutil`, `pynput`, `scapy`, `wmi` y `ctypes` para instrumentación del sistema operativo; `scikit-learn` y `numpy` para los componentes de aprendizaje automático; `FastAPI` para el servidor; `datasketch` para similitud de conjuntos en tiempo sub-cuadrático; (5) como el dominio evaluado es Python, usar el mismo lenguaje en el agente permite instrumentar directamente el intérprete objetivo (vía `sitecustomize` y `sys.excepthook`, ver módulo de detección de errores) sin necesidad de un lenguaje puente adicional para auditar las ejecuciones del alumno. |
+| **Consecuencias** | El agente consume más recursos que una implementación equivalente en C o Rust. Este costo se considera aceptable dado que la prioridad del proyecto es la cobertura de los tres frentes mencionados con un único lenguaje, no la eficiencia de bajo nivel. En Windows se utiliza específicamente Python 3.14 por mejoras de rendimiento en el lanzador `py`. Al estar el módulo de detección de errores acoplado específicamente al runtime de Python, evaluaciones en otros lenguajes quedarían fuera del alcance de esa auditoría específica sin desarrollo adicional. |
 
 #### ADR-002: FastAPI como framework web del servidor
 
 | Campo | Detalle |
 |---|---|
 | **Estado** | Aceptada |
-| **Contexto** | El servidor necesita manejar concurrentemente: recepción de telemetría de múltiples agentes, análisis en tiempo real, API REST para el dashboard, y llamadas asíncronas a APIs de IA. |
-| **Decisión** | Utilizar **FastAPI** con **Uvicorn** como servidor ASGI. |
-| **Justificación** | (1) Soporte nativo de `async/await` para llamadas HTTP a APIs de IA sin bloquear el event loop; (2) manejo eficiente de `multipart/form-data` para recepción de archivos de log; (3) documentación automática OpenAPI; (4) alto rendimiento comparado con Flask para múltiples conexiones simultáneas; (5) integración natural con `httpx` (cliente async) y `Jinja2` (templates). |
-| **Alternativas descartadas** | Flask (sincrónico, peor manejo de I/O concurrente para llamadas a IA), Django (overhead innecesario). |
+| **Contexto** | El servidor debe manejar concurrentemente la recepción de telemetría de múltiples agentes, análisis en tiempo real, una API REST para el dashboard, y llamadas asíncronas a servicios de IA. |
+| **Decisión** | Utilizar FastAPI con Uvicorn como servidor ASGI. |
+| **Justificación** | (1) Se descartó Django por incluir componentes no requeridos por el alcance actual del proyecto (ORM completo, panel de administración, sistema de autenticación integrado), cuya configuración y mantenimiento representarían sobrecarga sin beneficio directo; (2) se descartó Flask por su modelo de ejecución sincrónico, menos adecuado para el manejo concurrente de I/O que exigen las llamadas a servicios de IA; (3) soporte nativo de `async`/`await`, necesario para no bloquear el event loop durante llamadas HTTP externas; (4) manejo eficiente de `multipart/form-data` para la recepción de archivos de log; (5) generación automática de documentación OpenAPI; (6) integración directa con `httpx` (cliente asíncrono) y `Jinja2` (motor de plantillas). |
+| **Alternativas descartadas** | Flask (modelo sincrónico, peor manejo de I/O concurrente); Django (funcionalidades adicionales no requeridas por el alcance del proyecto). |
 
 #### ADR-003: SQLite como base de datos
 
 | Campo | Detalle |
 |---|---|
 | **Estado** | Aceptada |
-| **Contexto** | Se necesita persistencia para reglas, insights de IA, configuración del comparador e historial de ejecuciones, sin requerir infraestructura adicional. |
-| **Decisión** | Utilizar **SQLite** con `check_same_thread=False` y `row_factory=sqlite3.Row`. |
-| **Justificación** | (1) Zero-config — incluido en la librería estándar de Python; (2) despliegue simplificado (un solo archivo `integri_ti.db`); (3) volumen de datos manejable (decenas de alumnos, exámenes de horas); (4) la telemetría cruda se persiste en archivos `.log` separados, no en la BD, lo que reduce la presión sobre SQLite. |
-| **Consecuencias** | La telemetría bruta se almacena en el filesystem (`datos_alumnos/*.log`), no en SQLite, lo cual es una decisión deliberada de diseño para optimizar el rendimiento de escritura y facilitar el análisis de archivos completos por el comparador. |
+| **Contexto** | Se requiere persistencia para reglas de detección, insights generados por IA, configuración del comparador e historial de ejecuciones, sin incorporar infraestructura adicional de servidor. |
+| **Decisión** | Utilizar SQLite con `check_same_thread=False` y `row_factory=sqlite3.Row`. |
+| **Justificación** | (1) El volumen y la escala de datos del proyecto no justifican la operación de un servidor de base de datos independiente como PostgreSQL; (2) no requiere instalación ni configuración de un motor de base de datos externo, y se ejecuta de forma nativa en cualquier sistema operativo soportado; (3) el despliegue se reduce a un único archivo (`integri_ti.db`); (4) la telemetría cruda se persiste por separado, en archivos `.log`, lo que reduce adicionalmente la carga sobre la base de datos. |
+| **Consecuencias** | La telemetría bruta se almacena en el sistema de archivos (`datos_alumnos/*.log`) y no en SQLite. Esta separación es deliberada: optimiza el rendimiento de escritura y facilita el análisis de archivos completos por parte del comparador. |
 
-#### ADR-004: Integración con API remota de LLM compatible con OpenAI
-
-| Campo | Detalle |
-|---|---|
-| **Estado** | Aceptada |
-| **Contexto** | Se desea integrar análisis pedagógico asistido por IA. Se necesita flexibilidad para cambiar de proveedor sin modificar código. |
-| **Decisión** | Integrar mediante la **API estándar de Chat Completions** (especificación OpenAI), consumiendo un servicio remoto configurable vía variables de entorno. |
-| **Justificación** | (1) Máxima flexibilidad: el mismo código permite conectar a OpenAI (GPT-4o), proveedores alternativos (vLLM hospedado, modelos Luna) o cualquier servicio compatible con la especificación de Chat Completions, solo cambiando `OPENAI_BASE_URL` y `OPENAI_MODEL` en el `.env`; (2) autenticación estándar vía Bearer token; (3) el módulo usa `httpx.AsyncClient` con timeout de 90 segundos para no bloquear el servidor durante la inferencia; (4) caché en SQLite evita llamadas redundantes a la API y costos innecesarios; (5) no requiere hardware especializado (GPU) en el servidor. |
-| **Consecuencias** | Requiere conexión a internet o a un servicio de LLM accesible por red. El componente es completamente opcional — si `OPENAI_API_KEY` no está configurado, el sistema funciona sin AI Insights. |
-
-#### ADR-005: Polling HTTP con sincronización multipart
+#### ADR-004: Integración con una API remota de modelos de lenguaje compatible con la especificación de OpenAI
 
 | Campo | Detalle |
 |---|---|
 | **Estado** | Aceptada |
-| **Contexto** | Se necesita un mecanismo de comunicación entre los agentes (estaciones de alumnos) y el servidor del profesor. |
-| **Decisión** | Utilizar **HTTP polling** con endpoint `/sync` que acepta `multipart/form-data`, con intervalo configurable de **15 segundos** (por defecto). |
-| **Justificación** | (1) Simplicidad: un único endpoint bidireccional (`/sync`) donde el agente envía telemetría y recibe el estado global + configuraciones pendientes; (2) compatibilidad con firewalls y redes corporativas/educativas que bloquean WebSockets; (3) `multipart/form-data` permite enviar el archivo de log combinado junto con metadatos en una sola petición; (4) el intervalo de 15s es adecuado para supervisión de exámenes; (5) tolerancia a pérdida de conexión con reconexión automática (3 reintentos antes de reset y redescubrimiento). |
-| **Alternativas descartadas** | WebSockets (complejidad de reconexión, incompatibilidad con proxies educativos), MQTT (requiere broker adicional), gRPC (overhead de setup para el caso de uso). |
+| **Contexto** | Uno de los objetivos del proyecto de título es evaluar la aplicación de modelos de lenguaje al análisis de grandes volúmenes de telemetría textual, de difícil revisión manual. El sistema debe además poder ejecutarse en hardware de alcance limitado — un equipo de sala de clases o el escritorio del docente —, sin requerir infraestructura de cómputo especializada. |
+| **Decisión** | Integrar el análisis de IA mediante la especificación de Chat Completions (compatible con OpenAI), consumida como servicio remoto configurable por variables de entorno. |
+| **Justificación** | (1) Ejecutar localmente un modelo de lenguaje de tamaño suficiente para este análisis es computacionalmente costoso; delegar la inferencia a un servicio remoto mantiene los requisitos de hardware local acotados a los de un equipo de escritorio convencional; (2) se prioriza el uso de modelos con ventana de contexto amplia — específicamente GPT-Luna, GPT-Terra y GPT-Sol, que ofrecen hasta aproximadamente 1 millón de tokens de contexto vía API —, dado que el análisis requiere procesar el conjunto completo de logs de un examen en una sola pasada, no fragmentos; (3) al integrarse mediante la especificación estándar de Chat Completions —y no contra la API propietaria de un proveedor específico— el mismo código permite conectar a distintos proveedores compatibles cambiando únicamente `OPENAI_BASE_URL` y `OPENAI_MODEL`, sin modificar la implementación; (4) autenticación estándar vía token Bearer; (5) uso de `httpx.AsyncClient` con timeout de 90 segundos, evitando bloquear el servidor durante la inferencia; (6) los resultados se cachean en SQLite para evitar llamadas redundantes y su costo asociado. |
+| **Consecuencias** | Requiere conexión a un servicio de LLM accesible por red. El componente es opcional: si `OPENAI_API_KEY` no está configurado, el sistema opera sin generación de insights de IA. |
+
+#### ADR-005: Comunicación cliente-servidor por HTTP polling con sincronización multipart
+
+| Campo | Detalle |
+|---|---|
+| **Estado** | Aceptada |
+| **Contexto** | El servidor debe recibir telemetría (texto y archivos) de múltiples agentes de forma concurrente, y a la vez transmitirles comandos de estado y configuraciones pendientes. |
+| **Decisión** | Utilizar HTTP polling sobre un endpoint `/sync` que acepta `multipart/form-data`, con intervalo configurable de 15 segundos por defecto. |
+| **Justificación** | (1) Un modelo de conexiones persistentes (WebSockets) obliga al servidor a mantener y gestionar el estado de cada conexión abierta —reconexión, *keep-alive*, detección de caídas— para un número potencialmente alto de agentes simultáneos; el modelo HTTP *stateless* con polling evita esa gestión de estado por diseño, a cambio de una latencia acotada por el intervalo de sondeo, considerada aceptable para este caso de uso; (2) un único endpoint bidireccional (`/sync`) resuelve en una sola petición tanto el envío de telemetría como la recepción del estado global y las configuraciones pendientes; (3) mayor compatibilidad con firewalls y redes educativas que restringen o bloquean WebSockets; (4) `multipart/form-data` permite adjuntar el log combinado junto con sus metadatos en una única petición; (5) tolerancia a pérdida de conexión mediante reconexión automática (3 reintentos antes de reset y redescubrimiento). |
+| **Alternativas descartadas** | WebSockets (gestión de estado por conexión persistente, incompatibilidad con proxies educativos); MQTT (requiere un broker adicional); gRPC (overhead de configuración no justificado para este caso de uso). |
 
 #### ADR-006: Tailwind CSS vía CDN para el dashboard
 
 | Campo | Detalle |
 |---|---|
 | **Estado** | Aceptada |
-| **Contexto** | El dashboard web necesita una interfaz oscura, responsiva y profesional sin un pipeline de build frontend. |
-| **Decisión** | Utilizar **Tailwind CSS vía CDN** con configuración personalizada inline. |
-| **Justificación** | (1) Zero-build: no requiere Node.js, webpack ni npm, simplificando el despliegue; (2) utility-first permite desarrollo rápido de UI; (3) el CDN con configuración de colores de marca (`brand`) y breakpoints personalizados (`xs: 480px`, `3xl: 1920px`) cubre todas las necesidades sin CSS compilado; (4) complementado por una hoja de estilos mínima (`styles.css`) solo para tipografías (Inter + JetBrains Mono), scrollbars y animaciones de pulso. |
+| **Contexto** | El dashboard requiere una interfaz visual coherente y profesional, sin incorporar un pipeline de build de frontend. |
+| **Decisión** | Utilizar HTML y JavaScript sin framework, con Tailwind CSS vía CDN y configuración personalizada inline. |
+| **Justificación** | (1) El alcance funcional del dashboard no justifica la complejidad de un proyecto basado en un framework como React; (2) Tailwind vía CDN permite mantener una estética cuidada sin incurrir en un proceso de compilación previo; (3) no requiere Node.js, webpack ni npm, simplificando el despliegue; (4) el enfoque *utility-first* permite iterar la interfaz con rapidez; (5) se complementa con una hoja de estilos mínima (`styles.css`) para tipografías (Inter, JetBrains Mono), barras de desplazamiento y animaciones de pulso, y con configuración de colores de marca y *breakpoints* personalizados (`xs: 480px`, `3xl: 1920px`). |
 
 ### 4.2 Justificación de Algoritmos de Análisis Conductual
 
@@ -585,70 +707,47 @@ Los 7 módulos de telemetría **no se comunican directamente entre sí**. Cada u
 | Campo | Detalle |
 |---|---|
 | **Estado** | Aceptada |
-| **Contexto** | Se necesita detectar secuencias causales de eventos que ocurren en diferentes módulos dentro de una ventana de tiempo acotada (e.g., "el alumno copió al portapapeles, luego abrió un navegador, luego accedió a ChatGPT, luego pegó código"). |
-| **Decisión** | Implementar un **motor de correlación por backtracking** que evalúa cadenas de eventos secuenciales multi-módulo contra reglas definidas con patrones regex y ventanas temporales. |
-| **Justificación** | (1) Permite modelar infracciones complejas como secuencias de $k$ pasos $[P_0, P_1, \dots, P_k]$, donde cada paso especifica un módulo y un patrón regex; (2) la búsqueda recursiva con poda por ventana temporal ($\Delta t \leq W$ segundos) evita la explosión combinatoria; (3) el mapeo exacto de números de línea en los logs permite la auditoría forense precisa; (4) debouncing de 15 segundos para evitar alertas duplicadas. |
-| **Algoritmo** | Para cada regla con pasos $[P_0, \dots, P_k]$ y ventana $W$: se localiza un evento $E_0$ que satisface $P_0$; para cada paso siguiente $P_j$, se exploran eventos posteriores $E_i$ tales que $E_i.ts \geq E_{j-1}.ts$ y $E_i.ts - E_0.ts \leq W$; si se completa toda la cadena, se registra la infracción con $\Delta t = E_k.ts - E_0.ts$ y las líneas afectadas. |
+| **Contexto** | Las infracciones observables rara vez corresponden a un evento aislado, sino a una secuencia de acciones: una acción individual (por ejemplo, copiar contenido al portapapeles) no constituye evidencia por sí sola; su relevancia depende de las acciones que la preceden o suceden dentro de una ventana de tiempo acotada. Adicionalmente, cada contexto de evaluación exige criterios de detección distintos, y no es razonable requerir que el docente los defina mediante programación. |
+| **Decisión** | Implementar un motor de correlación por backtracking que evalúa cadenas de eventos secuenciales multi-módulo contra reglas configurables, definidas mediante patrones de expresión regular y ventanas temporales. |
+| **Justificación** | (1) El modelo de reglas admite secuencias de $k$ pasos $[P_0, P_1, \dots, P_k]$, capturando que la infracción es un proceso, no una acción puntual; (2) la ventana temporal es la que otorga significado a la secuencia: dos eventos aislados sin restricción temporal no constituyen evidencia; (3) las reglas se definen de forma declarativa y configurable, sin requerir que el docente programe, dado que cada entorno de evaluación exige criterios propios; (4) la persistencia de la telemetría en texto plano permite su procesamiento mediante expresiones regulares con bajo costo computacional; (5) la búsqueda recursiva con poda por ventana temporal ($\Delta t \leq W$) evita la explosión combinatoria; (6) el mapeo exacto de líneas de log permite auditoría forense precisa; (7) se aplica un *debounce* de 15 segundos para evitar alertas duplicadas. |
+| **Algoritmo** | Para una regla con pasos $[P_0, \dots, P_k]$ y ventana $W$: se localiza un evento $E_0$ que satisface $P_0$; para cada paso siguiente $P_j$, se exploran eventos posteriores $E_i$ tales que $E_i.ts \geq E_{j-1}.ts$ y $E_i.ts - E_0.ts \leq W$. Si se completa la cadena, se registra la infracción con $\Delta t = E_k.ts - E_0.ts$ y las líneas de log correspondientes. |
 
 #### ADR-008: Comparación multiseñal con MinHash/LSH
 
 | Campo | Detalle |
 |---|---|
 | **Estado** | Aceptada |
-| **Contexto** | Se necesita comparar los logs de $N$ alumnos para detectar colusión, plagio de código y sincronización de comportamiento, idealmente en tiempo sub-cuadrático. |
-| **Decisión** | Implementar un **comparador multiseñal de 4 dimensiones** con filtrado LSH (Locality Sensitive Hashing) para reducir el espacio de búsqueda. |
-| **Algoritmo** | El comparador cruza 4 señales independientes: |
+| **Contexto** | Se requiere comparar los logs de $N$ alumnos entre sí para detectar colusión, plagio de código y sincronización de comportamiento. Una comparación exhaustiva de todos los pares posibles ($O(N^2)$) resulta computacionalmente costosa a medida que $N$ crece. Adicionalmente, la colaboración entre alumnos puede manifestarse de formas distintas a la similitud textual directa. |
+| **Decisión** | Implementar un comparador multiseñal de cuatro dimensiones, con filtrado previo mediante LSH (*Locality Sensitive Hashing*) para acotar el conjunto de pares candidatos antes del análisis exhaustivo. |
+| **Justificación** | (1) LSH permite identificar los pares de logs con probabilidad relevante de similitud sin necesidad de compararlos exhaustivamente de antemano, reduciendo el espacio de búsqueda a un subconjunto de candidatos; (2) dado que dos personas no necesariamente escriben código de forma idéntica al colaborar, se incorporan señales adicionales a la similitud textual —coincidencia de acciones dentro de ventanas de tiempo comparables— como evidencia complementaria de coordinación. |
+| **Algoritmo** | El comparador evalúa cuatro señales independientes: **(1) similitud de código**, mediante reconstrucción del texto tecleado (emulando cursor bidireccional), normalización, extracción de $k$-shingles ($k=5$ por defecto) y firmas `MinHash(num_perm=128)` indexadas en `MinHashLSH(threshold=0.35)`, con similitud de Jaccard exacta $J(A,B) = \|S_A \cap S_B\| / \|S_A \cup S_B\|$; **(2) portapapeles compartido**, mediante índice invertido y `difflib.SequenceMatcher`; **(3) sincronía de fugas de contexto**, detectando abandono simultáneo (diferencia $\leq 8$s por defecto) de la whitelist de aplicaciones permitidas, con verificación de tráfico de red concurrente; **(4) sincronía de ejecución**, detectando ejecuciones del mismo script con diferencia $\leq 8$s por defecto y salidas de consola idénticas. El score compuesto se calcula como $\text{Score} = w_1\,J_{\text{código}} + w_2\,\text{Sim}_{\text{clip}} + w_3\,\text{Sync}_{\text{fuga}} + w_4\,\text{Sync}_{\text{exec}}$, con reglas de escalación y clasificación en niveles CRÍTICO, ALTO y MEDIO según los umbrales definidos. Tanto los pesos $w_1$–$w_4$ como los umbrales de escalación y severidad son parámetros configurables (ver 5.2.5); los valores de referencia usados por defecto son $w_1=0.45$, $w_2=0.35$, $w_3=0.15$, $w_4=0.05$. |
 
-**Señal 1 — Similitud de Código (Jaccard sobre MinHash):**
-- Reconstruye el código final tecleado por cada alumno emulando una pila de cursor bidireccional (`[BACKSPACE]`, `[LEFT]`, `[RIGHT]`, `[ENTER]`).
-- Normaliza: elimina comentarios `#`, espacios redundantes, convierte a minúsculas.
-- Extrae $k$-shingles (n-gramas de palabras, $k=5$) y genera firmas `MinHash(num_perm=128)`.
-- Indexa en `MinHashLSH(threshold=0.35)` para obtener pares candidatos en tiempo sub-cuadrático.
-- Calcula la similitud Jaccard exacta:
-
-$$J(A, B) = \frac{|S_A \cap S_B|}{|S_A \cup S_B|}$$
-
-**Señal 2 — Portapapeles Compartido (SequenceMatcher):**
-- Índice invertido de palabras ≥ 5 caracteres para pre-filtrado.
-- Comparación por `difflib.SequenceMatcher` con poda por ratio de longitud y `quick_ratio()`.
-
-**Señal 3 — Sincronía de Fugas de Contexto:**
-- Reconstruye intervalos de fuga (ventanas fuera de la whitelist: `code`, `python`, `pythonw`, `integri-ti`).
-- Detecta si dos alumnos abandonaron el contexto permitido con diferencia $\leq 8$ segundos.
-- Verifica si hubo tráfico de red (Sniffer) en ambos extremos durante la fuga.
-
-**Señal 4 — Sincronía de Ejecución:**
-- Detecta ejecuciones del mismo script con diferencia $\leq 8$ segundos.
-- Compara salidas de consola (`[PRINT]`) por igualdad.
-
-**Score de Riesgo Compuesto:**
-
-$$\text{Score} = 0.45 \times J_{\text{código}} + 0.35 \times \text{Sim}_{\text{clip}} + 0.15 \times \text{Sync}_{\text{fuga}} + 0.05 \times \text{Sync}_{\text{exec}}$$
-
-Con reglas de escalación:
-- Si $\text{Sim}_{\text{clip}} \geq 0.85$ y existe ejecución sincronizada: $\text{Score} = \max(\text{Score}, 0.70)$
-- Si $\text{Sim}_{\text{clip}} \geq 0.85$: $\text{Score} = \max(\text{Score}, 0.50)$
-
-**Clasificación de severidad:**
-- **CRÍTICO:** $\text{Score} \geq 0.55 \lor J \geq 0.65 \lor (\text{Sim}_{\text{clip}} \geq 0.85 \land \text{Sync}_{\text{exec}})$
-- **ALTO:** $\text{Score} \geq 0.35 \lor J \geq 0.45 \lor \text{Sim}_{\text{clip}} \geq 0.70$
-- **MEDIO:** Cualquier otro par candidato detectado.
-
-#### ADR-009: Dinámica de tecleo con One-Class SVM
+#### ADR-009: Dinámica de tecleo mediante One-Class SVM
 
 | Campo | Detalle |
 |---|---|
 | **Estado** | Aceptada (integrada como módulo del agente) |
-| **Contexto** | Se necesita detectar cambios de operador en la estación de trabajo (e.g., un alumno que cede su equipo a otro para que resuelva el examen). |
-| **Decisión** | Implementar un módulo de **autenticación biométrica continua** basado en la dinámica de tecleo, usando un One-Class SVM con kernel RBF. |
-| **Vector biométrico bidimensional** | Cada pulsación genera un vector $\mathbf{x} = [\text{flight\_time}, \text{hold\_time}]$: |
-| | • **Flight time**: latencia entre pulsaciones consecutivas ($< 1.5$s). |
-| | • **Hold time**: tiempo de retención de la tecla ($< 0.5$s). |
-| **Pipeline ML** | (1) Calibración con 100 vectores; (2) Normalización con `StandardScaler`; (3) Entrenamiento de `OneClassSVM(nu=0.05, kernel="rbf", gamma="scale")`; (4) Clasificación en tiempo real: `predict()` → $+1$ (normal) o $-1$ (anomalía). |
-| **Umbral de alerta** | Ventana móvil de 60 teclas. Si anomalías $\geq 25\%$ (15 de 60), se dispara alerta de posible cambio de operador. |
+| **Contexto** | Se requiere detectar cambios de operador durante una evaluación (por ejemplo, que un alumno ceda su equipo a otro para que resuelva el examen en su lugar). Un enfoque inicial basado en el promedio del ritmo de tecleo resultó insuficiente: la forma de escribir de una persona varía naturalmente según el estado cognitivo (por ejemplo, al pensar una respuesta), y un umbral fijo sobre ese promedio resulta o demasiado estricto o demasiado permisivo. |
+| **Decisión** | Implementar un módulo de autenticación biométrica continua basado en la dinámica de tecleo, mediante un clasificador One-Class SVM con kernel RBF, que evalúa la pertenencia de una muestra a la distribución previamente aprendida, en lugar de compararla contra un valor fijo. |
+| **Justificación** | (1) A diferencia de un umbral sobre un promedio fijo, el clasificador evalúa la similitud de cada muestra respecto a la distribución de referencia mediante su función de decisión, lo que permite capturar la variabilidad natural del usuario; (2) la elección del método se sustenta en literatura que compara técnicas de autenticación continua basada en dinámica de tecleo; (3) el método debía poder entrenarse con una muestra de calibración breve, tomada del propio alumno al inicio de la evaluación; las alternativas consideradas requerían un conjunto de entrenamiento previo, obtenido en sesiones separadas y con repetición del mismo texto, lo cual resultaba inviable en el contexto de uso. |
+| **Vector biométrico** | Cada pulsación genera un vector $\mathbf{x} = [\text{flight\_time}, \text{hold\_time}]$, donde *flight time* es la latencia entre pulsaciones consecutivas ($<1.5$s) y *hold time* es el tiempo de retención de la tecla ($<0.5$s). |
+| **Pipeline** | (1) Calibración con 100 vectores; (2) normalización mediante `StandardScaler`; (3) entrenamiento de `OneClassSVM(nu=0.05, kernel="rbf", gamma="scale")`; (4) clasificación en tiempo real mediante `predict()`, que retorna $+1$ (normal) o $-1$ (anomalía). |
+| **Umbral de alerta** | Sobre una ventana móvil de 60 pulsaciones, se genera una alerta de posible cambio de operador si la proporción de anomalías alcanza o supera el 25% (15 de 60). |
 
-> [!NOTE]
-> Además del SVM, se implementó una prueba de concepto alternativa más simple basada en Z-Score sobre el flight time, con calibración de 50 muestras y umbral de $Z > 2.5$, evaluada sobre ventana móvil de 40 teclas con alerta al 20% de anomalías.
+> **Nota.** Se implementó adicionalmente una alternativa basada en Z-Score sobre el flight time, con calibración de 50 muestras y umbral $Z > 2.5$, evaluada sobre una ventana móvil de 40 teclas con alerta al 20% de anomalías, como punto de comparación frente al enfoque basado en SVM.
+
+### 4.3 Justificación de Restricciones de Plataforma
+
+#### ADR-010: Soporte de distribuciones Linux basado en X11; detección y conmutación automática desde Wayland
+
+| Campo | Detalle |
+|---|---|
+| **Estado** | Aceptada |
+| **Contexto** | El agente de telemetría en Linux requiere capturar la ventana activa, los procesos asociados y eventos de teclado a nivel global, funciones cuya disponibilidad depende directamente del servidor de visualización (X11 o Wayland) sobre el que corre la sesión. |
+| **Decisión** | Se omite la posibilidad de soportar Wayland. Soportar cualquier distribución de Linux que utilice X11 como servidor de visualización, sin restricción por distribución específica — validado explícitamente en Linux Mint, Kali Linux y Debian. En el proceso de instalación se verifica si es posible cambiar a una sesión X11 para el correcto funcionamiento, y se realiza en caso de ser posible, sin que el usuario deba configurar nada adicionalmente — comportamiento verificado en Debian. |
+| **Justificación** | (1) X11 expone una API estándar y uniforme para consultar la ventana activa, enumerar procesos asociados a ventanas e interceptar eventos de teclado de forma global, independiente del entorno de escritorio o distribución; (2) Wayland aísla deliberadamente cada aplicación cliente del compositor y de las demás aplicaciones por motivos de seguridad, restringiendo por diseño el mismo acceso global a teclado y ventanas que este proyecto requiere — el modelo de aislamiento que dificulta el keylogging malicioso también impide, sin mediación adicional, la telemetría legítima necesaria aquí; (3) dar soporte nativo a Wayland exigiría implementar `xdg-desktop-portal` u otro mecanismo específico por compositor (Mutter, KWin, wlroots, entre otros), cada uno con su propio modelo de permisos, multiplicando el esfuerzo de mantenimiento sin garantía de paridad funcional entre compositores; (4) en vez de asumir ese costo, el instalador resuelve el problema en el punto de entrada: detecta la sesión activa (vía `$XDG_SESSION_TYPE` u equivalente) y, si el gestor de sesión de la distribución lo permite, fuerza el arranque en X11 antes de desplegar el agente, evitando exponer al usuario la incompatibilidad de forma manual. |
+| **Alternativas descartadas** | Soporte simultáneo de X11 y Wayland mediante una capa de abstracción de backend (descartado por el costo de mantener dos rutas de captura con garantías de acceso distintas); exigir al usuario cambiar manualmente de sesión antes de instalar (descartado en favor de resolverlo automáticamente desde el instalador, reduciendo fricción de despliegue). |
+| **Consecuencias** | En distribuciones o configuraciones donde el gestor de sesión no permite forzar X11 (por ejemplo, un compositor Wayland sin sesión Xorg instalada o disponible como alternativa), la conmutación automática no es posible y la instalación no puede completarse hasta instalar dicha alternativa. Este comportamiento de detección y conmutación se ha verificado específicamente en Debian; su cobertura en otras distribuciones depende de que estas ofrezcan una sesión Xorg instalable junto a Wayland. |
 
 ---
 
@@ -738,7 +837,7 @@ erDiagram
     }
 
     COMPARATOR_CONFIG {
-        INTEGER id PK "Singleton (siempre id=1)"
+        INTEGER id PK "Singleton (CHECK id = 1)"
         TEXT config_json "JSON con parametros del comparador"
         TEXT updated_at "Timestamp de ultima modificacion"
     }
@@ -749,15 +848,14 @@ erDiagram
         INTEGER total_alumnos "Archivos .log analizados"
         INTEGER total_pares "Pares sospechosos detectados"
         TEXT resultados_json "JSON con detalle de cada par"
-        TEXT config_json "Snapshot de config usada"
+        TEXT config_json "Snapshot de config usada en ese run"
     }
-
-    REGLAS ||--o{ INSIGHTS : "disparan analisis sobre"
-    COMPARATOR_CONFIG ||--o{ COMPARATOR_RUNS : "parametriza"
 ```
 
 > [!NOTE]
-> La telemetría cruda **no se almacena en SQLite**. Se persiste como archivos `.log` individuales por alumno en el directorio `datos_alumnos/`, optimizando el rendimiento de escritura y permitiendo el análisis de archivos completos por los motores de correlación y comparación.
+> Las cuatro tablas son **independientes entre sí**: el esquema no define ninguna clave foránea. `reglas` la consume el motor de correlación (`LogCorrelator`) e `insights` la produce el módulo de IA (`AIInsight`) — pertenecen a subsistemas distintos y no comparten datos entre sí. Entre `comparator_config` y `comparator_runs` la ausencia de relación es deliberada: cada fila de `comparator_runs` guarda una *copia* (`config_json`) de la configuración vigente al momento de ejecutarse, no una referencia a `comparator_config.id`, de modo que el historial de ejecuciones queda inmutable aunque la configuración se modifique después. La vinculación conceptual entre alumnos, reglas aplicadas e insights generados ocurre a nivel de **archivos de log** (`datos_alumnos/*.log`, identificados por `client_id`), no a nivel relacional en SQLite — coherente con el ADR-003, que documenta la decisión de mantener la telemetría fuera de la base de datos.
+>
+> La telemetría cruda **no se almacena en SQLite**: se persiste como archivos `.log` individuales por alumno en `datos_alumnos/`, optimizando el rendimiento de escritura y permitiendo el análisis de archivos completos por los motores de correlación y comparación.
 
 #### 5.2.2 Payload de Sincronización (`POST /sync`)
 
@@ -900,10 +998,27 @@ Cada línea del archivo `.log` sigue el formato estandarizado:
 | `umbral_portapapeles` | `0.50` | 0.0–1.0 | Umbral de similitud para portapapeles |
 | `apps_permitidas` | `"code, python, pythonw"` | CSV | Whitelist de ejecutables durante el examen |
 | `titulos_permitidos` | `"integri-ti"` | CSV | Whitelist de palabras en títulos de ventana |
+| `peso_codigo` | `0.45` | 0.0–1.0 | Peso de la similitud de código (Jaccard) en el score compuesto |
+| `peso_portapapeles` | `0.35` | 0.0–1.0 | Peso de la similitud de portapapeles en el score compuesto |
+| `peso_fugas` | `0.15` | 0.0–1.0 | Peso de la sincronía de fugas de contexto en el score compuesto |
+| `peso_ejecucion` | `0.05` | 0.0–1.0 | Peso de la sincronía de ejecución en el score compuesto |
+| `boost_clip_umbral` | `0.85` | 0.0–1.0 | Umbral de similitud de portapapeles que activa la escalación de severidad |
+| `boost_clip_exec_score` | `0.70` | 0.0–1.0 | Score mínimo garantizado si portapapeles alto **y** ejecución sincronizada |
+| `boost_clip_score` | `0.50` | 0.0–1.0 | Score mínimo garantizado si solo el portapapeles es alto |
+| `umbral_critico_score` | `0.55` | 0.0–1.0 | Score compuesto mínimo para clasificar como CRÍTICO |
+| `umbral_critico_jaccard` | `0.65` | 0.0–1.0 | Similitud de código que fuerza clasificación CRÍTICO |
+| `umbral_alto_score` | `0.35` | 0.0–1.0 | Score compuesto mínimo para clasificar como ALTO |
+| `umbral_alto_jaccard` | `0.45` | 0.0–1.0 | Similitud de código que fuerza clasificación ALTO |
+| `umbral_alto_clip` | `0.70` | 0.0–1.0 | Similitud de portapapeles que fuerza clasificación ALTO |
+
+> [!NOTE]
+> Todos los parámetros de esta tabla — incluidos los pesos del score compuesto y los umbrales de escalación/severidad — se almacenan como un único registro en `comparator_config.config_json` y son ajustables por el profesor desde el dashboard; los valores mostrados son los definidos en `CONFIG_DEFAULT`, no constantes fijas en el código de `comparator.py`.
 
 ### 5.3 Protocolos de Comunicación y Seguridad
 
 #### 5.3.1 Protocolo de Comunicación
+
+**Agente de Telemetría ↔ Servidor**
 
 | Aspecto | Especificación |
 |---|---|
@@ -914,50 +1029,45 @@ Cada línea del archivo `.log` sigue el formato estandarizado:
 | **Puerto** | 8000 (TCP) |
 | **Descubrimiento** | Escaneo automático de subred con `ThreadPoolExecutor(max_workers=100)` |
 | **Tolerancia a fallos** | 3 reintentos fallidos consecutivos → reset + redescubrimiento de servidor |
-| **Dashboard: polling** | El frontend JavaScript refresca estado cada 2 segundos via `GET /api/status` |
+
+**Servidor ↔ Dashboard (Navegador del Profesor)**
+
+| Aspecto | Especificación |
+|---|---|
+| **Protocolo de transporte** | HTTP/1.1 |
+| **Formato de respuestas** | `application/json` (endpoints de estado) / HTML renderizado (Jinja2, vistas del dashboard) |
+| **Puerto** | 8000 (TCP) — mismo servidor, sin puerto dedicado |
+| **Patrón de comunicación** | Polling (navegador → servidor) cada 2 segundos vía `GET /api/status` |
 
 #### 5.3.2 Flujo de Comunicación del Agente
 
-```
-┌─────────────────────┐              ┌─────────────────────────┐
-│  Agente (Alumno)     │              │   Servidor (Profesor)    │
-└──────────┬──────────┘              └────────────┬────────────┘
-           │                                      │
-           │  GET /api/discovery                   │
-           │────────────────────────────────────> │
-           │                                      │
-           │  200 OK {status: "ready"}            │  (o 403 si no ESPERANDO)
-           │ <────────────────────────────────────│
-           │                                      │
-           │  ┌──── Ciclo cada 15s ─────┐         │
-           │  │                         │         │
-           │  │  POST /sync             │         │
-           │  │  multipart/form-data:   │         │
-           │  │  • client_id            │         │
-           │  │  • estado_local         │         │
-           │  │  • timestamp            │         │
-           │  │  • alertas (JSON)       │         │
-           │  │  • archivo_log (file)   │         │
-           │  │─────────────────────────────────> │
-           │  │                         │         │──> Anexar a datos_alumnos/{id}.log
-           │  │                         │         │──> Correlator: evaluar reglas
-           │  │                         │         │──> Generar alertas si match
-           │  │                         │         │
-           │  │  200 OK                 │         │
-           │  │  {comando_global,       │         │
-           │  │   configuraciones}      │         │
-           │  │ <─────────────────────────────────│
-           │  │                         │         │
-           │  │  (aplica configs,       │         │
-           │  │   transiciona estado)   │         │
-           │  │                         │         │
-           │  └─────────────────────────┘         │
-           │                                      │
-           │  Si FINALIZADO:                      │
-           │  POST /sync (último log)             │
-           │────────────────────────────────────> │
-           │  Reset + volver a discovery          │──> Comparador: análisis de cierre
-           │                                      │
+```mermaid
+sequenceDiagram
+    participant Agente as Agente (Alumno)
+    participant Servidor as Servidor (Profesor)
+
+    Agente->>Servidor: GET /api/discovery
+    alt Estado global = ESPERANDO
+        Servidor-->>Agente: 200 OK {status: "ready"}
+    else Estado global distinto de ESPERANDO
+        Servidor-->>Agente: 403
+    end
+
+    loop Cada 15 segundos
+        Agente->>Servidor: POST /sync (multipart/form-data)<br/>client_id, estado_local, timestamp,<br/>alertas (JSON), archivo_log (file)
+        activate Servidor
+        Servidor->>Servidor: Anexar a datos_alumnos/{id}.log
+        Servidor->>Servidor: Correlator: evaluar reglas
+        Servidor->>Servidor: Generar alertas si hay match
+        Servidor-->>Agente: 200 OK {comando_global, configuraciones}
+        deactivate Servidor
+        Agente->>Agente: Aplica configs y transiciona estado
+    end
+
+    Note over Agente,Servidor: Si estado_local = FINALIZADO
+    Agente->>Servidor: POST /sync (último log)
+    Servidor->>Servidor: Comparador: análisis de cierre
+    Agente->>Agente: Reset + volver a discovery
 ```
 
 #### 5.3.3 Mecanismos de Seguridad
@@ -1031,7 +1141,25 @@ stateDiagram-v2
     Grabando --> Descubrimiento: 3 fallos consecutivos\n→ reset + redescubrir
 ```
 
-#### 6.1.2 Flujo del Program Monitor
+#### 6.1.2 Flujo del Orquestador de Módulos (Orchestrator)
+
+```mermaid
+flowchart TD
+    Init(["Orchestrator inicia"]) --> Load["Cargar configuración<br/>y módulos habilitados"]
+    Load --> Start["Iniciar los 7 módulos<br/>de telemetría, cada uno<br/>en su propio hilo"]
+    Start --> Wait["Esperar el ciclo de<br/>sincronización (cada 15s)"]
+    Wait --> Merge["Combinar los logs individuales<br/>en un log único y ordenado"]
+    Merge --> Send["Enviar al servidor vía /sync"]
+    Send --> Clear["Vaciar los logs locales"]
+    Clear --> CheckConfig{"¿El servidor envió<br/>una nueva configuración?"}
+    CheckConfig -->|No| Wait
+    CheckConfig -->|Sí| Apply["Aplicar el cambio:<br/>reiniciar solo el módulo afectado"]
+    Apply --> Wait
+
+    style Init fill:#0f3460,stroke:#e94560,color:#fff
+```
+
+#### 6.1.3 Flujo del Program Monitor
 
 ```mermaid
 flowchart TD
@@ -1056,7 +1184,96 @@ flowchart TD
     style Start fill:#0f3460,stroke:#e94560,color:#fff
 ```
 
-#### 6.1.3 Flujo del USB Detection
+#### 6.1.4 Flujo del Keylogger
+
+```mermaid
+flowchart TD
+    Start(["Keylogger inicia"]) --> Listen["Escuchar pulsaciones de teclado<br/>en segundo plano"]
+    Listen --> Key["Tecla presionada"]
+    Key --> Buffer["Acumular en un buffer de texto<br/>(traduciendo teclas especiales<br/>como Enter, Ctrl, Backspace)"]
+    Buffer --> Listen
+    Listen -.->|"cada 10 segundos"| Timer["Revisar el buffer"]
+    Timer --> Check{"¿Hay contenido<br/>acumulado?"}
+    Check -->|Sí| WriteLog["Escribir el buffer en el log<br/>y vaciarlo"]
+    Check -->|No| Heartbeat["Escribir marca de<br/>actividad (keepalive)"]
+    WriteLog --> Listen
+    Heartbeat --> Listen
+
+    style Start fill:#0f3460,stroke:#e94560,color:#fff
+```
+
+#### 6.1.5 Flujo del Sniffer de Red
+
+```mermaid
+flowchart TD
+    Start(["Sniffer inicia<br/>(requiere privilegios de red)"]) --> Capture["Capturar tráfico en<br/>puertos 443 (web) y 53 (DNS)"]
+    Capture --> Extract["Extraer el dominio<br/>visitado del paquete"]
+    Extract --> Filter{"¿Es telemetría del<br/>propio sistema operativo<br/>o dominio inválido?"}
+    Filter -->|Sí| Discard["Descartar"]
+    Filter -->|No| Dedup{"¿Mismo dominio visto<br/>hace menos de 1 segundo?"}
+    Dedup -->|Sí| Discard
+    Dedup -->|No| WriteLog["Registrar el dominio en el log"]
+    Discard --> Capture
+    WriteLog --> Capture
+
+    style Start fill:#0f3460,stroke:#e94560,color:#fff
+```
+
+#### 6.1.6 Flujo del Monitor de Portapapeles (Paperclip)
+
+```mermaid
+flowchart TD
+    Start(["Paperclip inicia"]) --> Seed["Leer el contenido inicial<br/>del portapapeles"]
+    Seed --> Loop["Revisar el portapapeles<br/>cada 0.5 segundos"]
+    Loop --> Compare{"¿Cambió respecto<br/>a la última lectura?"}
+    Compare -->|No| Loop
+    Compare -->|Sí| Truncate["Recortar el contenido<br/>si es muy largo"]
+    Truncate --> WriteLog["Registrar el cambio en el log"]
+    WriteLog --> Loop
+
+    style Start fill:#0f3460,stroke:#e94560,color:#fff
+```
+
+#### 6.1.7 Flujo de Detección de Errores en Ejecuciones Python (ErrorDetection)
+
+```mermaid
+flowchart TD
+    Install(["Instalación del hook<br/>(una sola vez)"]) --> Hook["Insertar un hook que Python<br/>carga automáticamente al iniciar<br/>cualquier script"]
+    Hook --> Active{"¿Agente activo<br/>y script no excluido?"}
+    Active -->|No| Ignore["Ejecución normal,<br/>sin registrar nada"]
+    Active -->|Sí| Watch["Observar la ejecución del script:<br/>inicio, entradas, salidas<br/>por consola, errores y fin"]
+    Watch --> Event{"¿Qué ocurrió?"}
+    Event -->|Error no controlado| LogCrash["Registrar el error<br/>y su mensaje"]
+    Event -->|Entrada o salida| LogIO["Registrar la interacción"]
+    Event -->|Script termina| LogEnd["Registrar el fin<br/>de la ejecución"]
+    LogCrash --> Watch
+    LogIO --> Watch
+    LogEnd --> Ignore
+
+    style Install fill:#0f3460,stroke:#e94560,color:#fff
+    style LogCrash fill:#e94560,stroke:#1a1a2e,color:#fff
+```
+
+#### 6.1.8 Flujo de la Biometría de Tecleo (KeystrokeSVM)
+
+```mermaid
+flowchart TD
+    Start(["Inicio de la evaluación"]) --> Calibrate["Fase de calibración:<br/>medir el ritmo de tecleo<br/>propio del alumno"]
+    Calibrate --> Train["Entrenar un modelo (One-Class SVM)<br/>con ese patrón individual"]
+    Train --> Monitor["Auditoría continua:<br/>comparar cada nueva pulsación<br/>contra el patrón aprendido"]
+    Monitor --> Classify{"¿La pulsación se aleja<br/>del patrón esperado?"}
+    Classify -->|No| Monitor
+    Classify -->|Sí| Count["Sumar a la ventana<br/>de anomalías recientes"]
+    Count --> Threshold{"¿Demasiadas anomalías<br/>en poco tiempo?"}
+    Threshold -->|No| Monitor
+    Threshold -->|Sí| Alert["🚨 Alertar posible<br/>cambio de operador"]
+    Alert --> Monitor
+
+    style Start fill:#0f3460,stroke:#e94560,color:#fff
+    style Alert fill:#e94560,stroke:#1a1a2e,color:#fff
+```
+
+#### 6.1.9 Flujo del USB Detection
 
 ```mermaid
 flowchart TD
@@ -1092,7 +1309,7 @@ flowchart TD
     style Alert fill:#e94560,stroke:#1a1a2e,color:#fff
 ```
 
-#### 6.1.4 Flujo del Motor de Correlación (Servidor)
+#### 6.1.10 Flujo del Motor de Correlación (Servidor)
 
 ```mermaid
 flowchart TD
@@ -1124,7 +1341,7 @@ flowchart TD
     style End fill:#0f3460,stroke:#e94560,color:#fff
 ```
 
-#### 6.1.5 Flujo del Comparador Multiseñal (Servidor)
+#### 6.1.11 Flujo del Comparador Multiseñal (Servidor)
 
 ```mermaid
 flowchart TD
@@ -1166,6 +1383,25 @@ flowchart TD
     style Critical fill:#e94560,stroke:#1a1a2e,color:#fff
     style High fill:#f59e0b,stroke:#1a1a2e,color:#000
     style Medium fill:#3b82f6,stroke:#1a1a2e,color:#fff
+```
+
+#### 6.1.12 Flujo del Análisis Pedagógico Asistido por IA (AIInsight)
+
+```mermaid
+flowchart TD
+    Trigger(["Profesor solicita<br/>análisis de IA"]) --> Cached{"¿Ya existe un análisis<br/>guardado para este alumno?"}
+    Cached -->|Sí| ReturnCache["Devolver el análisis guardado"]
+    Cached -->|No| Context["Extraer el registro de<br/>actividad del alumno"]
+    Context --> Prompt["Construir una consulta con<br/>4 preguntas pedagógicas"]
+    Prompt --> Call["Enviar la consulta al<br/>modelo de lenguaje remoto"]
+    Call --> Ok{"¿Respuesta exitosa?"}
+    Ok -->|No| Error["Informar error,<br/>sin guardar nada"]
+    Ok -->|Sí| Parse["Extraer las 4 respuestas<br/>y la conclusión"]
+    Parse --> Save["Guardar el análisis<br/>en la base de datos"]
+    Save --> Return["Entregar el análisis al profesor"]
+
+    style Trigger fill:#0f3460,stroke:#e94560,color:#fff
+    style Save fill:#16213e,stroke:#0f3460,color:#fff
 ```
 
 ### 6.2 Diagramas de Secuencia y Flujo de Datos
@@ -1432,7 +1668,3 @@ pytest tests/server/test_correlator.py::test_multi_step_rule_within_window -v
 ```
 
 ---
-
-> **Documento generado como parte del Hito 1 del proyecto Integri-TI.**  
-> Para preguntas o sugerencias, contactar al equipo de desarrollo.
-
