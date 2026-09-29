@@ -13,7 +13,7 @@ uvicorn
 python-multipart
 scikit-learn
 usb-monitor
-pycrypto
+
 
 # Windows-only active-window support
 pywin32; sys_platform == "win32"
