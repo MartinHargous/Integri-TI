@@ -1666,5 +1666,52 @@ pytest tests/ --cov=Server --cov=Client --cov-report=html
 # Ejecutar un test específico
 pytest tests/server/test_correlator.py::test_multi_step_rule_within_window -v
 ```
+## 8. Cambios Aplicados Después de las Pruebas
+
+
+
+Tras las pruebas reales sobre el Hito 1 (Windows y Linux Mint), se identificaron una serie de problemas que no eran evidentes en el diseño original. Esta sección documenta cada problema, la solución aplicada y su consecuencia sobre la arquitectura descrita en las secciones anteriores.
+
+
+
+| Problema detectado | Solución aplicada | Consecuencia en la arquitectura |
+|---|---|---|
+| El agente en Windows no se reiniciaba automáticamente al ser terminado manualmente (Administrador de Tareas) durante un examen en curso — la Tarea Programada solo se disparaba al iniciar sesión. | Se agregó un segundo trigger repetitivo (cada 1 minuto, `MultipleInstances=IgnoreNew`) a la Tarea Programada, actuando como *watchdog* que relanza el proceso si detecta que no hay una instancia corriendo. | El downtime máximo teórico de un agente terminado pasó de indefinido a ~60 segundos. Este valor se convirtió en la base del umbral de detección de silencio (ver filas siguientes). |
+| El desinstalador de Windows no verificaba que la tarea programada realmente se hubiera eliminado, ni garantizaba que el proceso del agente quedara detenido. | Se agregó verificación explícita con `Get-ScheduledTask` (con reintento) y un *kill* de respaldo filtrando por línea de comando (`pythonw.exe`/`python.exe` ejecutando `client.py`). | Ninguna sobre el sistema en ejecución; mejora de robustez del procedimiento de desinstalación (2.3.4). |
+| Ni el instalador ni el desinstalador (Windows y Linux) revertían el *hook* global de Python (`sitecustomize.py`) ni la modificación de `PYTHONPATH` a nivel de usuario — quedaban instalados permanentemente incluso después de desinstalar el agente. | Los desinstaladores ahora eliminan `sitecustomize.py` y el archivo bandera `.telemetria_active`, revierten quirúrgicamente la entrada de `PYTHONPATH` (sin tocar otras rutas configuradas por el usuario) y remueven `.telemetria_global` si queda vacía. | Ninguna sobre la arquitectura; corrige un efecto colateral no documentado del mecanismo de instrumentación descrito en 6.1.7 y en el ADR-001. |
+| El desinstalador de Linux no revertía el *bypass* de Wayland→Xorg en Debian — una modificación a nivel de **todo el equipo**, no solo del usuario del agente. | Se agregó reversión opcional (con confirmación explícita del operador, dado su alcance de sistema completo) del archivo de configuración de GDM3. | Ninguna sobre la arquitectura; refuerza el carácter de sistema completo (no por-usuario) ya documentado en el ADR-010. |
+| El estado del agente (`StateMachine`, `server_url`) vivía solo en memoria del proceso. Al morir y ser revivido por el *watchdog*, el agente perdía todo contexto y debía re-escanear la red completa desde cero, incluso si ya estaba participando en un examen en curso. | Se agregó persistencia de estado en un archivo `state.json` (escritura atómica), leído al iniciar el proceso. Si el servidor cacheado responde, el agente omite el descubrimiento por red. | Nuevo archivo `state.json` en el directorio del agente, no contemplado en el esquema de archivos original. El ciclo de vida del agente (6.1.1) ahora incluye una rama de reconexión por caché previa al descubrimiento por red. |
+| `/api/discovery` rechaza (403) cualquier conexión mientras el examen está en `GRABANDO` — esto bloqueaba a un agente legítimo que intentara reconectarse a mitad de examen tras ser revivido por el *watchdog*. | La reconexión por caché valida la URL del servidor directamente contra `/sync` (sin la restricción de admisión de `/api/discovery`) en lugar de repetir el descubrimiento. | El flujo de comunicación del agente (5.3.2) ahora contempla dos rutas de entrada al ciclo de sincronización: descubrimiento por red (ingreso nuevo) y validación de caché (reconexión). |
+| No existía ningún mecanismo para detectar cuándo un agente dejaba de reportar telemetría a mitad de examen (proceso terminado, corte de red, batería agotada) — el hueco de monitoreo era invisible para el profesor. | Se implementaron dos mecanismos complementarios: **(1)** detección retroactiva en `/sync`, que escribe una línea sintética `AGENTE_INTERRUMPIDO gap=Ns` en el log del alumno cuando reconecta tras un silencio mayor a 60s; **(2)** un *watchdog* en vivo (hilo en segundo plano en el servidor) que alerta en el momento aunque el agente nunca vuelva a conectarse. | Nuevo pseudo-módulo `Sistema` reconocido por el motor de correlación (vía su normalización genérica de módulos no listados). Nueva regla `R-08` (Interrupción del Agente). `/api/status` expone ahora un campo `en_silencio` por alumno. La matriz de agentes del dashboard incorpora un cuarto estado visual ("Sin conexión"). |
+| `/sync` no tenía ningún mecanismo de autenticación — cualquiera con acceso a la red (y, a futuro, a la URL pública vía Cloudflare Tunnel) podía enviar payloads falsos. | Se implementó autenticación mediante código de un solo uso (TOTP, vía `pyotp`) con secreto compartido incluido en el repositorio, tolerancia de ventana `valid_window=2` (~±60s) y verificación de desfase de reloj cliente-servidor basada en el header HTTP `Date`. | Nuevo campo obligatorio `codigo_otp` en el payload de `/sync` (actualiza 5.2.2). Nueva dependencia `pyotp` en ambos componentes. Nuevo parámetro de configuración `INTEGRITI_OTP_SECRET`. |
+| `requirements.txt` del servidor no reflejaba las dependencias reales del código (faltaban `datasketch` y `pyotp`). | Se regeneró `requirements.txt` a partir de las importaciones reales de `main.py`, `comparator.py`, `correlator.py`, `ai_insight.py` y `database.py`. | Ninguna sobre la arquitectura; corrección de documentación de dependencias. |
+
+
+
+## 9. Known Issues
+
+
+
+Los siguientes problemas fueron observados durante las pruebas, pero **no se ha logrado reproducirlos de forma consistente** — se documentan como conocidos, en investigación, en vez de asumir una causa confirmada.
+
+
+
+| Problema observado | Entorno donde ocurrió | Estado |
+|---|---|---|
+| El agente no registró correctamente una interrupción manual del ejecucion de python ([CTRL] + c) (mensaje/flujo de "interrumpido por el usuario") en un equipo específico durante las pruebas. | Un equipo puntual, no identificado de forma reproducible. | Abierto — no replicado en pruebas posteriores sobre el mismo u otros equipos. Sin causa confirmada. |
+| El módulo Sniffer no generó ninguna entrada en su log durante una prueba completa, a diferencia de pruebas equivalentes en Windows y Debian. | Linux Mint (XFCE), hardware físico (no VM). | Abierto — no replicado en pruebas posteriores. Hipótesis bajo evaluación, ninguna confirmada aún: (1) fallo silencioso de `apt-get install libpcap-dev` en el instalador, enmascarado por `\|\| true`; (2) selección incorrecta de interfaz de red por parte de Scapy en un equipo con múltiples interfaces (a diferencia de una VM, que típicamente solo expone una); (3) excepción no registrada al inicializar la captura. |
+
+
+
+---
+
+
+
+> **Documento generado como parte del Hito 1 del proyecto Integri-TI.**  
+
+> Para preguntas o sugerencias, contactar al equipo de desarrollo.
+
+
+
 
 ---

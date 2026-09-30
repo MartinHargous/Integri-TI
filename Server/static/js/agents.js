@@ -54,9 +54,25 @@ function renderizarAgentesEnVivo(clientes) {
       statusText = 'Finalizado';
     }
 
-    const borderClass = isSelected 
+    // El watchdog de silencio del servidor tiene prioridad visual sobre el
+    // estado normal: un alumno "en_silencio" está técnicamente en GRABANDO,
+    // pero lleva demasiado tiempo sin responder (posible WiFi cortado o
+    // proceso terminado sin reiniciar aún). Se destaca en rojo con pulso
+    // para que no se confunda con una infracción académica (que se ve en
+    // el feed de alertas, no en la matriz de agentes).
+    const enSilencio = !!info.en_silencio;
+    if (enSilencio) {
+      badgeClass = 'border-red-800/80 bg-red-950/60 text-red-300 animate-pulse';
+      dotColor = 'bg-red-500 animate-pulse';
+      statusText = 'Sin conexión';
+    }
+
+    let borderClass = isSelected 
       ? 'border-2 border-blue-500 bg-[#141d2e]/70' 
       : 'border border-[#1f2937] hover:border-slate-600 bg-[#0b0f19]';
+    if (enSilencio && !isSelected) {
+      borderClass = 'border border-red-700/70 bg-red-950/10 hover:border-red-600';
+    }
 
     html += `
     <div class="${borderClass} rounded-lg p-2.5 flex flex-col justify-between gap-2 transition-colors">

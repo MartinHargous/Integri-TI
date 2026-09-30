@@ -3,3 +3,4 @@ __pycache__/
 .telemetry_active
 .env
 *.db
+*state.json

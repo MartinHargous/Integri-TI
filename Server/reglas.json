@@ -130,5 +130,17 @@
         "patron": "\\[CTRL\\]\\+v"
       }
     ]
-  }
+  },
+  {
+  "id": "R-08",
+  "nombre": "Interrupción del Agente y Acceso a Dispositivo USB",
+  "severidad": "CRÍTICA",
+  "ventana_segundos": 0,
+  "pasos": [
+    {
+      "modulo": "sistema",
+      "patron": "AGENTE_INTERRUMPIDO"
+    }
+  ]
+}
 ]

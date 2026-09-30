@@ -1,6 +1,10 @@
 import os
 import socket
 import json
+import time
+import threading
+import pyotp
+from datetime import datetime
 from fastapi import FastAPI, UploadFile, File, Form, Request, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,6 +66,28 @@ configuraciones_globales = {}
 eventos_telemetria_recientes = deque(maxlen=20)
 _clientes_inicializados_desde_disco = False
 
+# Umbral de silencio sospechoso durante GRABANDO. Con sync cada 15s por defecto,
+# y hasta 60s de downtime máximo teórico del watchdog de reinicio del agente,
+# se define el umbral considerando ese peor caso.
+UMBRAL_GAP_SEGUNDOS = 60
+
+# Alumnos ya notificados por el watchdog en vivo mientras siguen en silencio,
+# para no repetir la misma alerta en cada ciclo de chequeo. Se limpia cuando
+# el alumno reconecta (ver /sync) o cuando su estado deja de ser GRABANDO.
+_alumnos_alertados_por_silencio = set()
+
+# --- AUTENTICACIÓN DE /sync (OTP compartido) ---
+# Necesario porque el servidor puede quedar expuesto a internet vía Cloudflare
+# Tunnel: sin esto, cualquiera con la URL pública podría mandar payloads falsos.
+# Un solo secreto compartido para todo el curso (no por alumno, por ahora) —
+# se genera una vez y se distribuye junto con el repo/instalador. Rotar entre
+# semestres es suficiente; no protege contra un alumno que decida extraer el
+# secreto de su propio agente (ver discusión de límites del esquema).
+SECRETO_OTP = os.environ.get("INTEGRITI_OTP_SECRET", "TIG6GIB6ZO73JIMU2K5VTZFEVLEVWQDH")
+
+
+totp = pyotp.TOTP(SECRETO_OTP, interval=30)
+
 CONFIGS_POR_DEFECTO = {
     "sniffer": {"enabled": "true", "log_file": "sniffer.log", "method": "regex", "cooldown_seconds": "1"},
     "keylogger": {"enabled": "True", "log_file": "keylogger.log", "poll_seconds": "10"},
@@ -91,6 +117,44 @@ def inicializar_alertas_desde_historial():
 
 inicializar_alertas_desde_historial()
 
+# --- WATCHDOG DE SILENCIO EN VIVO ---
+# Complementa la detección retroactiva del endpoint /sync: esa solo dispara
+# CUANDO el agente logra reconectarse. Si el alumno nunca vuelve a conectarse
+# (WiFi cortado el resto del examen, equipo apagado, etc.), ningún /sync futuro
+# llega para comparar el gap. Este watchdog revisa activamente, sin depender
+# de que el alumno vuelva a hablar, así el profesor lo ve en el momento.
+def _watchdog_silencio_en_vivo():
+    FRECUENCIA_CHEQUEO_SEG = 10
+    while True:
+        time.sleep(FRECUENCIA_CHEQUEO_SEG)
+        ahora = datetime.now()
+        for cid, info in list(clientes_conectados.items()):
+            if info.get("estado") != "GRABANDO":
+                _alumnos_alertados_por_silencio.discard(cid)
+                continue
+            try:
+                ultimo_dt = datetime.strptime(info.get("ultimo_visto", ""), "%Y-%m-%dT%H:%M:%S")
+            except Exception:
+                continue
+
+            gap_seg = (ahora - ultimo_dt).total_seconds()
+            if gap_seg > UMBRAL_GAP_SEGUNDOS and cid not in _alumnos_alertados_por_silencio:
+                _alumnos_alertados_por_silencio.add(cid)
+                gap_int = int(gap_seg)
+                print(f"\n[ALERTA SISTEMA - {cid}] SIN_CONEXION (en vivo) gap={gap_int}s")
+                historial_alertas.insert(0, {
+                    "client_id": cid,
+                    "timestamp": ahora.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "nivel": "Alta",
+                    "regla_id": "SISTEMA",
+                    "regla_nombre": "Silencio Prolongado (en vivo)",
+                    "mensaje": f"El agente de {cid} no responde hace {gap_int}s. Puede seguir desconectado (WiFi cortado, proceso terminado sin reiniciar, batería agotada, etc.)."
+                })
+                if len(historial_alertas) > 100:
+                    historial_alertas.pop()
+
+threading.Thread(target=_watchdog_silencio_en_vivo, daemon=True).start()
+
 # --- UTILIDADES DE RED ---
 def obtener_ip_local():
     try:
@@ -112,17 +176,74 @@ async def recibir_telemetria(
     timestamp: str = Form(...),
     alertas: str = Form("[]"),
     configs: str = Form("{}"),
-    archivo_log: UploadFile = File(None)
+    archivo_log: UploadFile = File(None),
+    codigo_otp: str = Form(...)
 ):
+    # valid_window=2 tolera hasta ~60s de desfase de reloj entre agente y
+    # servidor en cada dirección (ventana total ~150s), además de la latencia
+    # normal de red. Si un client_id falla sistemáticamente aquí, revisar la
+    # hora del sistema de ese equipo antes que sospechar del secreto OTP.
+    if not totp.verify(codigo_otp, valid_window=2):
+        raise HTTPException(
+            status_code=401,
+            detail="Código de sincronización inválido o expirado. Si esto persiste para el mismo equipo, verifique que su hora del sistema esté correcta."
+        )
+
     ip_cliente = request.client.host if request.client else "127.0.0.1"
+    ruta_destino = os.path.join(CARPETA_DATOS, f"{client_id}.log")
+
+    # --- 0. Detección de silencio sospechoso (agente interrumpido a mitad de GRABANDO) ---
+    # No es una regla del correlator: no depende del CONTENIDO del log, sino del
+    # tiempo real transcurrido entre este /sync y el anterior. El correlator nunca
+    # ve "lo que no llegó", así que esto se calcula aquí, con lo que el propio
+    # servidor ya sabe (clientes_conectados). Se registra como una línea normal
+    # en el .log del alumno para que quede visible en la auditoría forense igual
+    # que cualquier evento de módulo, y también en el feed de alertas del dashboard.
+    info_previa = clientes_conectados.get(client_id)
+    if info_previa and info_previa.get("estado") == "GRABANDO":
+        gap_seg = None
+        try:
+            ultimo_dt = datetime.strptime(info_previa.get("ultimo_visto", ""), "%Y-%m-%dT%H:%M:%S")
+            ahora_dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
+            gap_seg = (ahora_dt - ultimo_dt).total_seconds()
+        except Exception:
+            gap_seg = None
+
+        if gap_seg is not None and gap_seg > UMBRAL_GAP_SEGUNDOS:
+            gap_int = int(gap_seg)
+            linea_alerta = f"[{timestamp}][Sistema] AGENTE_INTERRUMPIDO gap={gap_int}s\n"
+            try:
+                with open(ruta_destino, "a", encoding="utf-8") as f_gap:
+                    f_gap.write(linea_alerta)
+            except Exception as e:
+                print(f"[!] No se pudo escribir la alerta de interrupción en el log de {client_id}: {e}")
+
+            print(f"\n[ALERTA SISTEMA - {client_id}] AGENTE_INTERRUMPIDO gap={gap_int}s")
+            historial_alertas.insert(0, {
+                "client_id": client_id,
+                "timestamp": timestamp,
+                "nivel": "Alta",
+                "regla_id": "SISTEMA",
+                "regla_nombre": "Interrupción del Agente",
+                "mensaje": f"El agente dejó de reportar por {gap_int}s durante el examen (posible cierre manual del proceso)."
+            })
+            if len(historial_alertas) > 100:
+                historial_alertas.pop()
+
+        # El alumno volvió a responder: si el watchdog en vivo ya lo había
+        # marcado como en silencio, se limpia para que un futuro corte
+        # (otro más adelante en el mismo examen) pueda alertar de nuevo.
+        _alumnos_alertados_por_silencio.discard(client_id)
 
     # 1. Guardar el archivo si el alumno envió uno y correlacionar secuencias de logs
     bytes_log = 0
     if archivo_log and archivo_log.filename:
-        ruta_destino = os.path.join(CARPETA_DATOS, f"{client_id}.log")
         contenido = await archivo_log.read()
         bytes_log = len(contenido)
 
+        # Se cuenta DESPUÉS de la posible escritura de la alerta de interrupción
+        # de arriba, para que el offset del correlator quede correcto si esa
+        # línea sintética ya se agregó al archivo en este mismo request.
         lineas_previas = 0
         if os.path.exists(ruta_destino):
             try:
@@ -289,9 +410,17 @@ def obtener_estado_actual():
         _inicializar_clientes_desde_disco()
         _clientes_inicializados_desde_disco = True
 
+    # Se arma una copia superficial por cliente para inyectar el flag de
+    # silencio calculado por el watchdog, sin mutar el estado interno.
+    clientes_con_estado_conexion = {}
+    for cid, info in clientes_conectados.items():
+        info_copia = dict(info)
+        info_copia["en_silencio"] = cid in _alumnos_alertados_por_silencio
+        clientes_con_estado_conexion[cid] = info_copia
+
     return {
         "comando_global": comando_global,
-        "clientes": clientes_conectados,
+        "clientes": clientes_con_estado_conexion,
         "alertas": historial_alertas,
         "eventos_logs": list(eventos_telemetria_recientes)[-12:]
     }
