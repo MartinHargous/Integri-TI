@@ -24,6 +24,36 @@
   </div>
 </div>
 
+<!-- MODAL DE CONFIRMACIÓN: REINICIAR EXAMEN (acción destructiva) -->
+<div id="modal-confirmar-reset" class="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 hidden flex items-center justify-center p-3 sm:p-4 font-sans">
+  <div class="bg-[#111827] border border-red-800/60 rounded-lg shadow-xl max-w-md w-full flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between border-b border-[#1f2937] px-4 py-3 bg-red-950/30">
+      <h3 class="font-semibold text-sm sm:text-base text-red-200 uppercase tracking-wider flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        Reiniciar Examen
+      </h3>
+      <button onclick="cerrarModalReset()" class="text-slate-400 hover:text-white text-xl leading-none p-1">&times;</button>
+    </div>
+    <div class="px-4 py-4 text-xs sm:text-sm text-slate-300 flex flex-col gap-2.5 font-mono">
+      <p>Esto va a:</p>
+      <ol class="list-decimal list-inside flex flex-col gap-1 text-slate-300">
+        <li>Descargar un respaldo (reporte + logs crudos) del examen actual.</li>
+        <li>Borrar todas las alertas, logs e insights de IA del servidor.</li>
+        <li>Dejar el servidor listo para un examen nuevo (estado ESPERANDO).</li>
+      </ol>
+      <p class="text-red-300 text-xs">Esta acción no se puede deshacer una vez confirmada.</p>
+    </div>
+    <div class="flex items-center justify-end gap-2.5 border-t border-[#1f2937] px-4 py-3 bg-[#141d2e]/40">
+      <button onclick="cerrarModalReset()" class="px-3.5 py-1.5 rounded bg-[#1f2937] hover:bg-[#374151] text-slate-300 border border-[#374151] text-xs sm:text-sm transition-colors">Cancelar</button>
+      <button onclick="confirmarReset()" id="btn-confirmar-reset" class="px-4 py-1.5 rounded bg-red-700 hover:bg-red-600 text-white font-medium text-xs sm:text-sm transition-colors">
+        Sí, reiniciar
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST DE NOTIFICACIÓN SOBRIO -->
 <div id="toast" class="fixed bottom-3 right-3 max-w-sm bg-[#111827] border border-slate-700 text-slate-200 text-xs sm:text-sm font-mono px-4 py-2.5 rounded shadow-lg pointer-events-none opacity-0 transition-opacity duration-200 flex items-center gap-2.5 z-50">
   <span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>

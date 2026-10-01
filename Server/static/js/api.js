@@ -97,6 +97,15 @@ const Api = {
     const res = await fetch('/api/comparador/ejecutar', { method: 'POST' });
     if (!res.ok) throw new Error('Error ejecutando análisis del comparador');
     return await res.json();
+  },
+
+  async resetearServidor() {
+    const res = await fetch('/reset', { method: 'POST' });
+    if (!res.ok) throw new Error('Error reiniciando el servidor: ' + res.status);
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match ? match[1] : `backup_examen_${Date.now()}.zip`;
+    return { blob, filename };
   }
 };
-

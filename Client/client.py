@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import socket
 import time
@@ -18,7 +19,7 @@ import traceback
 # quede junto a ajustes que un alumno podría editar con más frecuencia; de
 # todas formas, quien tenga acceso al código fuente del agente lo puede leer
 # — ver la discusión de límites del esquema OTP.
-SECRETO_OTP = os.environ.get("INTEGRITI_OTP_SECRET", "TIG6GIB6ZO73JIMU2K5VTZFEVLEVWQDH")
+SECRETO_OTP = os.environ.get("INTEGRITI_OTP_SECRET", "IARB4YQKBW5NXX2BKJKK3XMHGT3SCXIK")
 
 # Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar orchestrator
 if sys.platform.startswith("linux"):
@@ -66,6 +67,14 @@ class TelemetryClient:
 
         self.interval = float(self.config.get("sync_interval_seconds", self.DEFAULTS["sync_interval_seconds"]))
         self.discovery_timeout = float(self.config.get("discovery_timeout_seconds", self.DEFAULTS["discovery_timeout_seconds"]))
+
+        # Modo de conexión, decidido UNA SOLA VEZ al arrancar y fijo durante toda
+        # la ejecución: si hay server_url configurado, el agente SOLO reintenta
+        # esa URL (Cloudflare Tunnel u otro proxy) y nunca escanea la red local.
+        # Si no hay server_url, se comporta como siempre (server_ip + escaneo).
+        # No hay cascada ni mezcla entre ambos modos.
+        self.server_url_config = self.config.get("server_url", "").strip()
+        self.modo_cloudflare = bool(self.server_url_config)
 
         self.client_id = "Desconocido"
         self.server_url = ""
@@ -144,6 +153,10 @@ class TelemetryClient:
                 if not line or line.startswith(("#", ";")) or "=" not in line:
                     continue
                 key, value = line.split("=", 1)
+                # Strippear comentarios al final de la línea (ej. "valor   # nota"),
+                # no solo líneas que empiezan con # — un comentario pegado al valor
+                # quedaba incluido literalmente antes de este fix.
+                value = re.split(r"\s+[#;]", value, maxsplit=1)[0]
                 if key.strip().lower() in values:
                     values[key.strip().lower()] = value.strip()
         return values
@@ -212,22 +225,48 @@ class TelemetryClient:
         return None
 
     def DiscoveryEngine(self, puerto_api=8000):
-        """Escanea la red buscando la API, cruzando barreras NAT si es necesario."""
+        """
+        Despachador de modo, fijo desde __init__ (ver self.modo_cloudflare).
+        Los dos modos son mutuamente excluyentes y no se mezclan ni cambian
+        durante la ejecución: con server_url configurado, SOLO se reintenta
+        esa URL; sin él, el comportamiento es el de siempre (server_ip + LAN).
+        """
+        if self.modo_cloudflare:
+            return self._discovery_cloudflare()
+        return self._discovery_lan(puerto_api)
 
-        # 0. Bypass por URL completa (Cloudflare Tunnel u otro proxy HTTPS).
-        # Tiene prioridad sobre server_ip: si está configurada, se asume que
-        # es la forma de conexión principal (ej. agentes fuera de la LAN del
-        # servidor) y no tiene sentido perder tiempo escaneando la red local.
-        url_forzada = self.config.get("server_url", "").strip()
-        if url_forzada:
-            print(f"[BÚSQUEDA] Probando URL forzada desde configuración: {url_forzada}...")
-            url = self._probar_url_completa(url_forzada)
+    def _discovery_cloudflare(self):
+        """
+        Modo fijo por URL completa (Cloudflare Tunnel u otro proxy HTTPS).
+        Reintenta ÚNICAMENTE self.server_url_config — nunca cae a server_ip
+        ni al escaneo de red, porque en este modo se asume que el agente no
+        comparte LAN con el servidor (ese escaneo nunca encontraría nada).
+        """
+        start_time = time.time()
+        intento = 1
+        while True:
+            print(f"[BÚSQUEDA - Intento {intento}] Probando servidor vía Cloudflare: {self.server_url_config}...")
+            url = self._probar_url_completa(self.server_url_config)
             if url:
-                print(f"[OK] Profesor encontrado en URL configurada: {url}")
+                print(f"[OK] Profesor encontrado en: {url}")
                 return url
-            print("[AVISO] La URL forzada no respondió. Pasando a búsqueda por IP/red...")
 
-        # 1. Bypass manual: Si se configuró una IP explícita en config.txt
+            if self.discovery_timeout > 0:
+                tiempo_transcurrido = time.time() - start_time
+                if tiempo_transcurrido >= self.discovery_timeout:
+                    print(f"[TIMEOUT] No se encontró servidor en {self.server_url_config} tras {self.discovery_timeout}s.")
+                    return None
+
+            time.sleep(5)
+            intento += 1
+
+    def _discovery_lan(self, puerto_api=8000):
+        """
+        Modo fijo por red local: bypass opcional por server_ip, y si no hay
+        o no responde, escaneo automático de subredes. Comportamiento idéntico
+        al original, sin ninguna referencia a server_url.
+        """
+        # Bypass manual: Si se configuró una IP explícita en config.txt
         ip_forzada = self.config.get("server_ip", "")
         if ip_forzada:
             print(f"[BÚSQUEDA] Probando IP forzada desde configuración: {ip_forzada}...")
@@ -237,7 +276,7 @@ class TelemetryClient:
                 return url
             print("[AVISO] La IP forzada no respondió. Pasando a búsqueda automática...")
 
-        # 2. Escaneo automático masivo
+        # Escaneo automático masivo
         start_time = time.time()
         intento = 1
 

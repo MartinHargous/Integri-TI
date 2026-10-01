@@ -207,6 +207,26 @@ def obtener_historial_insights(client_id: str, db_path: str = DB_PATH) -> List[D
         return [dict(r) for r in rows]
 
 
+def resetear_datos_examen(db_path: str = DB_PATH) -> Dict[str, int]:
+    """
+    Borra los datos propios de UN examen (insights de IA e historial de
+    ejecuciones del comparador), sin tocar 'reglas' ni 'comparator_config':
+    esas dos son configuración permanente del profesor (reglas de detección,
+    pesos y umbrales del comparador), no datos de sesión — resetearlas
+    obligaría a reconfigurar todo antes de cada examen nuevo.
+    Se llama SIEMPRE después de generar el backup (reporte + zip de logs),
+    nunca antes, para no perder información.
+    """
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM insights")
+        insights_borrados = cursor.rowcount
+        cursor.execute("DELETE FROM comparator_runs")
+        runs_borrados = cursor.rowcount
+        conn.commit()
+    return {"insights_borrados": insights_borrados, "runs_borrados": runs_borrados}
+
+
 # --- MÉTODOS PARA EL COMPARADOR DE LOGS ---
 
 def guardar_config_comparador(config: Dict[str, Any], db_path: str = DB_PATH) -> Dict[str, Any]:
@@ -283,5 +303,3 @@ def obtener_ultimo_resultado_comparador(db_path: str = DB_PATH) -> Optional[Dict
             }
         except Exception:
             return None
-
-

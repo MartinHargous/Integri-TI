@@ -10,8 +10,17 @@ function renderizarAgentesEnVivo(clientes) {
   const contador = document.getElementById('agentes-contador');
   if (!matriz) return;
 
-  const lista = Object.entries(clientes || {});
-  
+  // Los agentes en silencio (en_silencio=true) van primero, para que el
+  // profesor los vea sin tener que buscarlos en toda la grilla. Array.sort
+  // es estable (spec ES2019+), así que entre agentes con el mismo estado de
+  // silencio se conserva el orden original — no se "baraja" todo en cada
+  // refresco, solo sube lo que realmente necesita atención.
+  const lista = Object.entries(clientes || {}).sort(([, a], [, b]) => {
+    const aSilencio = a.en_silencio ? 1 : 0;
+    const bSilencio = b.en_silencio ? 1 : 0;
+    return bSilencio - aSilencio;
+  });
+
   if (lista.length === 0) {
     if (contador) contador.textContent = '(0 activos)';
     matriz.innerHTML = `
@@ -111,28 +120,32 @@ function irAAuditoriaCliente(clientId) {
   window.location.href = `/auditoria/${encodeURIComponent(clientId)}`;
 }
 
-function cambiarCuadricula(tipo) {
+// Selector de cantidad de columnas (NO es paginación: la grilla sigue
+// mostrando todos los agentes, con scroll vertical — esto solo cambia cuántas
+// tarjetas entran por fila en pantallas anchas). En móvil siempre colapsa a
+// 1 columna sin importar la selección.
+function cambiarCuadricula(columnas) {
   const matriz = document.getElementById('matriz-agentes');
-  const btn3x3 = document.getElementById('btn-grid-3x3');
-  const btn4x3 = document.getElementById('btn-grid-4x3');
-  const btn4x4 = document.getElementById('btn-grid-4x4');
+  const btn2 = document.getElementById('btn-grid-2col');
+  const btn3 = document.getElementById('btn-grid-3col');
+  const btn4 = document.getElementById('btn-grid-4col');
   if (!matriz) return;
 
   const baseClass = 'grid gap-2.5 font-mono text-sm max-h-[400px] xl:max-h-[430px] overflow-y-auto pr-0.5';
   const activeBtn = 'px-2.5 py-1 rounded text-xs bg-[#1f2937] text-slate-200 font-medium border border-slate-700 transition-colors';
   const inactBtn = 'px-2.5 py-1 rounded text-xs text-slate-400 hover:text-slate-200 transition-colors border border-transparent';
 
-  if (btn3x3) btn3x3.className = tipo === '3x3' ? activeBtn : inactBtn;
-  if (btn4x3) btn4x3.className = tipo === '4x3' ? activeBtn : inactBtn;
-  if (btn4x4) btn4x4.className = tipo === '4x4' ? activeBtn : inactBtn;
+  if (btn2) btn2.className = columnas === '2' ? activeBtn : inactBtn;
+  if (btn3) btn3.className = columnas === '3' ? activeBtn : inactBtn;
+  if (btn4) btn4.className = columnas === '4' ? activeBtn : inactBtn;
 
-  if (tipo === '3x3') {
-    matriz.className = `${baseClass} grid-cols-1 sm:grid-cols-2 md:grid-cols-3`;
-  } else if (tipo === '4x3') {
-    matriz.className = `${baseClass} grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4`;
-  } else if (tipo === '4x4') {
-    matriz.className = `${baseClass} grid-cols-1 sm:grid-cols-2 md:grid-cols-4`;
-  }
+  const colsPorCantidad = {
+    '2': 'grid-cols-1 sm:grid-cols-2',
+    '3': 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3',
+    '4': 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
+  };
+
+  matriz.className = `${baseClass} ${colsPorCantidad[columnas] || colsPorCantidad['3']}`;
 }
 
 function actualizarSelectDestino(clientes) {

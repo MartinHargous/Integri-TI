@@ -144,6 +144,54 @@ async function reanalizarHistorial() {
   }
 }
 
+function reiniciarExamen() {
+  // Punto de entrada desde el botón del header: solo abre el modal de
+  // confirmación. La acción real queda en confirmarReset(), disparada por
+  // el botón "Sí, reiniciar" dentro del modal.
+  const modal = document.getElementById('modal-confirmar-reset');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function cerrarModalReset() {
+  const modal = document.getElementById('modal-confirmar-reset');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function confirmarReset() {
+  const btn = document.getElementById('btn-confirmar-reset');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Reiniciando...';
+  }
+
+  try {
+    mostrarToast('Generando respaldo y reiniciando el servidor...');
+    const { blob, filename } = await Api.resetearServidor();
+
+    // Disparar la descarga del zip en el navegador del profesor
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    cerrarModalReset();
+    mostrarToast('Examen reiniciado. Respaldo descargado correctamente.');
+    refrescarDashboard();
+  } catch (e) {
+    console.error('Error reiniciando el examen:', e);
+    mostrarToast('Error al reiniciar el examen', true);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Sí, reiniciar';
+    }
+  }
+}
+
 function mostrarToast(mensaje, esError = false) {
   const toast = document.getElementById('toast');
   const msg = document.getElementById('toast-msg');
