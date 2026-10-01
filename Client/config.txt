@@ -1,2 +1,2 @@
-server_ip=                              # IP pelada en LAN (http://ip:8000) — lo que ya tenías
-server_url=https://servidor.integri-ti.org   # URL completa — nuevo, para Cloudflare Tunnel
+server_ip=
+server_url=https://servidor.integri-ti.org

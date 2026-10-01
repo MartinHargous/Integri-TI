@@ -18,7 +18,7 @@ import traceback
 # quede junto a ajustes que un alumno podría editar con más frecuencia; de
 # todas formas, quien tenga acceso al código fuente del agente lo puede leer
 # — ver la discusión de límites del esquema OTP.
-SECRETO_OTP = os.environ.get("INTEGRITI_OTP_SECRET", "IARB4YQKBW5NXX2BKJKK3XMHGT3SCXIK")
+SECRETO_OTP = os.environ.get("INTEGRITI_OTP_SECRET", "TIG6GIB6ZO73JIMU2K5VTZFEVLEVWQDH")
 
 # Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar orchestrator
 if sys.platform.startswith("linux"):
