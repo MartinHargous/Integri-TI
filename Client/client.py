@@ -11,12 +11,14 @@ from email.utils import parsedate_to_datetime
 import concurrent.futures
 import traceback
 
-# Debe coincidir EXACTAMENTE con INTEGRITI_OTP_SECRET del servidor. Se deja
-# como constante de módulo (no en config.txt) para que no quede expuesto en
-# texto plano junto a ajustes que un alumno podría editar con más frecuencia;
-# de todas formas, quien tenga acceso al código fuente del agente lo puede
-# leer — ver la discusión de límites del esquema OTP.
-SECRETO_OTP = os.environ.get("INTEGRITI_OTP_SECRET", "TIG6GIB6ZO73JIMU2K5VTZFEVLEVWQDH")
+# Debe coincidir EXACTAMENTE con el de main.py — mismo valor por defecto
+# horneado en el repo (ver comentario extenso en main.py sobre por qué no se
+# genera al azar ni se espera configurar por variable de entorno en cada PC
+# de alumno). Se deja como constante de módulo, no en config.txt, para que no
+# quede junto a ajustes que un alumno podría editar con más frecuencia; de
+# todas formas, quien tenga acceso al código fuente del agente lo puede leer
+# — ver la discusión de límites del esquema OTP.
+SECRETO_OTP = os.environ.get("INTEGRITI_OTP_SECRET", "IARB4YQKBW5NXX2BKJKK3XMHGT3SCXIK")
 
 # Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar orchestrator
 if sys.platform.startswith("linux"):
@@ -54,7 +56,8 @@ class TelemetryClient:
     DEFAULTS = {
         "sync_interval_seconds": "15",
         "discovery_timeout_seconds": "0", # 0 = Modo Daemon (búsqueda infinita)
-        "server_ip": ""
+        "server_ip": "",   # IP pelada en LAN, ej. 192.168.1.81 (se arma http://ip:8000)
+        "server_url": ""   # URL completa, ej. https://servidor.integri-ti.org (Cloudflare Tunnel u otro proxy HTTPS)
     }
 
     def __init__(self, config_path=None):
@@ -184,8 +187,45 @@ class TelemetryClient:
             pass
         return None
 
+    def _probar_url_completa(self, url):
+        """
+        Igual que _probar_ip, pero para una URL ya completa (con esquema y,
+        opcionalmente, puerto) — como la que entrega Cloudflare Tunnel u otro
+        proxy HTTPS. No asume 'http://' ni agrega ':8000': usa la URL tal cual
+        viene de config.txt, solo quitando una barra final si la tiene.
+        """
+        url = url.rstrip("/")
+        try:
+            respuesta = requests.get(f"{url}/api/discovery", timeout=3)
+            if respuesta.status_code == 200:
+                return url
+            elif respuesta.status_code == 403:
+                return None
+
+            resp_status = requests.get(f"{url}/api/status", timeout=3)
+            if resp_status.status_code == 200:
+                data = resp_status.json()
+                if data.get("comando_global") == "ESPERANDO":
+                    return url
+        except Exception:
+            pass
+        return None
+
     def DiscoveryEngine(self, puerto_api=8000):
         """Escanea la red buscando la API, cruzando barreras NAT si es necesario."""
+
+        # 0. Bypass por URL completa (Cloudflare Tunnel u otro proxy HTTPS).
+        # Tiene prioridad sobre server_ip: si está configurada, se asume que
+        # es la forma de conexión principal (ej. agentes fuera de la LAN del
+        # servidor) y no tiene sentido perder tiempo escaneando la red local.
+        url_forzada = self.config.get("server_url", "").strip()
+        if url_forzada:
+            print(f"[BÚSQUEDA] Probando URL forzada desde configuración: {url_forzada}...")
+            url = self._probar_url_completa(url_forzada)
+            if url:
+                print(f"[OK] Profesor encontrado en URL configurada: {url}")
+                return url
+            print("[AVISO] La URL forzada no respondió. Pasando a búsqueda por IP/red...")
 
         # 1. Bypass manual: Si se configuró una IP explícita en config.txt
         ip_forzada = self.config.get("server_ip", "")
