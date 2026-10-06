@@ -3,6 +3,7 @@ import re
 import sys
 import socket
 import time
+import subprocess
 import requests
 import json
 import pyotp
@@ -12,14 +13,13 @@ from email.utils import parsedate_to_datetime
 import concurrent.futures
 import traceback
 
-# Debe coincidir EXACTAMENTE con el de main.py — mismo valor por defecto
-# horneado en el repo (ver comentario extenso en main.py sobre por qué no se
-# genera al azar ni se espera configurar por variable de entorno en cada PC
-# de alumno). Se deja como constante de módulo, no en config.txt, para que no
-# quede junto a ajustes que un alumno podría editar con más frecuencia; de
-# todas formas, quien tenga acceso al código fuente del agente lo puede leer
-# — ver la discusión de límites del esquema OTP.
-SECRETO_OTP = os.environ.get("INTEGRITI_OTP_SECRET", "IARB4YQKBW5NXX2BKJKK3XMHGT3SCXIK")
+# Código de distribución: SÍ va horneado en el repo (debe coincidir
+# exactamente con CODIGO_DISTRIBUCION en Server/state.py). Solo filtra
+# tráfico externo que nunca clonó este proyecto en /api/discovery — no es
+# secreto de verdad si el repo es público, y no protege /sync. La clave real
+# de /sync (self.secreto_sync) nunca vive aquí: la entrega el servidor en la
+# respuesta de /api/discovery, una distinta por client_id — ver DiscoveryEngine.
+CODIGO_DISTRIBUCION = os.environ.get("INTEGRITI_CODIGO_DISTRIBUCION", "3R2M3HZA7ZTUXSN54EDTUFLSMKWZRMU5")
 
 # Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar orchestrator
 if sys.platform.startswith("linux"):
@@ -49,6 +49,76 @@ if sys.platform.startswith("linux"):
                 os.environ["XAUTHORITY"] = r
                 # print(f"[*] X11 Autorizado con: {r}") # Descomenta esto para ver si lo encontró
                 break
+
+# --- PROTECCIÓN DE state.json CONTRA ESCRITURA/BORRADO POR EL ALUMNO ---
+# Aprovecha que el agente ya corre con privilegios elevados (RunLevel Highest
+# en Windows, root vía sudoers NOPASSWD en Linux — ver 2.3.2/2.3.3 del
+# informe de arquitectura): el PROCESO del agente puede escribir el archivo
+# sin problema porque él mismo lo bloquea y desbloquea a propósito en cada
+# guardado; el alumno, corriendo como usuario normal, no puede.
+#
+# Deliberadamente NO restringe la LECTURA del archivo (sigue siendo legible
+# por el alumno) — eso sería proteger confidencialidad, no integridad, y ya
+# está fuera de alcance: quien tiene acceso físico a su propio equipo puede
+# encontrar el secreto por otras vías de todas formas (ver discusión de
+# límites del esquema OTP). El objetivo acá es que no pueda EDITAR ni BORRAR
+# el archivo para manipular su client_id, server_url o estado_local a mano.
+#
+# Best-effort en ambos sistemas: si el mecanismo de bloqueo no está disponible
+# (filesystem sin soporte de atributos extendidos, variante de Windows sin
+# icacls, etc.) el agente sigue funcionando igual, solo sin esta capa extra
+# — nunca debe tumbar el proceso por esto.
+def _bloquear_archivo(ruta):
+    ruta = str(ruta)
+    if sys.platform.startswith("win"):
+        # SIDs bien conocidos, no nombres de grupo: evita depender del idioma
+        # de Windows (p. ej. "Usuarios" en vez de "Users" en una instalación
+        # en español). S-1-5-18=SYSTEM, S-1-5-32-544=Administradores,
+        # S-1-5-11=Usuarios autenticados (cualquier alumno con sesión iniciada).
+        comandos = [
+            ["icacls", ruta, "/inheritance:r"],
+            ["icacls", ruta, "/grant:r", "*S-1-5-18:F"],
+            ["icacls", ruta, "/grant:r", "*S-1-5-32-544:F"],
+            ["icacls", ruta, "/deny", "*S-1-5-11:(W,WD,WA,DE,DC)"],
+        ]
+        for cmd in comandos:
+            try:
+                subprocess.run(cmd, check=False, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            except Exception:
+                pass
+    elif sys.platform.startswith("linux"):
+        try:
+            os.chown(ruta, 0, 0)  # root:root — requiere que el proceso ya corra como root
+        except Exception:
+            pass
+        try:
+            os.chmod(ruta, 0o600)  # defensa adicional si chattr no está disponible (ver abajo)
+        except Exception:
+            pass
+        try:
+            # +i (immutable): bloquea escritura Y borrado, incluso para root,
+            # hasta que se quite el atributo — es lo que realmente cierra el
+            # hueco de "rm state.json" (chmod solo no lo hace: en Linux,
+            # borrar un archivo depende de permisos de la CARPETA, no del
+            # archivo mismo).
+            subprocess.run(["chattr", "+i", ruta], check=False, capture_output=True)
+        except Exception:
+            pass
+
+
+def _desbloquear_archivo(ruta):
+    ruta = str(ruta)
+    if sys.platform.startswith("win"):
+        try:
+            subprocess.run(["icacls", ruta, "/reset"], check=False, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        except Exception:
+            pass
+    elif sys.platform.startswith("linux"):
+        try:
+            subprocess.run(["chattr", "-i", ruta], check=False, capture_output=True)
+        except Exception:
+            pass
+
 
 # Importamos tu Orquestador
 from orchestrator import Orchestrator
@@ -84,7 +154,15 @@ class TelemetryClient:
         self.AlertBuffer = []
 
         self.orchestrator = Orchestrator()
-        self.totp = pyotp.TOTP(SECRETO_OTP, interval=30)
+        # Lo entrega el servidor en /api/discovery (ver _probar_ip /
+        # _probar_url_completa) — uno distinto para este client_id, no un
+        # secreto compartido con el resto del curso. Mientras sea None, el
+        # agente todavía no pasó el descubrimiento y no puede sincronizar.
+        self.secreto_sync = None
+
+    def _generar_codigo_otp(self):
+        """Código TOTP del ciclo actual, a partir del secreto personal ya asignado."""
+        return pyotp.TOTP(self.secreto_sync, interval=30).now()
 
     def _cargar_estado(self):
         ruta = Path("state.json")
@@ -97,17 +175,25 @@ class TelemetryClient:
 
     def _guardar_estado(self):
         ruta = Path("state.json")
+        # Si ya estaba bloqueado de un guardado anterior, hay que desbloquearlo
+        # ANTES del rename atómico — sobre todo en Linux, donde chattr +i
+        # también impediría reemplazar el archivo, no solo editarlo en sitio.
+        _desbloquear_archivo(ruta)
         tmp = ruta.with_suffix(".tmp")
         tmp.write_text(json.dumps({
             "server_url": self.server_url,
             "client_id": self.client_id,
-            "estado_local": self.StateMachine
+            "estado_local": self.StateMachine,
+            "secreto_sync": self.secreto_sync
         }), encoding="utf-8")
         tmp.replace(ruta)  # escritura atómica
+        _bloquear_archivo(ruta)
 
     def _borrar_estado(self):
         try:
-            Path("state.json").unlink(missing_ok=True)
+            ruta = Path("state.json")
+            _desbloquear_archivo(ruta)  # si no se desbloquea primero, el unlink fallaría
+            ruta.unlink(missing_ok=True)
         except Exception:
             pass
 
@@ -120,7 +206,18 @@ class TelemetryClient:
         aunque el secreto compartido sea correcto.
         """
         try:
-            r = requests.get(f"{url}/api/discovery", timeout=3)
+            # client_id y el header son obligatorios desde que /api/discovery
+            # también emite el secreto personal (ver _probar_ip). Sin ellos,
+            # FastAPI devuelve 422 antes de llegar a procesar nada — el header
+            # Date igual viaja en esa respuesta, así que el chequeo de reloj en
+            # sí no se rompía, pero quedaba un 422 innecesario en los logs del
+            # servidor por cada reconexión.
+            r = requests.get(
+                f"{url}/api/discovery",
+                params={"client_id": self.client_id},
+                headers={"X-Codigo-Distribucion": CODIGO_DISTRIBUCION},
+                timeout=3
+            )
             fecha_servidor_str = r.headers.get("Date")
             if not fecha_servidor_str:
                 return
@@ -134,12 +231,17 @@ class TelemetryClient:
             pass
 
     def _validar_url_cacheada(self, url):
+        # Requiere self.secreto_sync ya restaurado desde state.json por quien
+        # llama (si no hay secreto, no tiene sentido ni intentar: /sync
+        # rechazaría con 401 de todas formas).
+        if not self.secreto_sync:
+            return False
         try:
             r = requests.post(f"{url}/sync", data={
                 "client_id": self.client_id,
                 "estado_local": self.StateMachine,
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "codigo_otp": self.totp.now(),
+                "codigo_otp": self._generar_codigo_otp(),
             }, files={"archivo_log": ("", "")}, timeout=3)
             return r.status_code == 200
         except Exception:
@@ -182,15 +284,31 @@ class TelemetryClient:
     def _probar_ip(self, ip_destino, puerto):
         url = f"http://{ip_destino}:{puerto}"
         try:
-            # 1. Probar endpoint de descubrimiento: solo responde 200 si el servidor está en ESPERANDO
-            respuesta = requests.get(f"{url}/api/discovery", timeout=0.5)
+            # 1. Probar endpoint de descubrimiento: solo responde 200 si el servidor
+            # está en ESPERANDO Y el código de distribución coincide. Si acepta,
+            # entrega el secreto personal de ESTE client_id — se guarda de inmediato,
+            # porque sin él no hay forma de pasar la validación de /sync después.
+            respuesta = requests.get(
+                f"{url}/api/discovery",
+                params={"client_id": self.client_id},
+                headers={"X-Codigo-Distribucion": CODIGO_DISTRIBUCION},
+                timeout=0.5
+            )
             if respuesta.status_code == 200:
-                return url
+                secreto = respuesta.json().get("secreto_sync")
+                if secreto:
+                    self.secreto_sync = secreto
+                    return url
+                return None
             elif respuesta.status_code == 403:
-                # Servidor en FINALIZADO u otro estado que no acepta conexiones nuevas
+                # Servidor en FINALIZADO/GRABANDO, o código de distribución incorrecto
                 return None
 
-            # 2. Compatibilidad con /api/status si /api/discovery no estuviese disponible
+            # 2. Compatibilidad con /api/status si /api/discovery no estuviese disponible.
+            # No entrega secreto_sync (ese endpoint no lo conoce), así que esta
+            # ruta por sí sola no basta para sincronizar — solo confirma que el
+            # servidor existe; el próximo ciclo de discovery volverá a intentar
+            # la vía normal para obtener el secreto.
             resp_status = requests.get(f"{url}/api/status", timeout=0.5)
             if resp_status.status_code == 200:
                 data = resp_status.json()
@@ -209,9 +327,18 @@ class TelemetryClient:
         """
         url = url.rstrip("/")
         try:
-            respuesta = requests.get(f"{url}/api/discovery", timeout=3)
+            respuesta = requests.get(
+                f"{url}/api/discovery",
+                params={"client_id": self.client_id},
+                headers={"X-Codigo-Distribucion": CODIGO_DISTRIBUCION},
+                timeout=3
+            )
             if respuesta.status_code == 200:
-                return url
+                secreto = respuesta.json().get("secreto_sync")
+                if secreto:
+                    self.secreto_sync = secreto
+                    return url
+                return None
             elif respuesta.status_code == 403:
                 return None
 
@@ -369,7 +496,7 @@ class TelemetryClient:
                     "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
                     "alertas": json.dumps(self.AlertBuffer),
                     "configs": json.dumps(self.orchestrator.get_all_configs()),
-                    "codigo_otp": self.totp.now()
+                    "codigo_otp": self._generar_codigo_otp()
                 }
 
                 archivo_abierto = None
@@ -429,7 +556,7 @@ class TelemetryClient:
                             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
                             "alertas": json.dumps(self.AlertBuffer),
                             "configs": json.dumps(self.orchestrator.get_all_configs()),
-                            "codigo_otp": self.totp.now()
+                            "codigo_otp": self._generar_codigo_otp()
                         }
 
                         try:
@@ -525,26 +652,49 @@ if __name__ == "__main__":
             estado_previo = agente._cargar_estado()
 
             if estado_previo and estado_previo.get("server_url"):
-                if agente._validar_url_cacheada(estado_previo["server_url"]):
+                url_cache = estado_previo["server_url"]
+                # Restaurar el secreto personal ANTES de validar: _validar_url_cacheada
+                # ya manda codigo_otp, y sin el secreto correcto /sync rechazaría con
+                # 401 aunque el servidor sí esté vivo.
+                agente.secreto_sync = estado_previo.get("secreto_sync")
+                if agente._validar_url_cacheada(url_cache):
                     # Solo aplicamos el estado cacheado si la validación fue exitosa.
                     agente.client_id = estado_previo.get("client_id", agente.client_id)
                     agente.StateMachine = estado_previo.get("estado_local", "ESPERANDO")
-                    agente.server_url = estado_previo["server_url"]
+                    agente.server_url = url_cache
                     print(f"[OK] Servidor previo confirmado en {agente.server_url}. Omitiendo discovery.")
+                    if agente.StateMachine == "GRABANDO":
+                        # Este es un PROCESO NUEVO: los módulos de captura
+                        # nunca se iniciaron en esta ejecución, aunque el
+                        # estado cacheado diga GRABANDO. _procesar_comando
+                        # solo los arranca en una TRANSICIÓN de estado, y acá
+                        # no hay transición (el estado ya "era" GRABANDO según
+                        # el caché) — sin esto, el agente queda reportando
+                        # como conectado y grabando sin capturar nada, tras
+                        # cualquier reinicio del proceso a mitad de examen.
+                        print("[*] Reanudando en estado GRABANDO: reiniciando módulos de captura...")
+                        agente.orchestrator.start_all()
                     agente._verificar_reloj(agente.server_url)
                     agente.iniciar_agente()
                     reconectado_por_cache = True
                 else:
-                    print("[AVISO] El servidor cacheado ya no responde. Volviendo a discovery normal.")
+                    print("[AVISO] El servidor cacheado ya no responde (o el secreto ya no es válido, p. ej. tras un reset). Volviendo a discovery normal.")
+                    agente.secreto_sync = None
 
             if not reconectado_por_cache:
                 url_profesor = agente.DiscoveryEngine()
 
-                if url_profesor:
+                # DiscoveryEngine ya deja agente.secreto_sync listo como efecto de
+                # encontrar servidor (ver _probar_ip / _probar_url_completa) — no
+                # hay un paso de matrícula aparte que pueda fallar por separado.
+                if url_profesor and agente.secreto_sync:
                     agente.server_url = url_profesor
                     agente._guardar_estado()
                     agente._verificar_reloj(agente.server_url)
                     agente.iniciar_agente()
+                elif url_profesor:
+                    print("[AVISO] Servidor encontrado, pero no se recibió un secreto de sincronización válido. Reintentando...")
+                    time.sleep(5)
                 else:
                     print("\n[!] No se encontró el servidor en el tiempo estipulado.")
                     break
