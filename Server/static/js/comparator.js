@@ -187,19 +187,25 @@ async function apiGetComparatorResults() {
 }
 
 // 3. CARGAR CONFIGURACIÓN Y ESTADO DESDE EL SERVIDOR
-async function cargarConfigComparador() {
+// rellenarFormulario=false se usa en el polling periódico: refresca el estado del
+// scheduler (cuenta regresiva, último análisis) y el caché de configuración, pero NO
+// toca los campos del formulario. Si lo hiciera, cualquier valor que el profesor
+// esté escribiendo y aún no haya guardado se pisaría con el valor guardado cada 5 s.
+// Los demás llamadores (abrir la pestaña, abrir el panel) siguen rellenando el
+// formulario, que es lo que se espera al empezar a editar.
+async function cargarConfigComparador({ rellenarFormulario = true } = {}) {
   try {
     const data = await apiGetComparatorConfig();
     if (data && data.status === 'ok') {
       configComparadorCache = data.config || {};
-      actualizarFormularioConfig(configComparadorCache);
+      if (rellenarFormulario) actualizarFormularioConfig(configComparadorCache);
       actualizarEstadoScheduler(data.estado || {});
-    } else {
+    } else if (rellenarFormulario) {
       actualizarFormularioConfig(CONFIG_COMPARADOR_DEFAULT);
     }
   } catch (err) {
     console.warn('No se pudo cargar la configuración del comparador:', err);
-    if (!configComparadorCache) {
+    if (rellenarFormulario && !configComparadorCache) {
       actualizarFormularioConfig(CONFIG_COMPARADOR_DEFAULT);
     }
   }
@@ -838,7 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Polling suave de resultados cuando la pestaña de comparador esté visible
   setInterval(() => {
     if (pestanaActiva === 'comparador') {
-      cargarConfigComparador();
+      cargarConfigComparador({ rellenarFormulario: false });
       // Si el examen ya está finalizado, no hay nuevos análisis periódicos automáticos corriendo
       if (estadoExamenGlobal !== 'FINALIZADO') {
         cargarResultadosComparador();
@@ -856,4 +862,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-

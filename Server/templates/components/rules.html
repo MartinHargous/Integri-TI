@@ -30,6 +30,7 @@
           <option value="error_detection">Error Detection</option>
           <option value="usb_detection">USB Detection</option>
           <option value="sistema">Sistema</option>
+          <option value="cualquiera">Cualquier módulo</option>
         </select>
         <input class="paso-valor bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-[110px] focus:outline-none" placeholder="patrón (ej. \[CTRL\]\+c)" type="text" value="\[CTRL\]\+c">
         <button onclick="eliminarPaso(this)" class="text-slate-400 hover:text-red-400 px-1 text-base leading-none shrink-0" type="button">×</button>
@@ -44,6 +45,7 @@
           <option value="error_detection">Error Detection</option>
           <option value="usb_detection">USB Detection</option>
           <option value="sistema">Sistema</option>
+          <option value="cualquiera">Cualquier módulo</option>
         </select>
         <input class="paso-valor bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-[110px] focus:outline-none" placeholder="patrón (ej. gemini\.google\.com)" type="text" value="gemini\.google\.com|chatgpt\.com">
         <button onclick="eliminarPaso(this)" class="text-slate-400 hover:text-red-400 px-1 text-base leading-none shrink-0" type="button">×</button>
@@ -61,6 +63,9 @@
           <option value="30">&lt;= 30s</option>
           <option value="45">&lt;= 45s</option>
           <option value="60" selected="">&lt;= 60s</option>
+          <option value="120">&lt;= 120s</option>
+          <option value="180">&lt;= 180s</option>
+          <option value="300">&lt;= 300s</option>
         </select>
         <select id="select-sev" class="bg-[#111827] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs">
           <option value="CRÍTICA" selected="">Crítica</option>

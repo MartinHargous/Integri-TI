@@ -11,15 +11,15 @@
       },
       {
         "modulo": "program_monitor",
-        "patron": "CONTEXT_CHANGE.*app='(firefox|chrome|msedge)'"
+        "patron": "CONTEXT_CHANGE.*app='[^']*(firefox|chrome|chromium|msedge|opera|brave|vivaldi|safari|iexplore|librewolf|waterfox)[^']*'"
       },
       {
         "modulo": "sniffer",
-        "patron": "gemini\\.google\\.com|chatgpt\\.com|claude\\.ai|deepseek"
+        "patron": "chatgpt\\.com|chat\\.openai\\.com|oaistatic\\.com|claude\\.ai|gemini\\.google\\.com|aistudio\\.google\\.com|notebooklm\\.google\\.com|copilot\\.microsoft\\.com|deepseek|perplexity\\.ai|mistral\\.ai|poe\\.com|grok\\.com|blackbox\\.ai|useblackbox\\.io|phind\\.com|kimi\\.com|moonshot\\.cn|character\\.ai|chat\\.qwen\\.ai"
       },
       {
         "modulo": "keylogger",
-        "patron": "\\[CTRL\\]\\+v"
+        "patron": "\\[CTRL\\]\\+(\\[SHIFT\\]\\+)?v"
       }
     ]
   },
@@ -35,7 +35,7 @@
       },
       {
         "modulo": "sniffer",
-        "patron": "chatgpt\\.com|gemini\\.google\\.com|claude\\.ai"
+        "patron": "chatgpt\\.com|chat\\.openai\\.com|oaistatic\\.com|claude\\.ai|gemini\\.google\\.com|aistudio\\.google\\.com|notebooklm\\.google\\.com|copilot\\.microsoft\\.com|deepseek|perplexity\\.ai|mistral\\.ai|poe\\.com|grok\\.com|blackbox\\.ai|useblackbox\\.io|phind\\.com|kimi\\.com|moonshot\\.cn|character\\.ai|chat\\.qwen\\.ai"
       }
     ]
   },
@@ -71,15 +71,15 @@
       },
       {
         "modulo": "program_monitor",
-        "patron": "CONTEXT_CHANGE.*app='(firefox|chrome|msedge)'"
+        "patron": "CONTEXT_CHANGE.*app='[^']*(firefox|chrome|chromium|msedge|opera|brave|vivaldi|safari|iexplore|librewolf|waterfox)[^']*'"
       },
       {
         "modulo": "sniffer",
-        "patron": "gemini\\.google\\.com|chatgpt\\.com|claude\\.ai|deepseek"
+        "patron": "chatgpt\\.com|chat\\.openai\\.com|oaistatic\\.com|claude\\.ai|gemini\\.google\\.com|aistudio\\.google\\.com|notebooklm\\.google\\.com|copilot\\.microsoft\\.com|deepseek|perplexity\\.ai|mistral\\.ai|poe\\.com|grok\\.com|blackbox\\.ai|useblackbox\\.io|phind\\.com|kimi\\.com|moonshot\\.cn|character\\.ai|chat\\.qwen\\.ai"
       },
       {
         "modulo": "keylogger",
-        "patron": "\\[CTRL\\]\\+v"
+        "patron": "\\[CTRL\\]\\+(\\[SHIFT\\]\\+)?v"
       }
     ]
   },
@@ -95,11 +95,11 @@
       },
       {
         "modulo": "program_monitor",
-        "patron": "CONTEXT_CHANGE.*app='(firefox|chrome|msedge)'"
+        "patron": "CONTEXT_CHANGE.*app='[^']*(firefox|chrome|chromium|msedge|opera|brave|vivaldi|safari|iexplore|librewolf|waterfox)[^']*'"
       },
       {
         "modulo": "keylogger",
-        "patron": "\\[CTRL\\]\\+v"
+        "patron": "\\[CTRL\\]\\+(\\[SHIFT\\]\\+)?v"
       }
     ]
   },
@@ -127,20 +127,196 @@
       },
       {
         "modulo": "keylogger",
-        "patron": "\\[CTRL\\]\\+v"
+        "patron": "\\[CTRL\\]\\+(\\[SHIFT\\]\\+)?v"
       }
     ]
   },
   {
-  "id": "R-08",
-  "nombre": "Interrupción del Agente y Acceso a Dispositivo USB",
-  "severidad": "CRÍTICA",
-  "ventana_segundos": 0,
-  "pasos": [
-    {
-      "modulo": "sistema",
-      "patron": "AGENTE_INTERRUMPIDO"
-    }
-  ]
-}
+    "id": "R-08",
+    "nombre": "Interrupción del Agente y Acceso a Dispositivo USB",
+    "severidad": "CRÍTICA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "sistema",
+        "patron": "AGENTE_INTERRUMPIDO"
+      }
+    ]
+  },
+  {
+    "id": "R-09",
+    "nombre": "Asistente de IA en primer plano (ventana)",
+    "severidad": "ALTA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE app='(?!YourPhone|PhoneExperience)(?:[^']*(?:copilot|chatgpt|claude|cursor|windsurf|perplexity|ollama|lm ?studio|deepseek)[^']*'|[^']*' title='[^']*(?:\\b(?:chatgpt|openai|claude(?! shannon)|gemini|copilot|deepseek|perplexity|blackbox|opencode|grok|mistral)\\b|\\bOC \\|))"
+      }
+    ]
+  },
+  {
+    "id": "R-10",
+    "nombre": "Tráfico hacia un asistente de IA (red)",
+    "severidad": "ALTA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "sniffer",
+        "patron": "chatgpt\\.com|chat\\.openai\\.com|oaistatic\\.com|claude\\.ai|gemini\\.google\\.com|aistudio\\.google\\.com|notebooklm\\.google\\.com|copilot\\.microsoft\\.com|deepseek|perplexity\\.ai|mistral\\.ai|poe\\.com|grok\\.com|blackbox\\.ai|useblackbox\\.io|phind\\.com|kimi\\.com|moonshot\\.cn|character\\.ai|chat\\.qwen\\.ai"
+      }
+    ]
+  },
+  {
+    "id": "R-11",
+    "nombre": "Agente de IA de código en uso (Copilot, Cursor, API directa)",
+    "severidad": "ALTA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "sniffer",
+        "patron": "(proxy|api)\\.(individual\\.|business\\.|enterprise\\.)?githubcopilot\\.com|copilot-proxy\\.githubusercontent\\.com|api\\.openai\\.com|api\\.anthropic\\.com|generativelanguage\\.googleapis\\.com|api\\.deepseek\\.com|api\\.mistral\\.ai|api\\.groq\\.com|api\\.x\\.ai|openrouter\\.ai|opencode\\.ai|cursor\\.sh|cursor\\.com|cursorapi\\.com|codeium\\.com|windsurf\\.com|tabnine\\.com|codewhisperer|continue\\.dev"
+      }
+    ]
+  },
+  {
+    "id": "R-12",
+    "nombre": "Celular espejado en el equipo (Phone Link / scrcpy)",
+    "severidad": "ALTA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE app='[^']*(YourPhone|PhoneExperience|scrcpy|airdroid|vysor|samsungflow|kdeconnect|gsconnect)[^']*'"
+      }
+    ]
+  },
+  {
+    "id": "R-13",
+    "nombre": "Navegador o IA en el celular espejado (invisible para el Sniffer)",
+    "severidad": "CRÍTICA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE app='(YourPhone|PhoneExperience)[^']*' title='[^']*(chatgpt|openai|claude(?! shannon)|gemini|copilot|deepseek|perplexity|blackbox|opencode|grok|mistral|chrome|firefox|opera|brave|edge|safari|samsung internet)"
+      }
+    ]
+  },
+  {
+    "id": "R-14",
+    "nombre": "Escritorio remoto o máquina virtual en uso (ventana)",
+    "severidad": "CRÍTICA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE app='[^']*(parsec|anydesk|teamviewer|rustdesk|mstsc|msra|vncviewer|tightvnc|realvnc|tigervnc|x11vnc|nomachine|nxplayer|splashtop|logmein|ultraviewer|supremo|remotepc|chromoting|remmina|virtualbox|vboxmanage|vmware|vmplayer|vmconnect|virt-manager|gnome-boxes|qemu|parallels)[^']*'"
+      }
+    ]
+  },
+  {
+    "id": "R-15",
+    "nombre": "Control remoto del equipo (red)",
+    "severidad": "CRÍTICA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "sniffer",
+        "patron": "stun[0-9]*\\.parsec\\.app|anydesk\\.com|teamviewer\\.com|rustdesk\\.com|remotedesktop\\.google\\.com|splashtop\\.com|logmein\\.com|nomachine\\.com"
+      }
+    ]
+  },
+  {
+    "id": "R-16",
+    "nombre": "Captura de pantalla enviada a un asistente de IA",
+    "severidad": "ALTA",
+    "ventana_segundos": 60,
+    "pasos": [
+      {
+        "modulo": "cualquiera",
+        "patron": "app='[^']*(?:SnippingTool|ScreenClipping|ScreenSketch|flameshot|spectacle|gnome-screenshot|xfce4-screenshooter|shutter|ksnip|scrot)[^']*'|\\[print_screen\\]"
+      },
+      {
+        "modulo": "cualquiera",
+        "patron": "(?:chatgpt\\.com|chat\\.openai\\.com|oaistatic\\.com|claude\\.ai|gemini\\.google\\.com|aistudio\\.google\\.com|notebooklm\\.google\\.com|copilot\\.microsoft\\.com|deepseek|perplexity\\.ai|mistral\\.ai|poe\\.com|grok\\.com|blackbox\\.ai|useblackbox\\.io|phind\\.com|kimi\\.com|moonshot\\.cn|character\\.ai|chat\\.qwen\\.ai)|title='[^']*\\b(?:chatgpt|openai|claude(?! shannon)|gemini|copilot|deepseek|perplexity|blackbox|opencode|grok|mistral)\\b"
+      }
+    ]
+  },
+  {
+    "id": "R-17",
+    "nombre": "Aplicación de mensajería en primer plano",
+    "severidad": "MEDIA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE app='[^']*(whatsapp|telegram|discord|signal|messenger|slack|skype)[^']*'|CONTEXT_CHANGE.*title='[^']*\\b(whatsapp|telegram|discord|messenger)\\b"
+      }
+    ]
+  },
+  {
+    "id": "R-18",
+    "nombre": "Navegación privada o incógnito",
+    "severidad": "MEDIA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE.*title='[^']*(private browsing|navegaci[oó]n privada|navegaci[oó]n en privado|inprivate|incognito|inc[oó]gnito|ventana privada|private window)"
+      }
+    ]
+  },
+  {
+    "id": "R-19",
+    "nombre": "Administrador de tareas o monitor del sistema abierto",
+    "severidad": "MEDIA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE app='[^']*(taskmgr|gnome-system-monitor|xfce4-taskmanager|ksysguard|plasma-systemmonitor|mate-system-monitor|lxtask|resmon|procexp|processhacker|systeminformer)[^']*'"
+      }
+    ]
+  },
+  {
+    "id": "R-20",
+    "nombre": "Administrador de tareas seguido de interrupción del agente",
+    "severidad": "CRÍTICA",
+    "ventana_segundos": 180,
+    "pasos": [
+      {
+        "modulo": "program_monitor",
+        "patron": "CONTEXT_CHANGE app='[^']*(taskmgr|gnome-system-monitor|xfce4-taskmanager|ksysguard|plasma-systemmonitor|mate-system-monitor|lxtask|resmon|procexp|processhacker|systeminformer)[^']*'"
+      },
+      {
+        "modulo": "sistema",
+        "patron": "AGENTE_INTERRUMPIDO"
+      }
+    ]
+  },
+  {
+    "id": "R-21",
+    "nombre": "Agente de IA lanzado por consola (teclado)",
+    "severidad": "ALTA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "keylogger",
+        "patron": "\\bo?pencode\\b|\\b(claude|codex|aider|gemini)\\s*\\[ENTER\\]|\\bollama\\s+(run|pull|serve)\\b"
+      }
+    ]
+  },
+  {
+    "id": "R-22",
+    "nombre": "Instrucción en lenguaje natural a un asistente de IA (teclado)",
+    "severidad": "MEDIA",
+    "ventana_segundos": 0,
+    "pasos": [
+      {
+        "modulo": "keylogger",
+        "patron": "\\b(can you|could you|would you|puedes|podr[ií]as|escr[ií]beme|hazme|resu[eé]lveme|quiero que|necesito que)\\b|\\bwrite in\\b|\\b(optimi[sz]e|refactor|resuelve|resu[eé]lvelo)\\b.{0,40}\\b(the code|el c[oó]digo|this|esto|program|programa|function|funci[oó]n)\\b"
+      }
+    ]
+  }
 ]

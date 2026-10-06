@@ -95,6 +95,7 @@ function agregarPaso(modulo = 'sniffer', patron = '') {
       <option value="error_detection" ${modulo === 'error_detection' ? 'selected' : ''}>Error Detection</option>
       <option value="usb_detection" ${modulo === 'usb_detection' ? 'selected' : ''}>USB Detection</option>
       <option value="sistema" ${modulo === 'sistema' ? 'selected' : ''}>Sistema</option>
+      <option value="cualquiera" ${modulo === 'cualquiera' ? 'selected' : ''}>Cualquier módulo</option>
     </select>
     <input class="paso-valor bg-[#0b0f19] border border-[#1f2937] text-slate-200 rounded px-2 py-1 text-xs flex-1 min-w-[110px] focus:outline-none" placeholder="patrón (regex o texto)" type="text" value="${patron}">
     <button onclick="eliminarPaso(this)" class="text-slate-400 hover:text-red-400 px-1 text-base leading-none shrink-0" type="button">×</button>
