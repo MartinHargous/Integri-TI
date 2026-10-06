@@ -4,6 +4,7 @@ GET /api/discovery, POST /sync, GET /profesor/comando/{nuevo_comando}.
 """
 import os
 import json
+import pyotp
 from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Form, Request, HTTPException, Depends
 
@@ -24,11 +25,22 @@ async def recibir_telemetria(
     archivo_log: UploadFile = File(None),
     codigo_otp: str = Form(...)
 ):
+    # Cada client_id tiene su propio secreto, emitido en /api/discovery — no
+    # hay un secreto global que verificar. Si este client_id nunca pasó por
+    # discovery (o su secreto ya no existe porque hubo un /reset de por medio),
+    # no hay nada contra qué validar: 401 directo, sin intentar nada más.
+    secreto_cliente = state.secretos_por_cliente.get(client_id)
+    if not secreto_cliente:
+        raise HTTPException(
+            status_code=401,
+            detail="Este equipo no está inscrito en el examen actual. El agente debe volver a pasar por el descubrimiento del servidor (reinícielo)."
+        )
+
     # valid_window=2 tolera hasta ~60s de desfase de reloj entre agente y
     # servidor en cada dirección (ventana total ~150s), además de la latencia
     # normal de red. Si un client_id falla sistemáticamente aquí, revisar la
-    # hora del sistema de ese equipo antes que sospechar del secreto OTP.
-    if not state.totp.verify(codigo_otp, valid_window=2):
+    # hora del sistema de ese equipo antes que sospechar del secreto.
+    if not pyotp.TOTP(secreto_cliente, interval=30).verify(codigo_otp, valid_window=2):
         raise HTTPException(
             status_code=401,
             detail="Código de sincronización inválido o expirado. Si esto persiste para el mismo equipo, verifique que su hora del sistema esté correcta."
@@ -199,24 +211,45 @@ def cambiar_estado_clase(nuevo_comando: str):
             state.comparador_logs.establecer_estado_examen(state.comando_global)
         except Exception as e:
             print(f"[!] Error actualizando estado de examen en comparador: {e}")
+        state.guardar_estado_servidor()
         return {"status": "OK", "comando_actual": state.comando_global}
     return {"status": "ERROR"}
 
 
 @router.get("/api/discovery")
-def verificar_descubrimiento():
+def verificar_descubrimiento(request: Request, client_id: str):
     """
-    Endpoint para descubrimiento y establecimiento de conexiones de agentes.
-    Solo responde afirmativamente si el servidor está en estado ESPERANDO.
-    En FINALIZADO (o GRABANDO), rechaza para evitar conexiones accidentales.
+    Descubrimiento Y matrícula en un solo paso: un agente que pasa esta
+    compuerta recibe (o recupera, si ya la tenía) su propia clave personal
+    para /sync — ver el comentario de dos niveles en state.py.
+
+    Dos condiciones, en este orden:
+    1. El header X-Codigo-Distribucion debe coincidir con el de este repo.
+       Filtra tráfico externo que nunca clonó el proyecto; no se envía en la
+       URL para no quedar en logs de proxies/CDN (ver Cloudflare).
+    2. El servidor debe estar en ESPERANDO (igual que antes) — fuera de esa
+       ventana no se inscriben agentes nuevos, haya o no código correcto.
+
+    Si un client_id repite la llamada (reintento, reconexión), recibe el
+    MISMO secreto que la vez anterior — no se reemite uno nuevo cada vez.
     """
+    codigo_recibido = request.headers.get("x-codigo-distribucion", "")
+    if codigo_recibido != state.CODIGO_DISTRIBUCION:
+        raise HTTPException(status_code=403, detail="Código de distribución inválido.")
+
     if state.comando_global != "ESPERANDO":
         raise HTTPException(
             status_code=403,
             detail=f"Servidor en estado {state.comando_global}. Solo se aceptan y establecen conexiones cuando el servidor está en ESPERANDO."
         )
+
+    if client_id not in state.secretos_por_cliente:
+        state.secretos_por_cliente[client_id] = pyotp.random_base32()
+        state.guardar_estado_servidor()  # solo al emitir uno NUEVO, no en cada discovery repetido
+
     return {
         "status": "ready",
         "comando_global": state.comando_global,
-        "mensaje": "Servidor listo para recibir y establecer conexiones de agentes."
+        "secreto_sync": state.secretos_por_cliente[client_id],
+        "mensaje": "Servidor listo. Secreto de sincronización asignado."
     }
