@@ -187,9 +187,12 @@ if __name__ == "__main__":
         print(" Sniffer (TCP + QUIC/UDP + DNS) ")
         print("=" * 60)
         print("[-] Capturando tráfico en tiempo real...\n")
-        
         sniffer.start_sniffing()
     else:
-        print("[-] Solicitando privilegios de administrador...")
-        script_path = f'"{os.path.abspath(__file__)}"'
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, script_path, None, 1)
+        if sys.platform == "win32":
+            print("[-] Solicitando privilegios de administrador...")
+            script_path = f'"{os.path.abspath(__file__)}"'
+            ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, script_path, None, 1)
+        else:
+            print("[ERROR] Este módulo requiere privilegios de administrador (root).")
+            print(f"[*] Ejecútalo así: sudo {sys.executable} {os.path.abspath(__file__)}")
