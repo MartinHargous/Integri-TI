@@ -235,6 +235,7 @@ class TelemetryClient:
         # llama (si no hay secreto, no tiene sentido ni intentar: /sync
         # rechazaría con 401 de todas formas).
         if not self.secreto_sync:
+            print("[AVISO] No hay secreto de sincronización cacheado; se omite validación de caché.")
             return False
         try:
             r = requests.post(f"{url}/sync", data={
@@ -243,8 +244,17 @@ class TelemetryClient:
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
                 "codigo_otp": self._generar_codigo_otp(),
             }, files={"archivo_log": ("", "")}, timeout=3)
+            if r.status_code != 200:
+                # Visibilidad explícita del motivo: sin esto, un rechazo
+                # CONSISTENTE (ej. client_id ya no coincide con el que el
+                # servidor asoció al secreto, por os.getlogin() devolviendo
+                # otro valor tras un relanzamiento) es indistinguible en los
+                # logs de un fallo transitorio de red — y son dos problemas
+                # con arreglos completamente distintos.
+                print(f"[AVISO] Validación de servidor cacheado rechazada ({r.status_code}): {r.text[:200]}")
             return r.status_code == 200
-        except Exception:
+        except Exception as e:
+            print(f"[AVISO] Validación de servidor cacheado falló por error de red: {e}")
             return False
 
     def _read_config(self):
@@ -265,11 +275,41 @@ class TelemetryClient:
 
     def _generar_client_id(self):
         try:
-            usuario = os.getlogin()
             equipo = socket.gethostname()
-            return f"{usuario}@{equipo}"
         except Exception:
+            equipo = "PC_Desconocido"
+
+        # os.getlogin() depende de tener una sesión/consola asociada al
+        # proceso, y puede fallar o devolver un usuario distinto cuando el
+        # agente se relanza SIN esa sesión — por ejemplo, el watchdog de
+        # Task Scheduler reiniciándolo automáticamente después de un
+        # "Finalizar tarea" en el Administrador de tareas. Si eso pasa, el
+        # client_id generado en el reinicio ya no coincide con el que el
+        # servidor tiene asociado al secreto de sync cacheado, y /sync
+        # rechaza con 401 de forma CONSISTENTE (no es un fallo transitorio
+        # de red), tirando al agente de vuelta a discovery — que a su vez
+        # también rechaza mientras el examen siga en GRABANDO. Las
+        # variables de entorno USERNAME (Windows) / USER (Linux) las fija
+        # el sistema al crear el proceso, sin depender de consola, así que
+        # son mucho más estables en ese escenario — se priorizan sobre
+        # os.getlogin().
+        usuario = None
+        for obtener in (
+            lambda: os.environ.get("USERNAME"),
+            lambda: os.environ.get("USER"),
+            lambda: os.getlogin(),
+        ):
+            try:
+                candidato = obtener()
+                if candidato:
+                    usuario = candidato
+                    break
+            except Exception:
+                continue
+
+        if not usuario:
             return "Alumno_Desconocido"
+        return f"{usuario}@{equipo}"
 
     def _obtener_ip_local(self):
         try:
