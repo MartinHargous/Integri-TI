@@ -732,7 +732,27 @@ if __name__ == "__main__":
     try:
         while True:
             reconectado_por_cache = False
+            ruta_state_debug = Path("state.json").resolve()
             estado_previo = agente._cargar_estado()
+
+            # _cargar_estado() fallaba en silencio total: "no existe",
+            # "existe pero no tiene server_url" y "existe pero el JSON está
+            # corrupto" eran indistinguibles en el log, que es justo la
+            # ambigüedad que impidió diagnosticar por qué una reconexión no
+            # entraba a la rama de caché. También se imprime la ruta
+            # ABSOLUTA resuelta (no "state.json" relativo) porque si el
+            # agente se relanza con un directorio de trabajo distinto al de
+            # la vez anterior (ej. instalado vía tarea programada pero
+            # probado a mano desde otra carpeta), buscaría el archivo en un
+            # lugar distinto de donde quedó escrito, sin ningún error visible.
+            if estado_previo:
+                print(f"[DEBUG] state.json encontrado en {ruta_state_debug}: "
+                      f"server_url={'sí' if estado_previo.get('server_url') else 'NO'}, "
+                      f"secreto_sync={'sí' if estado_previo.get('secreto_sync') else 'NO'}, "
+                      f"estado_local={estado_previo.get('estado_local')!r}, "
+                      f"client_id={estado_previo.get('client_id')!r}")
+            else:
+                print(f"[DEBUG] No se encontró (o no se pudo leer) state.json en {ruta_state_debug}.")
 
             if estado_previo and estado_previo.get("server_url"):
                 url_cache = estado_previo["server_url"]
