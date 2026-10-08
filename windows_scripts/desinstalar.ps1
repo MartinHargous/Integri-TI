@@ -56,6 +56,27 @@ Write-Host "[*] Limpiando archivos residuales..." -ForegroundColor Cyan
 # Usamos $DirActual para apuntar con precisión láser a los logs
 Remove-Item -Path "$DirActual\Client\*.log", "$DirActual\Client\*.txt", "$DirActual\Client\*.pid" -Force -ErrorAction SilentlyContinue
 
+# --- Liberar y eliminar state.json (protegido contra el alumno) ---
+# El agente bloquea este archivo con icacls para que el alumno no pueda
+# editarlo ni borrarlo (ver _bloquear_archivo en client.py) — un Remove-Item
+# normal fallaría acá exactamente igual que le fallaría a un alumno. Este
+# script corre como Administrador (se verificó al inicio), así que puede
+# revertir el ACL con /reset antes de borrar, igual que _desbloquear_archivo
+# hace dentro del propio agente. Sin este paso, cada reinstalación deja el
+# state.json de la instalación anterior intacto y bloqueado.
+Write-Host "[*] Liberando y eliminando state.json..." -ForegroundColor Cyan
+foreach ($RutaState in @("$DirActual\Client\state.json", "$DirActual\Client\state.tmp")) {
+    if (Test-Path $RutaState) {
+        icacls $RutaState /reset | Out-Null
+        Remove-Item -Path $RutaState -Force -ErrorAction SilentlyContinue
+        if (Test-Path $RutaState) {
+            Write-Host "[!] No se pudo eliminar $RutaState. Bórralo manualmente (puede requerir icacls /reset)." -ForegroundColor Red
+        } else {
+            Write-Host "[OK] Eliminado: $RutaState" -ForegroundColor Green
+        }
+    }
+}
+
 # --- Limpieza del hook global de detección de errores (ErrorDetection / sitecustomize) ---
 # La instalación modifica PYTHONPATH a nivel de usuario y deja un sitecustomize.py
 # que Python carga automáticamente en TODA ejecución futura del usuario, no solo
