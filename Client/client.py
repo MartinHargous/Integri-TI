@@ -341,7 +341,15 @@ class TelemetryClient:
                     return url
                 return None
             elif respuesta.status_code == 403:
-                # Servidor en FINALIZADO/GRABANDO, o código de distribución incorrecto
+                # Servidor en FINALIZADO/GRABANDO, o código de distribución
+                # incorrecto. El motivo exacto viaja en el detail de la
+                # respuesta — sin imprimirlo acá queda invisible, porque el
+                # agente nunca llega a conectarse de verdad (no hay otro log
+                # donde buscarlo).
+                try:
+                    print(f"[AVISO] Discovery rechazado por {url} (403): {respuesta.json().get('detail', respuesta.text[:200])}")
+                except Exception:
+                    pass
                 return None
 
             # 2. Compatibilidad con /api/status si /api/discovery no estuviese disponible.
@@ -678,10 +686,45 @@ class TelemetryClient:
         return None
 
 
+def _redirigir_salida_a_log(ruta="agente_log.txt", limite_bytes=5 * 1024 * 1024):
+    """
+    En Windows el agente corre con pythonw.exe a propósito (sin ventana de
+    consola visible para el alumno — ver instalar_win.ps1). pythonw.exe no
+    tiene stdout/stderr reales: sys.stdout queda en None, así que cualquier
+    print() de aviso o diagnóstico (incluidos los de reconexión por caché
+    más arriba) se perdía sin dejar rastro en ningún archivo, y un error
+    normal con sys.stdout=None directamente lanzaría su propia excepción.
+    Sin esto, el único rastro que quedaba de un fallo era crash_log.txt, y
+    solo para la excepción fatal del __main__ — ningún aviso intermedio.
+
+    Rotación simple de una sola pasada (no manejamos múltiples backups):
+    si el log ya pasó el límite, se renombra a .old (pisando el anterior)
+    para no crecer indefinidamente en un agente pensado para quedar
+    corriendo semanas.
+    """
+    try:
+        ruta = Path(ruta)
+        if ruta.exists() and ruta.stat().st_size > limite_bytes:
+            ruta.replace(ruta.with_suffix(ruta.suffix + ".old"))
+        # buffering=1 (line-buffered): cada print() queda en disco de
+        # inmediato, no solo al cerrar el proceso — importante porque un
+        # kill del proceso no le da chance de hacer flush final.
+        archivo_log = open(ruta, "a", buffering=1, encoding="utf-8")
+        sys.stdout = archivo_log
+        sys.stderr = archivo_log
+    except Exception:
+        # Best-effort: si esto falla (permisos, disco lleno), el agente
+        # sigue funcionando igual, solo sin esta capa de diagnóstico.
+        pass
+
+
 if __name__ == "__main__":
+    _redirigir_salida_a_log()
+
     print("=" * 60)
     print(" Agente de Telemetría Estudiantil ")
     print("=" * 60)
+    print(f"[*] Inicio de sesión del agente: {time.strftime('%Y-%m-%dT%H:%M:%S')}")
 
     agente = TelemetryClient()
     agente.client_id = agente._generar_client_id()
