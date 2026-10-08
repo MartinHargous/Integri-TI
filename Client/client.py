@@ -657,7 +657,24 @@ if __name__ == "__main__":
                 # ya manda codigo_otp, y sin el secreto correcto /sync rechazaría con
                 # 401 aunque el servidor sí esté vivo.
                 agente.secreto_sync = estado_previo.get("secreto_sync")
-                if agente._validar_url_cacheada(url_cache):
+                # Reintentar antes de rendirse: un solo intento de 3s es demasiado
+                # frágil para decidir "el caché ya no sirve". Si el estado cacheado
+                # es GRABANDO, caer a discovery es un callejón sin salida — el
+                # servidor rechaza /api/discovery con 403 mientras el examen siga
+                # activo (discovery solo acepta conexiones nuevas en ESPERANDO), así
+                # que un fallo transitorio de red (ej. el túnel de Cloudflare
+                # reconectando) dejaría al agente dando vueltas sin poder volver a
+                # sincronizar hasta que el profesor termine el examen.
+                validado = False
+                intentos_cache = 4
+                for intento_cache in range(1, intentos_cache + 1):
+                    if agente._validar_url_cacheada(url_cache):
+                        validado = True
+                        break
+                    if intento_cache < intentos_cache:
+                        print(f"[AVISO] Validación de servidor cacheado falló (intento {intento_cache}/{intentos_cache}). Reintentando en 3s...")
+                        time.sleep(3)
+                if validado:
                     # Solo aplicamos el estado cacheado si la validación fue exitosa.
                     agente.client_id = estado_previo.get("client_id", agente.client_id)
                     agente.StateMachine = estado_previo.get("estado_local", "ESPERANDO")
