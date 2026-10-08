@@ -53,8 +53,14 @@ if ($ProcesosAgente) {
 }
 
 Write-Host "[*] Limpiando archivos residuales..." -ForegroundColor Cyan
-# Usamos $DirActual para apuntar con precisión láser a los logs
-Remove-Item -Path "$DirActual\Client\*.log", "$DirActual\Client\*.txt", "$DirActual\Client\*.pid" -Force -ErrorAction SilentlyContinue
+# Usamos $DirActual para apuntar con precisión láser a los logs.
+# OJO: config.txt queda EXCLUIDO a propósito del glob *.txt — no es un log
+# ni un residuo, es la configuración que el instalador/profesor puso a mano
+# en esta máquina (server_url del túnel de Cloudflare, server_ip, intervalos).
+# Sin esta exclusión, cada reinstalación (ej. para aplicar un fix de
+# client.py a mitad de semestre) borraba esa configuración junto con los
+# logs, obligando a reconfigurar Cloudflare a mano en cada equipo del curso.
+Remove-Item -Path "$DirActual\Client\*.log", "$DirActual\Client\*.txt", "$DirActual\Client\*.pid" -Exclude "config.txt" -Force -ErrorAction SilentlyContinue
 
 # --- Liberar y eliminar state.json (protegido contra el alumno) ---
 # El agente bloquea este archivo con icacls para que el alumno no pueda
