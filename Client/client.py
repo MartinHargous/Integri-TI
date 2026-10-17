@@ -250,18 +250,7 @@ class TelemetryClient:
         aunque el secreto compartido sea correcto.
         """
         try:
-            # client_id y el header son obligatorios desde que /api/discovery
-            # también emite el secreto personal (ver _probar_ip). Sin ellos,
-            # FastAPI devuelve 422 antes de llegar a procesar nada — el header
-            # Date igual viaja en esa respuesta, así que el chequeo de reloj en
-            # sí no se rompía, pero quedaba un 422 innecesario en los logs del
-            # servidor por cada reconexión.
-            r = requests.get(
-                f"{url}/api/discovery",
-                params={"client_id": self.client_id},
-                headers={"X-Codigo-Distribucion": CODIGO_DISTRIBUCION},
-                timeout=3
-            )
+            r = requests.get(f"{url}/api/ping", timeout=3)
             fecha_servidor_str = r.headers.get("Date")
             if not fecha_servidor_str:
                 return

@@ -253,3 +253,11 @@ def verificar_descubrimiento(request: Request, client_id: str):
         "secreto_sync": state.secretos_por_cliente[client_id],
         "mensaje": "Servidor listo. Secreto de sincronización asignado."
     }
+
+@router.get("/api/ping")
+def ping():
+    """
+    Endpoint mínimo para el AGENTE (client.py), no para el dashboard del
+    profesor.
+    """
+    return {"status": "ok"}
