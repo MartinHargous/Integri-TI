@@ -76,9 +76,29 @@ def _bloquear_archivo(ruta):
         # en español). S-1-5-18=SYSTEM, S-1-5-32-544=Administradores,
         # S-1-5-11=Usuarios autenticados (cualquier alumno con sesión iniciada).
         comandos = [
-            ["icacls", ruta, "/inheritance:r"],
+            # /inheritance:d (NO /inheritance:r): convierte los permisos
+            # heredados de la carpeta en permisos EXPLÍCITOS sobre el
+            # archivo, en vez de borrarlos de golpe. Con /inheritance:r hay
+            # una ventana real donde el archivo queda sin NINGÚN permiso (ni
+            # lectura) hasta que los comandos siguientes terminan de
+            # otorgarlos de nuevo — y como esta secuencia de 5 icacls
+            # separados no es atómica, un kill del proceso justo en esa
+            # ventana (ej. Task Manager a mitad de un cambio de estado, que
+            # dispara _guardar_estado() de nuevo) deja el archivo ilegible
+            # para el usuario normal PARA SIEMPRE, sin que el propio agente
+            # pueda arreglarlo solo (requiere icacls /reset manual como
+            # Administrador). Con /inheritance:d, el permiso de lectura que
+            # el usuario ya tenía por la carpeta nunca se pierde en ningún
+            # punto intermedio — bug real encontrado en pruebas de campo el
+            # 2026-10-08 y de nuevo el 2026-10-17.
+            ["icacls", ruta, "/inheritance:d"],
             ["icacls", ruta, "/grant:r", "*S-1-5-18:F"],
             ["icacls", ruta, "/grant:r", "*S-1-5-32-544:F"],
+            # Redundante a propósito con lo que /inheritance:d ya preserva:
+            # garantiza lectura para el usuario normal aunque la carpeta de
+            # destino tuviera, por algún motivo, una ACL más restrictiva de
+            # lo esperado.
+            ["icacls", ruta, "/grant:r", "*S-1-5-11:(R)"],
             ["icacls", ruta, "/deny", "*S-1-5-11:(W,WD,WA,DE,DC)"],
         ]
         for cmd in comandos:
@@ -166,12 +186,36 @@ class TelemetryClient:
 
     def _cargar_estado(self):
         ruta = Path("state.json")
-        if ruta.exists():
+        if not ruta.exists():
+            return None
+        try:
+            return json.loads(ruta.read_text(encoding="utf-8"))
+        except Exception as e:
+            # Auto-sanación: un state.json bloqueado por una versión ANTERIOR
+            # al fix del ACL de lectura (2026-10-08) queda ciego para
+            # SIEMPRE si no se repara acá — _guardar_estado solo corrige el
+            # ACL en la PRÓXIMA escritura exitosa, y esa escritura requiere
+            # un discovery exitoso, que no puede pasar mientras el servidor
+            # siga en GRABANDO. Sin este reintento, el agente quedaría
+            # atrapado reintentando discovery (y siendo rechazado con 403)
+            # durante todo el resto del examen, en vez de reconectar por
+            # caché como corresponde.
+            print(f"[AVISO] No se pudo leer state.json ({e}). Intentando desbloquear y reintentar una vez...")
             try:
-                return json.loads(ruta.read_text(encoding="utf-8"))
-            except Exception:
+                _desbloquear_archivo(ruta)
+                datos = json.loads(ruta.read_text(encoding="utf-8"))
+                # _desbloquear_archivo (icacls /reset) deja el archivo
+                # completamente SIN protección hasta el próximo _guardar_estado
+                # (que solo ocurre en una transición de estado, posiblemente
+                # recién al final del examen). Re-bloqueamos de inmediato con
+                # el ACL correcto para no dejar esa ventana abierta más de lo
+                # necesario — el contenido no cambió, solo se repara el ACL.
+                _bloquear_archivo(ruta)
+                print("[OK] state.json recuperado y re-bloqueado con el ACL corregido.")
+                return datos
+            except Exception as e2:
+                print(f"[AVISO] Reintento de lectura de state.json también falló: {e2}")
                 return None
-        return None
 
     def _guardar_estado(self):
         ruta = Path("state.json")
