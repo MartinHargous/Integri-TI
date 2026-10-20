@@ -37,6 +37,27 @@ rm -f agente.pid Client/agente.pid 2>/dev/null
 rm -f cron_error.log 2>/dev/null
 rm -f Client/modules/error_detection/auditoria_python.log 2>/dev/null
 
+# --- Liberar y eliminar state.json (protegido contra el alumno) ---
+# El agente deja este archivo root:root, chmod 600 y con chattr +i (ver
+# _bloquear_archivo en client.py) para que el alumno no pueda editarlo ni
+# borrarlo — un simple rm acá fallaría con "Operation not permitted" igual
+# que le fallaría a un alumno sin sudo. chattr -i requiere root incluso para
+# quitarlo, así que se usa sudo explícitamente sin importar con qué permisos
+# se invocó el resto del script. Sin este paso, cada reinstalación deja el
+# state.json de la instalación anterior intacto y bloqueado.
+echo "[*] Liberando y eliminando state.json..."
+for RUTA_STATE in state.json Client/state.json state.tmp Client/state.tmp; do
+    if [ -f "$RUTA_STATE" ]; then
+        sudo chattr -i "$RUTA_STATE" 2>/dev/null
+        sudo rm -f "$RUTA_STATE"
+        if [ -f "$RUTA_STATE" ]; then
+            echo "[!] No se pudo eliminar $RUTA_STATE. Bórralo manualmente (sudo chattr -i + sudo rm)."
+        else
+            echo "[OK] Eliminado: $RUTA_STATE"
+        fi
+    fi
+done
+
 # --- 6. Revertir la inyección de PYTHONPATH en .bashrc y .zshrc ---
 echo "[*] Revirtiendo el puente de PYTHONPATH en los perfiles del usuario..."
 
