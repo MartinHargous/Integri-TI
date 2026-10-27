@@ -1,0 +1,4 @@
+rules:
+  - p/python
+  - p/security-audit
+  - p/secrets

@@ -1,5 +1,5 @@
 # =====================================================================
-# Configuración del Módulo de Detección USB y Celulares (Integri-TI)
+# Configuración del Módulo de Detección USB y Celulares
 # =====================================================================
 
 enabled=true

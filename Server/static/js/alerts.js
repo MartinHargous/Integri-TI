@@ -1,5 +1,5 @@
 /**
- * Integri-TI - Alertas y Telemetría
+ * Alertas y Telemetría
  * Renderizado de alertas (máximo 4 recientes) y visor de eventos en crudo
  */
 

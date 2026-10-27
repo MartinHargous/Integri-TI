@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 
 class LogCorrelator:
     """
-    Motor de Correlación Secuencial de Logs para Integri-TI.
+    Motor de Correlación Secuencial de Logs.
     Analiza telemetría en tiempo real buscando secuencias sospechosas de eventos
     (ej: foco en navegador -> consulta a IA -> pegado de código en editor)
     dentro de una ventana temporal definida.

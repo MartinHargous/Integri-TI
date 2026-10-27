@@ -1,5 +1,5 @@
 /**
- * Integri-TI - API Client
+ * API Client
  * Centraliza las llamadas HTTP con el servidor FastAPI
  */
 const Api = {

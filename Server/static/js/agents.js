@@ -1,5 +1,5 @@
 /**
- * Integri-TI - Agentes
+ * Agentes
  * Lógica para visualización de matriz de agentes y navegación a auditoría
  */
 let clienteSeleccionado = 'global';

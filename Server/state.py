@@ -1,5 +1,5 @@
 """
-Estado compartido de la aplicación Integri-TI.
+Estado compartido de la aplicación.
 
 Todas las variables mutables que antes vivían como globales de main.py ahora
 viven aquí, como atributos de este módulo. Los routers las acceden vía
@@ -132,7 +132,7 @@ _alumnos_alertados_por_silencio = set()
 #    clonó lo conoce igual — no es la barrera real contra un alumno inscrito,
 #    solo contra tráfico externo al azar. INTEGRITI_CODIGO_DISTRIBUCION por
 #    variable de entorno permite rotarlo sin tocar el código.
-CODIGO_DISTRIBUCION = os.environ.get("INTEGRITI_CODIGO_DISTRIBUCION", "3R2M3HZA7ZTUXSN54EDTUFLSMKWZRMU5")
+CODIGO_DISTRIBUCION = os.environ.get("INTEGRITI_CODIGO_DISTRIBUCION", "3R2M3HZA7ZTUXSN54EDTUFLSMKWZRMU5")# nosemgrep: generic.secrets.security.detected-generic-api-key
 
 # 2. SECRETO PERSONAL POR ALUMNO (/sync): se emite al vuelo en /api/discovery,
 #    uno distinto por client_id, y NUNCA vive en el repo ni en ningún archivo

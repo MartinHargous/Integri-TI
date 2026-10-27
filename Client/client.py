@@ -19,7 +19,7 @@ import traceback
 # secreto de verdad si el repo es público, y no protege /sync. La clave real
 # de /sync (self.secreto_sync) nunca vive aquí: la entrega el servidor en la
 # respuesta de /api/discovery, una distinta por client_id — ver DiscoveryEngine.
-CODIGO_DISTRIBUCION = os.environ.get("INTEGRITI_CODIGO_DISTRIBUCION", "3R2M3HZA7ZTUXSN54EDTUFLSMKWZRMU5")
+CODIGO_DISTRIBUCION = os.environ.get("INTEGRITI_CODIGO_DISTRIBUCION", "3R2M3HZA7ZTUXSN54EDTUFLSMKWZRMU5")# nosemgrep: generic.secrets.security.detected-generic-api-key
 
 # Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar orchestrator
 if sys.platform.startswith("linux"):

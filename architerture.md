@@ -1,8 +1,8 @@
-# Integri-TI — Documento Técnico de Arquitectura
+# Proyecto de titulo — Documento Técnico de Arquitectura
 
 > **Versión:** 1.0  
 > **Fecha:** 2026-09-24  
-> **Autores:** Equipo Integri-TI  
+> **Autores:** Martín Hargous 
 > **Estado:** Hito 1 — Entregable
 
 ---
@@ -36,7 +36,7 @@
 
 ## 1. Introducción
 
-**Integri-TI** es una plataforma de supervisión de integridad académica diseñada para monitorear estaciones de trabajo durante evaluaciones prácticas de programación. El sistema recopila telemetría multiseñal desde cada equipo de alumno y la analiza en un servidor central para detectar infracciones tales como: uso de inteligencia artificial generativa, comunicación entre alumnos, copia de código, uso de dispositivos USB no autorizados y exfiltración de datos.
+El objetivo de este proyecto es el diseño de una plataforma de supervisión de integridad académica diseñada para monitorear estaciones de trabajo durante evaluaciones prácticas de programación, con el fin de comprobar la viabilidad de aplicación de un sistema similar para el uso academico. El sistema recopila telemetría multiseñal desde cada equipo de alumno y la analiza en un servidor central para detectar infracciones tales como: uso de inteligencia artificial generativa, comunicación entre alumnos, copia de código, uso de dispositivos USB no autorizados y exfiltración de datos.
 
 La arquitectura sigue un modelo **cliente-servidor** con comunicación unidireccional por polling HTTP, donde múltiples agentes de telemetría reportan a un servidor centralizado que ejecuta pipelines de análisis en tiempo real y comparación entre pares de alumnos.
 
@@ -288,7 +288,7 @@ graph TB
     style LLM fill:#533483,stroke:#e94560,stroke-width:2px,color:#fff
 ```
 
-> **Nota de despliegue:** el contenedor "Agente de Telemetría" es desarrollado y versionado por el equipo de Integri-TI (por eso es parte del sistema, no un sistema externo), pero se **despliega en hardware que no pertenece a la infraestructura del servidor** — el PC de cada alumno. El subgraph de arriba marca ese límite de despliegue sin sacar el contenedor del límite del sistema.
+> **Nota de despliegue:** el contenedor "Agente de Telemetría" es desarrollado y versionado por Martín Hargous (por eso es parte del sistema, no un sistema externo), pero se **despliega en hardware que no pertenece a la infraestructura del servidor** — el PC de cada alumno. El subgraph de arriba marca ese límite de despliegue sin sacar el contenedor del límite del sistema.
 
 ### 3.3 Diagrama de Componentes
 
@@ -1707,7 +1707,7 @@ Los siguientes problemas fueron observados durante las pruebas, pero **no se ha 
 
 
 
-> **Documento generado como parte del Hito 1 del proyecto Integri-TI.**  
+> **Documento generado como parte del Hito 1 del proyecto de titulo.**  
 
 > Para preguntas o sugerencias, contactar al equipo de desarrollo.
 

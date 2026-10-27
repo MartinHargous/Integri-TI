@@ -172,7 +172,7 @@ def construir_prompt(
     bloque_politica = f"POLÍTICA DEL EXAMEN: {POLITICA_POR_DEFECTO}"
 
     system_prompt = (
-        "Eres un analista pedagógico y forense de desarrollo de software para la plataforma educativa Integri-TI. "
+        "Eres un analista pedagógico y forense de desarrollo de software para una herramienta educativa "
         "Analizas la telemetría de la sesión de un estudiante durante un examen de programación en su propio equipo "
         "(ejecución de código, errores de Python, ventanas en primer plano, red, portapapeles y pulsaciones de teclado). "
         "Respondes de manera profesional y fundamentada, citando evidencia concreta del registro (hora y contenido).\n\n"

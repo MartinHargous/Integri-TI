@@ -1,5 +1,5 @@
 /**
- * Integri-TI - Reglas de Correlación Secuencial
+ * Reglas de Correlación Secuencial
  * Manejo del listado de reglas y del editor plegable
  */
 let reglasActivasCache = [];

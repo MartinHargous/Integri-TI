@@ -1,5 +1,5 @@
 /**
- * Integri-TI - Módulos
+ * Módulos
  * Gestión y distribución de configuraciones remotas por HTTP
  */
 let moduloActualModal = '';

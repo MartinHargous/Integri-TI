@@ -1,7 +1,7 @@
 """
 comparator.py
 ---------------------------------
-Módulo de Comparación y Similitud Multi-Señal de Logs de Examen para Integri-TI.
+Módulo de Comparación y Similitud Multi-Señal de Logs de Examen.
 Analiza todos los logs de telemetría de los alumnos en una carpeta para detectar
 posible colusión, copia de código o sincronía no permitida.
 
@@ -276,7 +276,7 @@ def normalizar_codigo(texto: str) -> str:
 
 class LogComparator:
     """
-    Motor Modular de Análisis y Comparación de Logs para Integri-TI.
+    Motor Modular de Análisis y Comparación de Logs.
     """
 
     def __init__(self, carpeta_logs: str | Path, config: Optional[Dict[str, Any]] = None, db_path: Optional[str] = None):

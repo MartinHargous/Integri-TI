@@ -140,7 +140,7 @@ sudo -u $USUARIO_REAL mkdir -p "$DIR_SYSTEMD_USER"
 echo "[*] Creando servicio systemd..."
 cat << EOF | sudo -u $USUARIO_REAL tee "$DIR_SYSTEMD_USER/integriti.service" > /dev/null
 [Unit]
-Description=Agente de Telemetria Integri-TI
+Description=Agente de Telemetria Proyecto de titulo
 After=graphical-session.target
 
 [Service]

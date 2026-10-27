@@ -1,5 +1,5 @@
 /**
- * Integri-TI - Entrada Principal del Dashboard
+ * Entrada Principal del Dashboard
  * Orquestación de sincronización, comandos globales y ciclo de actualización
  */
 

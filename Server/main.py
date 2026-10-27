@@ -1,5 +1,5 @@
 """
-Punto de entrada del servidor Integri-TI.
+Punto de entrada del servidor.
 
 Crea la app FastAPI, monta archivos estáticos, registra los routers por
 categoría (ver informe de arquitectura, sección 5.1) e inicia Uvicorn.
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     PUERTO = 8000
 
     print("\n" + "="*50)
-    print(f"[*] Iniciando Servidor del Profesor (Integri-TI)...")
+    print(f"[*] Iniciando Servidor del Profesor...")
     print(f"[*] IP Local Detectada: {mi_ip}")
     print(f"[*] Dashboard (solo desde este equipo): http://localhost:{PUERTO}")
     print(f"[*] Los agentes se conectan a: http://{mi_ip}:{PUERTO} (LAN) o por el túnel configurado")

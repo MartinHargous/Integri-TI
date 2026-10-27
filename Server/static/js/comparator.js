@@ -1,5 +1,5 @@
 /**
- * Integri-TI - Módulo Frontend del Comparador de Logs y Similitud Multi-Señal
+ *  Módulo Frontend del Comparador de Logs y Similitud Multi-Señal
  * Orquestación de pestañas, configuración dinámica y renderizado de relaciones entre alumnos.
  */
 

@@ -95,7 +95,7 @@ def classify_usb_device(device_info, name=""):
     return "Dispositivo USB"
 
 def read_config(config_path, defaults):
-    """Lee y parsea un archivo de configuración clave=valor estilo Integri-TI."""
+    """Lee y parsea un archivo de configuración clave=valor"""
     values = defaults.copy()
     c_path = Path(config_path)
     if c_path.exists():
