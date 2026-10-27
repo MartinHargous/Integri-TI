@@ -13,7 +13,7 @@ const CONFIG_COMPARADOR_DEFAULT = Object.freeze({
   umbral_codigo: 0.35,
   umbral_portapapeles: 0.50,
   apps_permitidas: 'code, python, pythonw',
-  titulos_permitidos: 'integri-ti',
+  titulos_permitidos: '',
   peso_codigo: 0.45,
   peso_portapapeles: 0.35,
   peso_fugas: 0.15,

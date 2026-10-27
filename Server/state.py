@@ -130,9 +130,9 @@ _alumnos_alertados_por_silencio = set()
 #    trabajo es frenar el escaneo oportunista de /api/discovery por parte de
 #    quien NUNCA clonó este proyecto. Si el repo es público, alguien que SÍ lo
 #    clonó lo conoce igual — no es la barrera real contra un alumno inscrito,
-#    solo contra tráfico externo al azar. INTEGRITI_CODIGO_DISTRIBUCION por
+#    solo contra tráfico externo al azar. CODIGO_DISTRIBUCION por
 #    variable de entorno permite rotarlo sin tocar el código.
-CODIGO_DISTRIBUCION = os.environ.get("INTEGRITI_CODIGO_DISTRIBUCION", "3R2M3HZA7ZTUXSN54EDTUFLSMKWZRMU5")# nosemgrep: generic.secrets.security.detected-generic-api-key
+CODIGO_DISTRIBUCION = os.environ.get("CODIGO_DISTRIBUCION", "3R2M3HZA7ZTUXSN54EDTUFLSMKWZRMU5")# nosemgrep: generic.secrets.security.detected-generic-api-key
 
 # 2. SECRETO PERSONAL POR ALUMNO (/sync): se emite al vuelo en /api/discovery,
 #    uno distinto por client_id, y NUNCA vive en el repo ni en ningún archivo

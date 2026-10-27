@@ -55,7 +55,7 @@ CONFIG_DEFAULT: Dict[str, Any] = {
     "umbral_codigo": 0.35,            # Umbral de similitud de código para candidatos LSH (0-1)
     "umbral_portapapeles": 0.50,      # Umbral de similitud para portapapeles (0-1)
     "apps_permitidas": "code, python, pythonw", # Whitelist de ejecutables permitidos
-    "titulos_permitidos": "integri-ti",         # Whitelist de títulos de ventana
+    "titulos_permitidos": "",         # Whitelist de títulos de ventana
     # Ponderaciones del Score Compuesto
     "peso_codigo": 0.45,              # Peso de similitud de código Jaccard (0-1)
     "peso_portapapeles": 0.35,        # Peso de similitud de portapapeles (0-1)

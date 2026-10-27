@@ -12,7 +12,6 @@ import os
 import socket
 import uvicorn
 from fastapi import FastAPI, Depends
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 import state  # Importar primero: inicializa DB, correlator, comparator y el watchdog de silencio.
@@ -21,14 +20,20 @@ from routers import agent, dashboard, rules, modules, logs, insights, comparator
 
 app = FastAPI(title="Panel del Profesor - Telemetría")
 
-# Habilitar CORS para soportar conexiones desde cualquier PC/dispositivo en la red
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# NO se habilita CORSMiddleware: nada en este proyecto lo necesita. El
+# dashboard siempre sirve su HTML/JS y llama a su propia API desde el MISMO
+# origen (http://localhost:8000) — eso nunca requiere CORS, que solo entra en
+# juego entre orígenes distintos. Los agentes (/sync, /api/discovery,
+# /api/ping) tampoco lo necesitan: son llamadas servidor-a-servidor con
+# `requests`, y CORS es una restricción que solo aplican los navegadores. El
+# wildcard "*" que había antes (con allow_credentials=True, lo que en la
+# práctica hace que el navegador refleje y permita CUALQUIER origen) quedaba
+# de un comentario que decía habilitarlo "para soportar conexiones desde
+# cualquier PC/dispositivo en la red" — pero solo_local (ver security.py) ya
+# exige loopback puro y rechaza headers de proxy, así que ese escenario
+# estaba bloqueado por otro lado de todas formas. Hallazgo de Semgrep
+# (fastapi.security.wildcard-cors) resuelto eliminando el middleware en vez
+# de solo acotar la lista de orígenes, el 2026-10-27.
 
 # Montar archivos estáticos (CSS y JS separados)
 if os.path.exists(state.STATIC_DIR):
@@ -69,7 +74,7 @@ if __name__ == "__main__":
     PUERTO = 8000
 
     print("\n" + "="*50)
-    print(f"[*] Iniciando Servidor del Profesor...")
+    print(f"[*] Iniciando Servidor del Profesor (Integri-TI)...")
     print(f"[*] IP Local Detectada: {mi_ip}")
     print(f"[*] Dashboard (solo desde este equipo): http://localhost:{PUERTO}")
     print(f"[*] Los agentes se conectan a: http://{mi_ip}:{PUERTO} (LAN) o por el túnel configurado")
