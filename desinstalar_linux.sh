@@ -16,13 +16,13 @@ DIR_GLOBAL="$HOME_REAL/.telemetria_global"
 
 echo "[*] Deteniendo el servicio en la sesión de $USUARIO_REAL..."
 # 2. Detener y deshabilitar el servicio inyectando la sesión correcta
-sudo -u "$USUARIO_REAL" XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user stop integriti.service 2>/dev/null
-sudo -u "$USUARIO_REAL" XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user disable integriti.service 2>/dev/null
+sudo -u "$USUARIO_REAL" XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user stop proyecto_de_titulo.service 2>/dev/null
+sudo -u "$USUARIO_REAL" XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user disable proyecto_de_titulo.service 2>/dev/null
 
 echo "[*] Limpiando configuraciones y permisos del sistema..."
 # 3. Eliminar archivos usando la ruta real del usuario
-rm -f "$HOME_REAL/.config/systemd/user/integriti.service"
-sudo rm -f "/etc/sudoers.d/integriti_agent"
+rm -f "$HOME_REAL/.config/systemd/user/proyecto_de_titulo.service"
+sudo rm -f "/etc/sudoers.d/proyecto_de_titulo_agent"
 
 # 4. Recargar systemd para que olvide el servicio
 sudo -u "$USUARIO_REAL" XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user daemon-reload 2>/dev/null

