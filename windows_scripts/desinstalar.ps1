@@ -190,6 +190,12 @@ foreach ($archivo in $ArchivosHook) {
     }
 }
 
+$ArchivoInstallLog = "$DirActual\install_log.txt"
+if (Test-Path $ArchivoInstallLog) {
+    Remove-Item -Path $ArchivoInstallLog -Force -ErrorAction SilentlyContinue
+    Write-Host "[OK] Eliminado: $ArchivoInstallLog" -ForegroundColor Green
+}
+
 # 3. Si la carpeta quedó vacía tras lo anterior, sí es seguro borrarla completa.
 if ((Test-Path $DirGlobal) -and ((Get-ChildItem -Path $DirGlobal -Force | Measure-Object).Count -eq 0)) {
     Remove-Item -Path $DirGlobal -Force -ErrorAction SilentlyContinue
