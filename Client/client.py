@@ -19,7 +19,7 @@ import traceback
 # secreto de verdad si el repo es público, y no protege /sync. La clave real
 # de /sync (self.secreto_sync) nunca vive aquí: la entrega el servidor en la
 # respuesta de /api/discovery, una distinta por client_id — ver DiscoveryEngine.
-CODIGO_DISTRIBUCION = os.environ.get("CODIGO_DISTRIBUCION", "3R2M3HZA7ZTUXSN54EDTUFLSMKWZRMU5")# nosemgrep: generic.secrets.security.detected-generic-api-key
+CODIGO_DISTRIBUCION = os.environ.get("INTEGRITI_CODIGO_DISTRIBUCION", "3R2M3HZA7ZTUXSN54EDTUFLSMKWZRMU5")# nosemgrep: generic.secrets.security.detected-generic-api-key
 
 # Configurar entorno X11 para pynput, xdotool y pyperclip en Linux antes de importar orchestrator
 if sys.platform.startswith("linux"):
@@ -264,12 +264,36 @@ class TelemetryClient:
             pass
 
     def _validar_url_cacheada(self, url):
-        # Requiere self.secreto_sync ya restaurado desde state.json por quien
-        # llama (si no hay secreto, no tiene sentido ni intentar: /sync
-        # rechazaría con 401 de todas formas).
+        """
+        Devuelve uno de tres resultados en vez de un simple True/False — la
+        diferencia entre "el servidor respondió que no" y "no hubo ni cómo
+        preguntarle" es justo la que decide si vale la pena seguir
+        reintentando este mismo caché o si hay que abandonarlo ya mismo:
+
+          "ok"        -> el secreto sigue siendo válido, servidor vivo.
+          "rechazado" -> el servidor SÍ respondió, pero dijo que no (401,
+                         normalmente tras un reset del examen). Esto es
+                         definitivo: no hay nada que ganar reintentando,
+                         hay que volver a inscribirse por discovery.
+          "sin_red"   -> no se pudo completar la conexión en absoluto (DNS
+                         caído, timeout, túnel de Cloudflare abajo, etc.).
+                         El secreto puede seguir siendo perfectamente
+                         válido — simplemente no hay cómo comprobarlo
+                         todavía. Si el estado cacheado es GRABANDO, caer a
+                         discovery acá sería un callejón sin salida (ver
+                         comentario largo en SyncManager), así que esto NO
+                         debe tratarse como un motivo para abandonar el
+                         caché, solo para seguir esperando.
+
+        Antes esto devolvía un bool, colapsando "rechazado" y "sin_red" en
+        el mismo False — y por eso un corte de wifi (sin_red) terminaba
+        empujando al agente hacia discovery exactamente igual que un reset
+        real del examen (rechazado), aunque las dos situaciones necesitan
+        reacciones opuestas.
+        """
         if not self.secreto_sync:
             print("[AVISO] No hay secreto de sincronización cacheado; se omite validación de caché.")
-            return False
+            return "rechazado"
         try:
             r = requests.post(f"{url}/sync", data={
                 "client_id": self.client_id,
@@ -277,18 +301,19 @@ class TelemetryClient:
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
                 "codigo_otp": self._generar_codigo_otp(),
             }, files={"archivo_log": ("", "")}, timeout=3)
-            if r.status_code != 200:
-                # Visibilidad explícita del motivo: sin esto, un rechazo
-                # CONSISTENTE (ej. client_id ya no coincide con el que el
-                # servidor asoció al secreto, por os.getlogin() devolviendo
-                # otro valor tras un relanzamiento) es indistinguible en los
-                # logs de un fallo transitorio de red — y son dos problemas
-                # con arreglos completamente distintos.
-                print(f"[AVISO] Validación de servidor cacheado rechazada ({r.status_code}): {r.text[:200]}")
-            return r.status_code == 200
-        except Exception as e:
+            if r.status_code == 200:
+                return "ok"
+            # Visibilidad explícita del motivo: sin esto, un rechazo
+            # CONSISTENTE (ej. client_id ya no coincide con el que el
+            # servidor asoció al secreto, por os.getlogin() devolviendo
+            # otro valor tras un relanzamiento) es indistinguible en los
+            # logs de un fallo transitorio de red — y son dos problemas
+            # con arreglos completamente distintos.
+            print(f"[AVISO] Validación de servidor cacheado rechazada ({r.status_code}): {r.text[:200]}")
+            return "rechazado"
+        except requests.exceptions.RequestException as e:
             print(f"[AVISO] Validación de servidor cacheado falló por error de red: {e}")
-            return False
+            return "sin_red"
 
     def _read_config(self):
         values = self.DEFAULTS.copy()
@@ -666,26 +691,68 @@ class TelemetryClient:
                         self.StateMachine = "ESPERANDO"
                         break
 
-                else:
-                    print(f"[AVISO] El servidor respondió con error {respuesta.status_code}.")
-
-            except requests.exceptions.RequestException:
-                fallos_consecutivos += 1
-                if self.conectado:
-                    print(f"[AVISO] Se perdió la conexión con el servidor (intento fallido {fallos_consecutivos}/3)...")
-                    self.conectado = False
-                else:
-                    print(f"[AVISO] Reintentando conexión con {self.server_url} ({fallos_consecutivos}/3)...")
-
-                if fallos_consecutivos >= 3:
-                    print("\n[AVISO] El servidor no responde tras 3 intentos. Volviendo a búsqueda automática...")
+                elif respuesta.status_code == 401:
+                    # 401 es la ÚNICA señal inequívoca de rechazo: significa que el
+                    # servidor evaluó el secreto/OTP cacheado y dijo explícitamente
+                    # que no sirve (típicamente porque el profesor hizo un "reset"
+                    # del examen, lo que limpia secretos_por_cliente en el server).
+                    # Es el único caso en el que de verdad tiene sentido abandonar
+                    # la caché y volver a discovery: cualquier otro motivo de fallo
+                    # (red caída, DNS, timeout) NO significa que el secreto sea
+                    # inválido, solo que no pudimos preguntarle al servidor.
+                    print("\n[AVISO] El servidor rechazó el secreto cacheado (401, probable reset del examen). Volviendo a búsqueda automática...")
                     if self.StateMachine == "GRABANDO":
                         self.orchestrator.stop_all()
                     self.orchestrator.reset()
                     self.conectado = False
                     self.server_url = ""
+                    self.secreto_sync = ""
+                    self._borrar_estado()
                     self.StateMachine = "ESPERANDO"
                     break
+                else:
+                    print(f"[AVISO] El servidor respondió con error {respuesta.status_code}.")
+
+            except requests.exceptions.RequestException:
+                # IMPORTANTE: un error de red/DNS/timeout (caída de WiFi, por ejemplo)
+                # NO es un rechazo del servidor — es simplemente que no pudimos
+                # preguntarle nada. Antes, tras 3 intentos fallidos, este bloque
+                # abandonaba la caché y caía a discovery(). Pero discovery() exige
+                # que el examen esté en estado ESPERANDO (ver verificar_descubrimiento
+                # en Server/routers/agent.py) y durante un examen en GRABANDO esa
+                # condición nunca se cumple: terminábamos en un rechazo 403
+                # PERMANENTE que solo se resolvía cuando el profesor finalizaba el
+                # examen. Mientras tanto, el secreto_sync cacheado seguía siendo
+                # válido en el servidor (secretos_por_cliente no se invalida por
+                # silencio/timeout, solo por un reset explícito del profesor) — o
+                # sea que el camino correcto era simplemente seguir reintentando
+                # con el MISMO server_url/secreto_sync hasta que la red volviera,
+                # sin tocar nada del estado ni soltar el caché.
+                #
+                # Además, antes se llamaba a self.orchestrator.stop_all() apenas
+                # se perdía la conexión, lo que detenía TODOS los módulos de
+                # captura (keylogger, clipboard, context monitor, etc.) aunque
+                # ninguno de ellos necesite red para funcionar. Eso abría un
+                # hueco de integridad: un alumno podía cortar su propio WiFi a
+                # propósito para pausar el monitoreo local sin que el proceso
+                # fuera detectado como suspendido ni killeado (el vigilante de
+                # Windows solo detecta hilos suspendidos, no desconexión de red).
+                # Al no detener la captura por error de red, los logs se siguen
+                # generando con normalidad y se sincronizan completos en cuanto
+                # vuelve la conexión (combine_logs() los recoge igual).
+                fallos_consecutivos += 1
+                if self.conectado:
+                    print(f"[AVISO] Se perdió la conexión con el servidor (intento fallido {fallos_consecutivos})...")
+                    self.conectado = False
+                else:
+                    print(f"[AVISO] Sin red. Reintentando conexión con {self.server_url} (intento {fallos_consecutivos})...")
+
+                # Backoff progresivo con tope (no tiene sentido reintentar cada
+                # self.interval segundos si el corte dura minutos u horas), pero
+                # SIN abandonar nunca la caché ni volver a discovery por este motivo.
+                espera = min(60, self.interval * min(fallos_consecutivos, 6))
+                time.sleep(espera)
+                continue
 
             time.sleep(self.interval)
 
@@ -793,23 +860,32 @@ if __name__ == "__main__":
                 # ya manda codigo_otp, y sin el secreto correcto /sync rechazaría con
                 # 401 aunque el servidor sí esté vivo.
                 agente.secreto_sync = estado_previo.get("secreto_sync")
-                # Reintentar antes de rendirse: un solo intento de 3s es demasiado
-                # frágil para decidir "el caché ya no sirve". Si el estado cacheado
-                # es GRABANDO, caer a discovery es un callejón sin salida — el
-                # servidor rechaza /api/discovery con 403 mientras el examen siga
-                # activo (discovery solo acepta conexiones nuevas en ESPERANDO), así
-                # que un fallo transitorio de red (ej. el túnel de Cloudflare
-                # reconectando) dejaría al agente dando vueltas sin poder volver a
-                # sincronizar hasta que el profesor termine el examen.
-                validado = False
-                intentos_cache = 4
-                for intento_cache in range(1, intentos_cache + 1):
-                    if agente._validar_url_cacheada(url_cache):
-                        validado = True
+                # No nos rendimos solo porque unos pocos intentos fallaron por
+                # RED (sin_red): si el estado cacheado es GRABANDO, caer a
+                # discovery es un callejón sin salida — el servidor rechaza
+                # /api/discovery con 403 mientras el examen siga activo
+                # (discovery solo acepta conexiones nuevas en ESPERANDO), así
+                # que un corte de wifi largo (no un reset del examen)
+                # dejaría al agente dando vueltas sin poder volver a
+                # sincronizar hasta que el profesor termine el examen. Por
+                # eso seguimos reintentando el MISMO caché indefinidamente
+                # mientras el motivo sea "sin_red" — con una espera creciente
+                # para no martillar DNS cada 3s durante un corte de horas — y
+                # solo abandonamos de inmediato si el servidor responde
+                # explícitamente que el secreto ya no es válido ("rechazado",
+                # p. ej. tras un reset): ahí sí es definitivo, no hay nada
+                # que ganar insistiendo.
+                resultado_cache = "sin_red"
+                intento_cache = 0
+                while True:
+                    intento_cache += 1
+                    resultado_cache = agente._validar_url_cacheada(url_cache)
+                    if resultado_cache != "sin_red":
                         break
-                    if intento_cache < intentos_cache:
-                        print(f"[AVISO] Validación de servidor cacheado falló (intento {intento_cache}/{intentos_cache}). Reintentando en 3s...")
-                        time.sleep(3)
+                    espera = min(60, 3 * intento_cache)
+                    print(f"[AVISO] Sin red para validar el servidor cacheado (intento {intento_cache}). Reintentando en {espera}s...")
+                    time.sleep(espera)
+                validado = (resultado_cache == "ok")
                 if validado:
                     # Solo aplicamos el estado cacheado si la validación fue exitosa.
                     agente.client_id = estado_previo.get("client_id", agente.client_id)
@@ -831,7 +907,10 @@ if __name__ == "__main__":
                     agente.iniciar_agente()
                     reconectado_por_cache = True
                 else:
-                    print("[AVISO] El servidor cacheado ya no responde (o el secreto ya no es válido, p. ej. tras un reset). Volviendo a discovery normal.")
+                    # Llegar acá solo es posible con resultado_cache == "rechazado"
+                    # (el loop de arriba nunca sale con "sin_red") — el servidor
+                    # respondió de verdad y dijo que este secreto ya no sirve.
+                    print("[AVISO] El servidor rechazó el secreto cacheado (probable reset del examen). Volviendo a discovery normal.")
                     agente.secreto_sync = None
 
             if not reconectado_por_cache:
