@@ -78,7 +78,7 @@ if (-not (Test-Path $NpcapPath)) {
 Write-Host "[*] Buscando una instalación de Python compatible (>= 3.12)..." -ForegroundColor Cyan
 $VersionMinima = [version]"3.12"
 
-function Resolver-PythonCompatible {
+function PythonCompatible {
     param([version]$VersionMinima)
 
     $candidatos = @()
@@ -126,7 +126,7 @@ function Resolver-PythonCompatible {
     return ($candidatos | Sort-Object Version -Descending | Select-Object -First 1)
 }
 
-$PythonElegido = Resolver-PythonCompatible -VersionMinima $VersionMinima
+$PythonElegido = PythonCompatible -VersionMinima $VersionMinima
 
 if (-not $PythonElegido) {
     Write-Host "[!] No se encontró ninguna instalación de Python >= 3.12. Descargando Python 3.14 oficial..." -ForegroundColor Yellow
@@ -140,7 +140,7 @@ if (-not $PythonElegido) {
     Start-Process -FilePath $PythonInstallerPath -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
     Remove-Item -Path $PythonInstallerPath -Force -ErrorAction SilentlyContinue
 
-    $PythonElegido = Resolver-PythonCompatible -VersionMinima $VersionMinima
+    $PythonElegido = PythonCompatible -VersionMinima $VersionMinima
     if (-not $PythonElegido) {
         Write-Host "[!] ERROR: Python 3.14 se descargó e instaló pero no se pudo detectar después. Revisa el PATH manualmente y volvé a correr este script." -ForegroundColor Red
         Stop-Transcript
