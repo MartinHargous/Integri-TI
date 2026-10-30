@@ -78,7 +78,7 @@ if (-not (Test-Path $NpcapPath)) {
 Write-Host "[*] Buscando una instalación de Python compatible (>= 3.12)..." -ForegroundColor Cyan
 $VersionMinima = [version]"3.12"
 
-function PythonCompatible {
+function Resolver-PythonCompatible {
     param([version]$VersionMinima)
 
     $candidatos = @()
@@ -126,7 +126,7 @@ function PythonCompatible {
     return ($candidatos | Sort-Object Version -Descending | Select-Object -First 1)
 }
 
-$PythonElegido = PythonCompatible -VersionMinima $VersionMinima
+$PythonElegido = Resolver-PythonCompatible -VersionMinima $VersionMinima
 
 if (-not $PythonElegido) {
     Write-Host "[!] No se encontró ninguna instalación de Python >= 3.12. Descargando Python 3.14 oficial..." -ForegroundColor Yellow
@@ -140,7 +140,7 @@ if (-not $PythonElegido) {
     Start-Process -FilePath $PythonInstallerPath -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
     Remove-Item -Path $PythonInstallerPath -Force -ErrorAction SilentlyContinue
 
-    $PythonElegido = PythonCompatible -VersionMinima $VersionMinima
+    $PythonElegido = Resolver-PythonCompatible -VersionMinima $VersionMinima
     if (-not $PythonElegido) {
         Write-Host "[!] ERROR: Python 3.14 se descargó e instaló pero no se pudo detectar después. Revisa el PATH manualmente y volvé a correr este script." -ForegroundColor Red
         Stop-Transcript
@@ -151,7 +151,19 @@ if (-not $PythonElegido) {
 
 Write-Host "[OK] Usando Python $($PythonElegido.Version) ($($PythonElegido.Ruta))" -ForegroundColor Green
 Write-Host "[*] Creando entorno virtual aislado (venv)..." -ForegroundColor Cyan
-& $PythonElegido.Ruta -m venv venv
+# --clear: si ya existe un "venv" de una instalación anterior (p.ej. se
+# probó antes con otra versión de Python, o se reinstaló sin desinstalar),
+# "python -m venv venv" SIN --clear no lo vacía — solo asegura la
+# estructura (pyvenv.cfg, Scripts, Lib\site-packages) y deja los paquetes
+# que ya estaban ahí intactos. Si ese venv anterior tenía numpy compilado
+# para, digamos, cp314, y ahora detectamos un Python 3.12 distinto, pip ve
+# "numpy ya está instalado" (por el dist-info) y no lo reinstala — pero los
+# binarios .pyd siguen siendo los de cp314, que el intérprete 3.12 no
+# puede cargar ("ModuleNotFoundError: numpy._core._multiarray_umath").
+# --clear borra el contenido del directorio antes de crear el entorno, así
+# que cada instalación parte de un venv realmente limpio para la versión
+# de Python que se eligió esta vez.
+& $PythonElegido.Ruta -m venv --clear venv
 
 # No asumimos que "venv" se creó bien solo porque el comando no tiró un
 # error visible — si falló a medias, seguir con pip install sobre un venv
@@ -205,7 +217,7 @@ $ComandoVbsEscapado = $ComandoPowershell.Replace('"', '""')
 $ContenidoVbs = 'Set objShell = CreateObject("WScript.Shell")' + "`r`n" +
     'objShell.Run "' + $ComandoVbsEscapado + '", 0, False' + "`r`n"
 
-$VbsLanzador = Join-Path $PSScriptRoot "lanzar_oculto.vbs"
+$VbsLanzador = Join-Path $PSScriptRoot "lanzar_vigilante_oculto.vbs"
 # Unicode (UTF-16LE con BOM) para que wscript.exe lea bien la ruta aunque
 # el nombre de usuario de Windows tenga tildes o ñ.
 Set-Content -Path $VbsLanzador -Value $ContenidoVbs -Encoding Unicode -Force
