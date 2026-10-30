@@ -59,9 +59,109 @@ if (-not (Test-Path $NpcapPath)) {
     Write-Host "[OK] Npcap ya se encuentra instalado en el sistema." -ForegroundColor Green
 }
 # 4. Crear entorno virtual e instalar dependencias
+#
+# ANTES esto era "py -3.14 -m venv venv" a secas: exigía tener EXACTAMENTE
+# Python 3.14 instalado y en el PATH. Si el equipo no lo tenía, el alumno
+# tenía que instalarlo a mano; y si ya tenía otra versión perfectamente
+# compatible instalada (p.ej. 3.12 o 3.13), el instalador la ignoraba igual
+# y fallaba. El proyecto en realidad solo necesita >= 3.12 (no hay nada en
+# client.py/orchestrator.py que dependa específicamente de 3.14 — fue la
+# versión elegida en su momento solo por mejoras del lanzador "py", no un
+# requisito real), así que no tiene sentido ser tan estricto.
+#
+# Ahora: buscamos TODAS las instalaciones de Python que Windows conoce (vía
+# "py -0p", que las lista sin importar el orden en que se instalaron) y
+# usamos la más nueva que sea >= 3.12. Si no hay ninguna instalada (ni
+# siquiera vía "python" suelto en el PATH), recién ahí descargamos e
+# instalamos Python 3.14 nosotros mismos — igual que ya se hace con Npcap
+# más arriba — en vez de pedirle al alumno que lo haga a mano.
+Write-Host "[*] Buscando una instalación de Python compatible (>= 3.12)..." -ForegroundColor Cyan
+$VersionMinima = [version]"3.12"
+
+function PythonCompatible {
+    param([version]$VersionMinima)
+
+    $candidatos = @()
+
+    if (Get-Command py -ErrorAction SilentlyContinue) {
+        # "py -0p" imprime una línea por instalación detectada, con su ruta,
+        # p.ej.: " -3.13-64 *        C:\Users\...\python.exe"
+        $listado = & py -0p 2>$null
+        foreach ($linea in $listado) {
+            # Soporta el formato viejo del lanzador ("-3.13-64") y el nuevo
+            # ("-V:3.13"), que trae la reescritura del "py" launcher a partir
+            # de Python 3.13 en Windows.
+            if ($linea -match '-(?:V:)?(\d+\.\d+)(?:-\d+)?\s+\*?\s*(.+\.exe)\s*$') {
+                try {
+                    $ver = [version]$Matches[1]
+                    $ruta = $Matches[2].Trim()
+                    if ($ver -ge $VersionMinima -and (Test-Path $ruta)) {
+                        $candidatos += [PSCustomObject]@{ Version = $ver; Ruta = $ruta }
+                    }
+                } catch { }
+            }
+        }
+    }
+
+    if ($candidatos.Count -eq 0) {
+        # Sin lanzador "py", o sin ninguna versión compatible en su listado:
+        # como último recurso, probamos el "python" que haya suelto en el PATH.
+        $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+        if ($pythonCmd) {
+            try {
+                $verStr = & python -c "import sys; print('{}.{}'.format(*sys.version_info[:2]))" 2>$null
+                if ($verStr) {
+                    $ver = [version]$verStr
+                    if ($ver -ge $VersionMinima) {
+                        $candidatos += [PSCustomObject]@{ Version = $ver; Ruta = $pythonCmd.Source }
+                    }
+                }
+            } catch { }
+        }
+    }
+
+    if ($candidatos.Count -eq 0) {
+        return $null
+    }
+    return ($candidatos | Sort-Object Version -Descending | Select-Object -First 1)
+}
+
+$PythonElegido = PythonCompatible -VersionMinima $VersionMinima
+
+if (-not $PythonElegido) {
+    Write-Host "[!] No se encontró ninguna instalación de Python >= 3.12. Descargando Python 3.14 oficial..." -ForegroundColor Yellow
+    $PythonUrl = "https://www.python.org/ftp/python/3.14.0/python-3.14.0-amd64.exe"
+    $PythonInstallerPath = "$DirActual\python_installer.exe"
+    Invoke-WebRequest -Uri $PythonUrl -OutFile $PythonInstallerPath
+
+    # Instalación silenciosa, para todos los usuarios, agregando al PATH —
+    # cero intervención manual, a diferencia de Npcap (que sí necesita que
+    # alguien tilde la opción de compatibilidad con WinPcap a mano).
+    Start-Process -FilePath $PythonInstallerPath -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0" -Wait
+    Remove-Item -Path $PythonInstallerPath -Force -ErrorAction SilentlyContinue
+
+    $PythonElegido = PythonCompatible -VersionMinima $VersionMinima
+    if (-not $PythonElegido) {
+        Write-Host "[!] ERROR: Python 3.14 se descargó e instaló pero no se pudo detectar después. Revisa el PATH manualmente y volvé a correr este script." -ForegroundColor Red
+        Stop-Transcript
+        Exit
+    }
+    Write-Host "[OK] Python 3.14 instalado." -ForegroundColor Green
+}
+
+Write-Host "[OK] Usando Python $($PythonElegido.Version) ($($PythonElegido.Ruta))" -ForegroundColor Green
 Write-Host "[*] Creando entorno virtual aislado (venv)..." -ForegroundColor Cyan
-# Usar el lanzador py para asegurar la version mas reciente (o forzar 3.14)
-py -3.14 -m venv venv
+& $PythonElegido.Ruta -m venv venv
+
+# No asumimos que "venv" se creó bien solo porque el comando no tiró un
+# error visible — si falló a medias, seguir con pip install sobre un venv
+# roto deja todo el resto de la instalación en un estado confuso de
+# diagnosticar después. Mejor frenar acá con un mensaje claro.
+if (-not (Test-Path "$DirActual\venv\Scripts\python.exe")) {
+    Write-Host "[!] ERROR: La creación del entorno virtual falló (no existe venv\Scripts\python.exe). Abortando instalación." -ForegroundColor Red
+    Stop-Transcript
+    Exit
+}
 
 if (Test-Path "requirements.txt") {
     Write-Host "[*] Instalando dependencias desde requirements.txt..." -ForegroundColor Cyan
@@ -105,7 +205,7 @@ $ComandoVbsEscapado = $ComandoPowershell.Replace('"', '""')
 $ContenidoVbs = 'Set objShell = CreateObject("WScript.Shell")' + "`r`n" +
     'objShell.Run "' + $ComandoVbsEscapado + '", 0, False' + "`r`n"
 
-$VbsLanzador = Join-Path $PSScriptRoot "lanzar_vigilante_oculto.vbs"
+$VbsLanzador = Join-Path $PSScriptRoot "lanzar_oculto.vbs"
 # Unicode (UTF-16LE con BOM) para que wscript.exe lea bien la ruta aunque
 # el nombre de usuario de Windows tenga tildes o ñ.
 Set-Content -Path $VbsLanzador -Value $ContenidoVbs -Encoding Unicode -Force
