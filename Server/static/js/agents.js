@@ -84,12 +84,12 @@ function renderizarAgentesEnVivo(clientes) {
     }
 
     html += `
-    <div class="${borderClass} rounded-lg p-2.5 flex flex-col justify-between gap-2 transition-colors">
+    <div class="agente-card ${borderClass} rounded-lg p-2.5 flex flex-col justify-between gap-2 transition-colors">
       <div>
         <div class="flex items-start justify-between gap-1.5">
           <div class="min-w-0 flex items-center gap-1.5">
             <span class="text-slate-400 text-xs font-semibold">#${numAg}</span>
-            <span class="font-semibold text-slate-100 block text-sm truncate" title="${clientId}">${clientId}</span>
+            <span class="agente-nombre font-semibold text-slate-100 block text-sm truncate" title="${clientId}">${clientId}</span>
           </div>
           <span class="px-2 py-0.5 text-[11px] font-mono font-medium rounded border ${badgeClass} shrink-0">${estado}</span>
         </div>
@@ -113,6 +113,48 @@ function renderizarAgentesEnVivo(clientes) {
   });
 
   matriz.innerHTML = html;
+
+  // renderizarAgentesEnVivo() se llama cada 2s desde refrescarDashboard()
+  // (main.js) y reconstruye matriz-agentes desde cero cada vez -- si no
+  // reaplicamos el filtro acá, el buscador "funcionaría" un instante y el
+  // próximo refresco volvería a mostrar a todos.
+  filtrarAgentes();
+}
+
+// Filtra las tarjetas ya renderizadas por nombre de cliente (buscador-agentes
+// en agents.html). No vuelve a pedir datos al servidor: solo oculta/muestra
+// las .agente-card que ya están en el DOM, comparando contra .agente-nombre.
+function filtrarAgentes() {
+  const input = document.getElementById('buscador-agentes');
+  const matriz = document.getElementById('matriz-agentes');
+  if (!input || !matriz) return;
+
+  const filtro = input.value.trim().toLowerCase();
+  const tarjetas = matriz.querySelectorAll('.agente-card');
+  let visibles = 0;
+
+  tarjetas.forEach(card => {
+    const nombre = card.querySelector('.agente-nombre')?.textContent || '';
+    const coincide = nombre.toLowerCase().includes(filtro);
+    card.style.display = coincide ? '' : 'none';
+    if (coincide) visibles++;
+  });
+
+  // Aviso de "sin resultados" solo cuando SÍ hay agentes conectados pero
+  // ninguno coincide con la búsqueda -- el aviso de "esperando conexión de
+  // clientes" (sin-agentes-aviso) ya cubre el caso de que no haya ninguno.
+  let avisoFiltro = document.getElementById('sin-coincidencias-aviso');
+  if (filtro && tarjetas.length > 0 && visibles === 0) {
+    if (!avisoFiltro) {
+      avisoFiltro = document.createElement('div');
+      avisoFiltro.id = 'sin-coincidencias-aviso';
+      avisoFiltro.className = 'col-span-full py-6 text-center text-slate-400 text-xs sm:text-sm border border-dashed border-[#1f2937] rounded-lg bg-[#0b0f19]/30';
+      matriz.appendChild(avisoFiltro);
+    }
+    avisoFiltro.textContent = `Ningún agente coincide con "${input.value.trim()}".`;
+  } else if (avisoFiltro) {
+    avisoFiltro.remove();
+  }
 }
 
 function irAAuditoriaCliente(clientId) {

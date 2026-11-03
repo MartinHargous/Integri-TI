@@ -13,7 +13,7 @@ const CONFIG_COMPARADOR_DEFAULT = Object.freeze({
   umbral_codigo: 0.35,
   umbral_portapapeles: 0.50,
   apps_permitidas: 'code, python, pythonw',
-  titulos_permitidos: '',
+  titulos_permitidos: 'integri-ti',
   peso_codigo: 0.45,
   peso_portapapeles: 0.35,
   peso_fugas: 0.15,
@@ -63,26 +63,40 @@ function cambiarPestana(nombre) {
   pestanaActiva = nombre;
   const vistaMonitoreo = document.getElementById('vista-monitoreo');
   const vistaComparador = document.getElementById('vista-comparador');
+  const vistaDesconexiones = document.getElementById('vista-desconexiones');
   const btnMonitoreo = document.getElementById('tab-btn-monitoreo');
   const btnComparador = document.getElementById('tab-btn-comparador');
+  const btnDesconexiones = document.getElementById('tab-btn-desconexiones');
 
   const claseActiva = 'px-3 py-1.5 rounded-md text-xs font-medium bg-[#1f2937] text-white border border-[#374151] flex items-center gap-1.5 transition-all shadow-sm';
   const claseInactiva = 'px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 border border-transparent flex items-center gap-1.5 transition-all';
 
+  // Ocultar las tres vistas y desmarcar los tres botones por defecto, así
+  // cada rama de abajo solo tiene que prender la suya en vez de acordarse
+  // de apagar las otras dos.
+  if (vistaMonitoreo) vistaMonitoreo.classList.add('hidden');
+  if (vistaComparador) vistaComparador.classList.add('hidden');
+  if (vistaDesconexiones) vistaDesconexiones.classList.add('hidden');
+  if (btnMonitoreo) btnMonitoreo.className = claseInactiva;
+  if (btnComparador) btnComparador.className = claseInactiva;
+  if (btnDesconexiones) btnDesconexiones.className = claseInactiva;
+
   if (nombre === 'monitoreo') {
     if (vistaMonitoreo) vistaMonitoreo.classList.remove('hidden');
-    if (vistaComparador) vistaComparador.classList.add('hidden');
     if (btnMonitoreo) btnMonitoreo.className = claseActiva;
-    if (btnComparador) btnComparador.className = claseInactiva;
   } else if (nombre === 'comparador') {
-    if (vistaMonitoreo) vistaMonitoreo.classList.add('hidden');
     if (vistaComparador) vistaComparador.classList.remove('hidden');
-    if (btnMonitoreo) btnMonitoreo.className = claseInactiva;
     if (btnComparador) btnComparador.className = claseActiva;
 
     // Cargar datos al abrir la pestaña
     cargarConfigComparador();
     cargarResultadosComparador();
+  } else if (nombre === 'desconexiones') {
+    if (vistaDesconexiones) vistaDesconexiones.classList.remove('hidden');
+    if (btnDesconexiones) btnDesconexiones.className = claseActiva;
+    // No hace falta cargar nada acá: renderizarDesconexionesEnVivo() ya se
+    // llama en cada ciclo de refrescarDashboard() (main.js), esté o no esta
+    // pestaña visible — igual que pasa hoy con monitoreo en segundo plano.
   }
 }
 

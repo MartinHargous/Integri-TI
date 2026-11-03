@@ -1,0 +1,30 @@
+<!-- COMPONENTE: ÚLTIMAS DESCONEXIONES (PÁGINA COMPLETA) -->
+<!-- Reutiliza el mismo feed que alerts.html (state.historial_alertas vía /api/status).
+     No se necesita un endpoint nuevo: desconexiones.js detecta los eventos de
+     desconexión/reconexión por contenido (regla_id "SISTEMA" o mensaje con
+     "AGENTE_INTERRUMPIDO"), así sobreviven a un "Re-analizar" y a reglas de
+     correlación propias que incorporen esa línea del sistema. Movido a su
+     propia pestaña (igual que el comparador) porque con varios alumnos puede
+     haber muchas entradas y competía por espacio con el resto del monitoreo. -->
+<section class="flex flex-col gap-3 w-full">
+
+  <!-- BARRA SUPERIOR DE ESTADO -->
+  <div class="border border-[#1f2937] bg-[#111827] p-3.5 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono">
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+        <span class="text-sm font-semibold text-white tracking-wide">Últimas Desconexiones</span>
+      </div>
+      <div class="h-4 w-px bg-slate-700 hidden sm:block"></div>
+      <span id="contador-desconexiones-badge" class="px-2 py-0.5 rounded text-xs font-mono font-semibold bg-amber-950/60 text-amber-300 border border-amber-800/60">0</span>
+    </div>
+    <span class="text-slate-400 text-xs">Cortes de red detectados durante GRABANDO (desconexión y reconexión por alumno)</span>
+  </div>
+
+  <!-- GRILLA DE TARJETAS -->
+  <div id="contenedor-desconexiones" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5 font-mono text-xs sm:text-sm">
+    <div id="sin-desconexiones-aviso" class="col-span-full py-12 text-center text-slate-400 text-xs sm:text-sm border border-dashed border-[#1f2937] rounded-lg bg-[#0b0f19]/30">
+      No se han detectado desconexiones en este examen.
+    </div>
+  </div>
+</section>

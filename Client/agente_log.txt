@@ -1,0 +1,366 @@
+============================================================
+ Agente de Telemetría Estudiantil 
+============================================================
+[*] Inicio de sesión del agente: 2026-10-31T17:12:58
+[-] Solicitando permisos de administrador en Windows (UAC)...
+============================================================
+ Agente de Telemetría Estudiantil 
+============================================================
+[*] Inicio de sesión del agente: 2026-10-31T17:13:02
+[AVISO] No se pudo leer state.json ([Errno 13] Permission denied: 'state.json'). Intentando desbloquear y reintentar una vez...
+[OK] state.json recuperado y re-bloqueado con el ACL corregido.
+[DEBUG] state.json encontrado en C:\Users\Martin Hargous\Documents\Integri-TI\Client\state.json: server_url=sí, secreto_sync=sí, estado_local='GRABANDO', client_id='Martin Hargous@MartinPC'
+[AVISO] Validación de servidor cacheado rechazada (401): {"detail":"Este equipo no está inscrito en el examen actual. El agente debe volver a pasar por el descubrimiento del servidor (reinícielo)."}
+[AVISO] El servidor rechazó el secreto cacheado (probable reset del examen). Volviendo a discovery normal.
+[BÚSQUEDA - Intento 1] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[OK] Profesor encontrado en: https://servidor.integri-ti.org
+
+[INFO] Iniciando agente. Sincronizando con https://servidor.integri-ti.org cada 15.0s...
+[OK] Conexión establecida con el profesor (https://servidor.integri-ti.org). Estado: ESPERANDO
+
+[+] Orden recibida: INICIAR TELEMETRÍA.
+[OK] Monitor de contexto iniciado en win32.
+[INFO] Sniffer iniciado. Método activo: REGEX
+[OK] Monitor del portapapeles iniciado.
+[INFO] Escuchando TCP, UDP (QUIC) y DNS. Guardando en: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[INFO] Telemetría y notificaciones ACTIVADAS.
+======================================================================
+--- Módulo de Detección USB y Celulares Iniciado ---
+Modo: On-Access (Alertas en tiempo real al abrir, leer o copiar archivos)
+Log: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+Exportación automática: Cada 60.0s -> C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+======================================================================
+[2026-10-31T17:13:19] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[INFO] Keystroke SVM agent started in background (no GUI).
+[OK] Monitoreo de conexiones USB físicas activo.
+[2026-10-31T17:13:24] CAMBIO DE CONTEXTO: python.exe -> C:\Users\Martin Hargous\AppData\Local\Programs\Python\Python314\python.exe
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 336 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:13:42] CAMBIO DE CONTEXTO: Code.exe -> client.py - Integri-TI - Visual Studio Code
+[2026-10-31T17:13:49] CAMBIO DE CONTEXTO: claude.exe -> Claude
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 10 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:14:04] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 2 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:14:15] CAMBIO DE CONTEXTO: Code.exe -> client.py - Integri-TI - Visual Studio Code
+[2026-10-31T17:14:16] CAMBIO DE CONTEXTO: Code.exe -> combined_log.log - Integri-TI - Visual Studio Code
+[2026-10-31T17:14:19] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 8 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 1 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 6 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:14:54] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[2026-10-31T17:14:58] CAMBIO DE CONTEXTO: firefox.exe -> Auditoría y Registro Forense — Mozilla Firefox
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 9 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:15:16] CAMBIO DE CONTEXTO: Code.exe -> combined_log.log - Integri-TI - Visual Studio Code
+[2026-10-31T17:15:19] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 5 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 2 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 2 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:15:58] CAMBIO DE CONTEXTO: firefox.exe -> Auditoría y Registro Forense — Mozilla Firefox
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 12 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:16:11] CAMBIO DE CONTEXTO: Code.exe -> combined_log.log - Integri-TI - Visual Studio Code
+[2026-10-31T17:16:19] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 7 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 3 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 3 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:17:03] CAMBIO DE CONTEXTO: firefox.exe -> Auditoría y Registro Forense — Mozilla Firefox
+[2026-10-31T17:17:05] CAMBIO DE CONTEXTO: claude.exe -> Claude
+[INFO] SVM entrenado. Iniciando auditoría silenciosa...
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 17 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:17:19] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 5 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:17:32] CAMBIO DE CONTEXTO: Code.exe -> combined_log.log - Integri-TI - Visual Studio Code
+[2026-10-31T17:17:37] CAMBIO DE CONTEXTO: Code.exe -> keylogger.py - Integri-TI - Visual Studio Code
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 6 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:17:43] CAMBIO DE CONTEXTO: claude.exe -> Claude
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 4 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 3 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:18:19] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[2026-10-31T17:18:22] CAMBIO DE CONTEXTO: Code.exe -> keylogger.py - Integri-TI - Visual Studio Code
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 3 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:18:33] CAMBIO DE CONTEXTO: claude.exe -> Claude
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 4 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 1 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 3 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:19:19] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 2 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 3 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:19:46] CAMBIO DE CONTEXTO: Code.exe -> keylogger.py - Integri-TI - Visual Studio Code
+[2026-10-31T17:19:55] CAMBIO DE CONTEXTO: claude.exe -> Claude
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 6 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 3 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:20:15] CAMBIO DE CONTEXTO: Spotify.exe -> Opeth - In My Time of Need
+[2026-10-31T17:20:19] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 8 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:20:31] CAMBIO DE CONTEXTO: python.exe -> Seleccionar C:\Users\Martin Hargous\AppData\Local\Programs\Python\Python314\python.exe
+[2026-10-31T17:20:38] CAMBIO DE CONTEXTO: firefox.exe -> Auditoría y Registro Forense — Mozilla Firefox
+[2026-10-31T17:20:40] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 8 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-10-31T17:20:49] CAMBIO DE CONTEXTO: python.exe -> Seleccionar C:\Users\Martin Hargous\AppData\Local\Programs\Python\Python314\python.exe
+[2026-10-31T17:20:50] CAMBIO DE CONTEXTO: python.exe -> C:\Users\Martin Hargous\AppData\Local\Programs\Python\Python314\python.exe
+[2026-10-31T17:20:54] CAMBIO DE CONTEXTO: claude.exe -> Claude
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 11 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+
+[!] Orden recibida: DETENER Y FINALIZAR EXAMEN.
+[INFO] Telemetría y notificaciones DETENIDAS.
+[OK] Monitor del portapapeles detenido.
+[OK] Monitor de contexto detenido.
+
+Apagando módulo de detección USB...
+[2026-10-31T17:21:01] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[OK] Módulo de detección USB detenido.
+[*] Empaquetando y enviando telemetría final al servidor...
+[OK] Logs combinados y ordenados en combined_log.log
+[OK] Telemetría final confirmada por el servidor.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[INFO] Sesión de examen cerrada.
+[INFO] El cliente queda buscando el servidor del profesor (esperando que esté en ESPERANDO)...
+
+[DEBUG] No se encontró (o no se pudo leer) state.json en C:\Users\Martin Hargous\Documents\Integri-TI\Client\state.json.
+[BÚSQUEDA - Intento 1] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+
+[!] Proceso detenido por el usuario.

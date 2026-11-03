@@ -5,6 +5,11 @@ import time
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 
+try:
+    from comparator import reconstruir_texto
+except Exception:
+    reconstruir_texto = None
+
 class LogCorrelator:
     """
     Motor de Correlación Secuencial de Logs.
@@ -244,9 +249,45 @@ class LogCorrelator:
             return True
 
         try:
-            return bool(re.search(patron, evento["contenido"], re.IGNORECASE))
+            if re.search(patron, evento["contenido"], re.IGNORECASE):
+                return True
         except Exception:
-            return patron.lower() in evento["contenido"].lower()
+            if patron.lower() in evento["contenido"].lower():
+                return True
+            return False
+
+        # Segunda pasada SOLO para keylogger, y SOLO si el texto crudo no
+        # matcheó: el keylogger no borra nada al presionar backspace, solo
+        # agrega un marcador "[BASKSPACE]" al final (ver
+        # Client/modules/keylogger/keylogger.py) y, además, cada letra
+        # mayúscula queda envuelta en "[SHIFT]+X[/SHIFT]". Una frase en
+        # lenguaje natural con una sola corrección de tipeo en el medio
+        # (ej. "errro[BASKSPACE]r" en vez de "error") o con una mayúscula
+        # (ej. "[SHIFT]+E[/SHIFT]rror") nunca va a matchear un patrón
+        # literal como "\berror\b" contra el texto crudo, aunque en
+        # pantalla el alumno haya escrito "error" normalmente.
+        #
+        # reconstruir_texto() (Server/comparator.py, ya usado por el
+        # comparador de similitud) simula el cursor real -- backspace,
+        # flechas, mayúsculas sostenidas -- y arma el texto tal como
+        # terminó viéndose en pantalla. Probamos los patrones de
+        # lenguaje natural contra ESE texto, sin tocar en nada el
+        # comportamiento de los patrones de atajos de teclado (R-01,
+        # R-05, R-07, R-21, etc.), que siguen matcheando contra el texto
+        # crudo de siempre arriba, con los corchetes intactos.
+        if evento["modulo"] == "keylogger" and reconstruir_texto is not None:
+            if "_contenido_reconstruido" not in evento:
+                try:
+                    evento["_contenido_reconstruido"] = reconstruir_texto([evento["contenido"]])
+                except Exception:
+                    evento["_contenido_reconstruido"] = ""
+            texto_reconstruido = evento["_contenido_reconstruido"]
+            try:
+                return bool(re.search(patron, texto_reconstruido, re.IGNORECASE))
+            except Exception:
+                return patron.lower() in texto_reconstruido.lower()
+
+        return False
 
     def correlacionar_secuencia(self, eventos: List[Dict[str, Any]], regla: Dict[str, Any], t_min_permitido: float = 0.0) -> List[Dict[str, Any]]:
         pasos = regla.get("pasos", [])
@@ -419,4 +460,3 @@ class LogCorrelator:
 
         todas_alertas.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
         return todas_alertas
-

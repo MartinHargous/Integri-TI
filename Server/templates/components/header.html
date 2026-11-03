@@ -3,8 +3,7 @@
   <div class="flex items-center gap-2.5">
     <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
     <h1 class="text-base sm:text-lg font-semibold text-white tracking-tight flex items-center gap-2">
-      PANEL DE CONTROL PROYECTO DE TITULO
-      <span class="text-xs sm:text-sm font-normal text-slate-400 hidden sm:inline">| Panel de Control y Monitoreo de Exámenes</span>
+      PANEL DE CONTROL PROYECTO DE TITULO 
     </h1>
   </div>
   
@@ -22,6 +21,13 @@
       </svg>
       <span>Comparador & Similitud</span>
       <span id="badge-pares-header" class="hidden px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-purple-900/60 text-purple-300 border border-purple-700/60">0</span>
+    </button>
+    <button id="tab-btn-desconexiones" onclick="cambiarPestana('desconexiones')" class="px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 border border-transparent flex items-center gap-1.5 transition-all" type="button">
+      <svg class="w-3.5 h-3.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728M5.636 18.364a9 9 0 010-12.728m12.728 0L5.636 18.364M12 12h.01" />
+      </svg>
+      <span>Desconexiones</span>
+      <span id="badge-desconexiones-header" class="hidden px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-900/60 text-amber-300 border border-amber-700/60">0</span>
     </button>
   </div>
 

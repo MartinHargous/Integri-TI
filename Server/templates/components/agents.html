@@ -2,8 +2,9 @@
 <section class="md:col-span-12 xl:col-span-6 bg-[#111827] border border-[#1f2937] rounded-lg p-3 sm:p-3.5 flex flex-col gap-2.5">
   <div class="flex items-center justify-between border-b border-[#1f2937] pb-2 text-sm">
     <div class="flex items-center gap-2">
-      <span class="font-semibold text-slate-200 uppercase tracking-wider text-sm">Agentes en Red</span>
+      <span class="font-semibold text-slate-200 uppercase tracking-wider text-sm">Agentes Conectados</span>
       <span id="agentes-contador" class="text-xs sm:text-sm text-slate-400 font-mono">(0 activos)</span>
+      <input id="buscador-agentes" class="bg-transparent text-xs sm:text-sm text-slate-100 focus:outline-none" type="text" placeholder="Nombre del agente" oninput="filtrarAgentes()">
     </div>
     
     <div class="flex items-center gap-1.5 font-mono text-xs">

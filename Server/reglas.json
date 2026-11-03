@@ -315,7 +315,7 @@
     "pasos": [
       {
         "modulo": "keylogger",
-        "patron": "\\b(can you|could you|would you|puedes|podr[ií]as|escr[ií]beme|hazme|resu[eé]lveme|quiero que|necesito que)\\b|\\bwrite in\\b|\\b(optimi[sz]e|refactor|resuelve|resu[eé]lvelo)\\b.{0,40}\\b(the code|el c[oó]digo|this|esto|program|programa|function|funci[oó]n)\\b"
+        "patron": "\\b(can you|could you|would you|puedes|podr[ií]as|escr[ií]beme|hazme|resu[eé]lveme|quiero que|necesito que)\\b|\\bwrite in\\b|\\b(optimi[sz]e|refactor|resuelve|resu[eé]lvelo)\\b.{0,40}\\b(the code|el c[oó]digo|this|esto|program|programa|function|funci[oó]n)\\b|\\bme (da|tira|sale|marca|manda)\\b.{0,25}\\berror\\b|\\berror\\b.{0,20}\\b(aqu[ií]|ac[áa])\\b"
       }
     ]
   }

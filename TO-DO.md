@@ -1,30 +1,32 @@
-verque hacer con el pausado del proceso en el resmon (solo lo hace con uno de los 2 procesos del pythonw) **listo** 
-pausa en el admin de tareas, lo matan **listo** 
+**Importantes**
 
-instalador universal uqe instale la version necesaria en python, ver si se puede
+- [x] verque hacer con el pausado del proceso en el resmon (solo lo hace con uno de los 2 procesos del pythonw) **listo** 
+- [x] pausa en el admin de tareas, lo matan **listo** 
 
-cortes de internet, lo matan ahora (revisar)
+- [x] nstalador universal uqe instale la version necesaria en python, ver si se puede **listo** 
 
-revisar interrupciones con ctrl c, revisar las revisiones de chrashes de codigo
+- [x] cortes de internet, lo matan ahora (revisar) **listo** 
 
-costa no funco el auditoria python (errores en el path), pero api chatgpt cacho perfect (lo bueno)
+- [ ] revisar interrupciones con ctrl c, revisar las revisiones de chrashes de codigo **sin replicar** 
 
-ver si puedo hacer algo con el borrado
+- [ ] costa no funco el auditoria python (errores en el path), pero api chatgpt cacho perfect (lo bueno) **revisar**
 
-revisar pesos comparador, detecto 1 critico y dos altos y no hubo colaboracion (habian datos base en el enunciado)
+- [ ] ver si puedo hacer algo con el borrado
 
+- [ ] revisar pesos comparador, detecto 1 critico y dos altos y no hubo colaboracion (habian datos base en el enunciado)
 
+- [ ] hacer las pruebas de cargar con el sim (mejorar el tema de los logs falsos, ver quesi uno se desconecta que acomule logs)
 
 **no tan importantes**
-agregar el "me da error" en los posibles prompts
+- [ ] agregar el "me da error" en los posibles prompts
 
-agregar busqueda en la cuadricula general
+- [ ] agregar busqueda en la cuadricula general
 
-es demasiada info con muchos alumnos ver como enfocar todo de forma facil de leer
+- [ ] es demasiada info con muchos alumnos ver como enfocar todo de forma facil de leer
 
-agregar un panel de las ultimas desconexiones
+- [ ] agregar un panel de las ultimas desconexiones
 
-**OBS**
+**OBS**  
 (javiar reinicio el pc mato el proceso, y siguio funcando, trato de borrar el state.json y atampoco le funco)
 
 (la p3 tanu, costa, fuenza, javier-jijis, checho-no copia)

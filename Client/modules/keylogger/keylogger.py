@@ -89,7 +89,31 @@ class Keylogger:
         elif key == keyboard.Key.esc:
             return False
         else:
-            if hasattr(key, 'char') and key.char is not None:
+            # En Windows, pynput arma una tabla estática scan_code -> caracter
+            # llamando a ToUnicodeEx una vez por cada combinación de modificadores
+            # (ver pynput/_util/win32.py, clase KeyTranslator). Con layouts que
+            # tienen varias teclas muertas para acentos -- como "Español
+            # Latinoamericano" -- MapVirtualKeyEx a veces devuelve un scan code
+            # que colisiona entre una tecla muerta (ej. "´") y una letra normal,
+            # y esa letra termina heredando el caracter de la tecla muerta en la
+            # tabla (bug conocido de pynput, no algo arreglable del lado del
+            # teclado/layout). Síntoma típico: una letra puntual (ej. "r") sale
+            # siempre como "´" en el log, sin que el alumno haya tocado esa tecla.
+            #
+            # Las teclas A-Z y 0-9 tienen virtual-key codes FIJOS en Windows
+            # (VK_A..VK_Z = 0x41..0x5A, VK_0..VK_9 = 0x30..0x39) que NO dependen
+            # del layout activo -- son justamente los códigos pensados para
+            # atajos de teclado independientes de idioma. Para esas usamos
+            # key.vk directamente, evitando por completo la tabla de teclas
+            # muertas de pynput. Para todo lo demás (acentos, ñ, símbolos) se
+            # sigue usando key.char como antes -- ahí sí necesitamos la
+            # traducción real del layout.
+            vk = getattr(key, 'vk', None)
+            if sys.platform == "win32" and isinstance(vk, int) and 0x41 <= vk <= 0x5A:
+                self.text += chr(vk + 32)  # A-Z -> a-z
+            elif sys.platform == "win32" and isinstance(vk, int) and 0x30 <= vk <= 0x39:
+                self.text += chr(vk)  # 0-9
+            elif hasattr(key, 'char') and key.char is not None:
                 if 1 <= ord(key.char) <= 26:
                     letra = chr(ord(key.char) + 96)
                     self.text += letra

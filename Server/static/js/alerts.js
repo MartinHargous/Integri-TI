@@ -99,30 +99,6 @@ function renderizarAlertasEnVivo(alertas) {
   cont.innerHTML = html;
 }
 
-function renderizarTelemetriaRaw(eventosLogs) {
-  const cont = document.getElementById('contenedor-telemetria-raw');
-  if (!cont) return;
-
-  if (!eventosLogs || eventosLogs.length === 0) {
-    cont.innerHTML = `<div class="text-slate-500 text-center py-1 text-xs">Sin eventos recientes.</div>`;
-    return;
-  }
-
-  let html = '';
-  eventosLogs.forEach(ev => {
-    const cid = escaparHtml(ev.client_id || '');
-    const msg = escaparHtml(ev.mensaje || '');
-    html += `
-    <div class="flex items-center justify-between p-1 rounded bg-[#111827] border border-[#1f2937] gap-2 text-xs">
-      <span class="text-slate-300 font-medium shrink-0 truncate max-w-[130px]">[${cid}]</span>
-      <span class="text-slate-400 font-mono truncate flex-1" title="${msg}">${msg}</span>
-      <button onclick="irAAuditoriaCliente('${cid}')" class="text-blue-400 hover:text-blue-300 underline shrink-0">auditar</button>
-    </div>`;
-  });
-
-  cont.innerHTML = html;
-}
-
 async function limpiarAlertas() {
   try {
     await Api.limpiarAlertas();

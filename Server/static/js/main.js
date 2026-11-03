@@ -29,7 +29,9 @@ async function refrescarDashboard() {
     actualizarSelectDestino(clientesConectadosCache);
 
     renderizarAlertasEnVivo(data.alertas || []);
-    renderizarTelemetriaRaw(data.eventos_logs || []);
+    if (typeof renderizarDesconexionesEnVivo === 'function') {
+      renderizarDesconexionesEnVivo(data.alertas || []);
+    }
 
   } catch (error) {
     const connStatus = document.getElementById('connection-status');
