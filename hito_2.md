@@ -1,147 +1,184 @@
-# Hito 2 — Reporte de QA, Auditoría de Seguridad y Marcha Blanca
-**Proyecto:** Sistema de Monitoreo de Integridad Académica
-**Periodo cubierto:** 27/09/2026 – 27/10/2026
-**Fecha de entrega del hito:** 08/11/2026
+# Informe de QA y Marcha Blanca — Integri-TI
 
-> **Nota:** este documento es un borrador/ejemplo de estructura y contenido a partir del trabajo de hardening ya realizado. Los puntos marcados como `[PENDIENTE]` necesitan datos reales de la marcha blanca (tasas de falsos positivos/negativos, métricas de carga) que todavía no existen porque esa fase corre en paralelo a este hito.
+## 1. Introducción
 
----
+En el presente documento se describen las pruebas y cambios realizados durante el proceso de marcha blanca y control de calidad de un sistema para auditoría de integridad académica multi-agente, donde se recopila telemetría de las estaciones de trabajo de cada alumno, para después analizar y procesar la información con el fin de detectar infracciones, tales como el uso de inteligencia artificial generativa, colaboración no permitida entre alumnos, suplantación, uso de dispositivos USB no autorizados y la exfiltración de datos.
 
-## 1. Resumen ejecutivo
+### Objetivos de las pruebas
 
-Durante este periodo el trabajo se concentró en tres frentes, todos derivados de pruebas de campo activas (no solo revisión de código en el papel):
+El proceso se basó en la iteración entre pruebas controladas con varios usuarios de forma simultánea, el cual era seguido por un proceso de análisis de resultados, donde por último se aplicaban los cambios pertinentes a la solución. El proceso consistió en imitar de forma controlada una evaluación de programación en Python, donde todos los participantes intentaban resolver un ejercicio o examen.
 
-1. **Rediseño del esquema de autenticación** agente↔servidor, pasando de un secreto OTP único compartido por todo el curso a un esquema de dos niveles (código de distribución + secreto personal por alumno).
-2. **Corrección de una serie de edge cases** descubiertos al simular condiciones reales de examen: cierre abrupto del proceso del agente (Task Manager), reinicios del servidor a mitad de examen, y reconexión tras cortes de red — todos escenarios explícitamente dentro del alcance de este hito ("tolerancia a fallos de red", "cortes de conexión").
-3. **Incorporación de análisis estático de código (Semgrep)** al flujo de trabajo, con una primera pasada de auditoría y triage de hallazgos.
-
-En conjunto, estos cambios atacan directamente los tres objetivos declarados del hito: estabilidad bajo fallos de red, auditoría de seguridad del código, y preparación para la marcha blanca con múltiples clientes simultáneos.
+1. Verificar la detección de actos de deshonestidad académica.
+2. Analizar cómo se reflejan estos actos en los logs de telemetría recopilados para así ajustar las reglas de detección.
+3. Identificar casos borde.
+4. Errores en la ejecución de la solución.
+5. Puntos ciegos de los módulos.
+6. Evaluar precisión del análisis por un LLM para identificar y diagnosticar el proceso cognitivo a la hora de resolver un problema.
 
 ---
 
-## 2. Rediseño de autenticación: esquema de dos niveles
+## 2. Pruebas realizadas
 
-**Problema original:** un único secreto OTP compartido por todos los agentes significaba que filtrar ese valor (por ejemplo, decompilando o leyendo el repo de un solo alumno) comprometía la autenticación de todo el curso.
+La marcha blanca combinó pruebas controladas sobre la arquitectura (sin alumnos reales de por medio, mediante un simulador de carga) con pruebas directas en equipos reales (Windows y Linux) durante el desarrollo del instalador y el agente.
 
-**Diseño implementado:**
-- **Nivel 1 — Código de distribución:** un valor horneado en el repositorio, igual en servidor y cliente. Filtra tráfico externo que nunca clonó el proyecto en `GET /api/discovery`. No es secreto fuerte (el repo puede ser público) y no protege `/sync` por sí solo.
-- **Nivel 2 — Secreto personal por alumno:** emitido por el servidor en la respuesta de `/api/discovery`, distinto para cada `client_id`, y es el que efectivamente autentica cada `POST /sync` (TOTP vía `pyotp`, `valid_window=2` para tolerar desfase de reloj).
+### 2.1 Simulación de carga con logs sintéticos realistas
 
-**Consecuencia de diseño que se resolvió aparte:** si un cliente pierde la conexión, su secreto personal solo sobrevive si el servidor lo persiste. Esto llevó directamente al punto 3.
+Se construyó un simulador (`simulador_carga.py`, independiente del repositorio del proyecto) que levanta varios clientes simulados en paralelo, cada uno generando líneas de log con el mismo formato exacto que produce cada módulo real (`Keylogger`, `Paperclip`, `Program Monitor`, `Sniffer`, `Error Detection`, `Usb Detection`), en vez de líneas genéricas de prueba. El simulador:
 
-### 2.1 Mecanismo de descubrimiento (discovery)
+- Alterna actividad "normal" de un alumno con, probabilísticamente, una de las 6 secuencias de ataque que modelan las reglas por defecto del correlator (R-01 a R-06), incluyendo un mecanismo de código compartido entre dos clientes para simular colusión.
+- Incorpora una probabilidad configurable de que un cliente **se salte ciclos de sincronización completos** (1 o 2 ciclos seguidos, con pesos 60/30/10), simulando cortes de WiFi intermitentes en vez de una desconexión total y permanente.
+- Se validó generando **10.598 líneas sintéticas** y comparándolas contra las expresiones regulares reales que usan `correlator.py` y `comparator.py` para parsear logs: **0 líneas sin matchear**. En el proceso se encontró y corrigió un bug real del propio simulador (un fragmento de código Python con comilla simple embebida rompía el formato `CLIPBOARD_CHANGED content='...'` generado con `repr()`).
 
-El descubrimiento y la matriculación ocurren en un solo paso, en `GET /api/discovery`: el agente manda el código de distribución (header) y su `client_id`; si el servidor está en `ESPERANDO` y el código coincide, devuelve (o recupera, si el `client_id` ya tenía uno asignado) el secreto personal de ese alumno. Fuera de `ESPERANDO`, cualquier intento de discovery se rechaza con `403` — **a propósito**: evita que un alumno nuevo (o uno que perdió su caché) se matricule a mitad de examen.
+Esto permitió poner a prueba el correlator, el comparador y el dashboard bajo carga de varios alumnos simultáneos sin depender de una sesión real cada vez que se quería probar un cambio.
 
-El agente soporta dos modos de descubrimiento, fijados una sola vez al arrancar según la configuración (`config.txt`), sin mezclarse entre sí:
+### 2.2 Pruebas de instalación en equipos reales
 
-- **Modo túnel (Cloudflare u otro proxy HTTPS):** reintenta únicamente la `server_url` configurada. Es el modo pensado para el despliegue real (alumnos fuera de la LAN del servidor).
-- **Modo LAN:** escanea la subred local (y las subredes privadas comunes) en busca del servidor, puerto 8000. Pensado para pruebas en la misma red sin exponer nada a internet.
+Se probó el instalador de Windows repetidas veces en equipos reales con configuraciones distintas:
 
-**Riesgo de diseño identificado y aceptado (ver sección 7):** el modo LAN usa `http://` sin cifrar, porque no hay DNS ni certificado disponible para una IP interna. Esto significa que, durante el discovery en modo LAN, el secreto personal del alumno viaja en texto plano dentro de esa red — alguien con acceso a la misma LAN podría interceptarlo. El modo túnel no tiene este problema (Cloudflare fuerza HTTPS). Queda documentado como limitación conocida del modo LAN, no como algo a resolver con TLS casero en esta etapa.
+- Un equipo con **solo Python 3.12.10** instalado (sin el launcher `py` apuntando a 3.14, la versión que el instalador exigía originalmente).
+- Reinstalaciones sucesivas sobre el mismo equipo, para detectar residuos de instalaciones anteriores (venv, tareas programadas, hooks globales de Python).
+- Instalación/desinstalación con el agente corriendo en primer plano para verificar que el proceso quedara realmente detenido.
 
-**Endpoint adicional introducido durante el hardening:** `_verificar_reloj()` (chequeo de desfase de reloj agente↔servidor, basado en el header `Date`) reutilizaba `GET /api/discovery` solo para leer ese header — pero al estar gateado por `comando_global`, generaba un `403` "fantasma" en el log del servidor cada vez que un agente reconectaba por caché durante `GRABANDO` (ver fila 7 de la bitácora, sección 5). Se separó esa responsabilidad a un endpoint dedicado, `GET /api/ping`, sin ningún gating, devolviendo solo `{"status": "ok"}` — el discovery real queda exclusivamente para la matriculación inicial.
+### 2.3 Pruebas de interrupción y recuperación del agente
 
----
+- **Suspensión manual del proceso** (no cierre) desde el Administrador de tareas, para validar que el vigilante (`watchdog.ps1`) lo detectara y reiniciara — a diferencia de un cierre normal, un proceso suspendido sigue "vivo" para cualquier chequeo que solo mire si el PID existe.
+- **Corte real de WiFi** durante un examen en estado `GRABANDO`: se capturó el log completo del agente durante el incidente (reintentos fallidos, caída a búsqueda automática, rechazo repetido del servidor), que sirvió como evidencia directa para el rediseño descrito en 3.1 y 3.4.
+- Kill directo del proceso durante `GRABANDO`, para verificar que el reinicio del agente retomara el examen correctamente vía el estado cacheado.
 
-## 3. Persistencia de estado del servidor
+### 2.4 Pruebas del dashboard con múltiples clientes
 
-Se agregó `server_state.json`, con escritura atómica (`tmp` + `os.replace`), que guarda `comando_global` y el diccionario completo de secretos por cliente. Antes de este cambio, un reinicio del proceso del servidor a mitad de examen:
-- revertía silenciosamente el estado a `ESPERANDO`, y
-- invalidaba los secretos de sincronización de **todos** los alumnos conectados, sin que ellos lo notaran hasta su siguiente intento de `/sync`.
+Examen simulado con 2+ agentes conectados simultáneamente (uno real, otros vía el simulador de carga) para validar los paneles de Agentes, Alertas y Desconexiones del dashboard, incluyendo el flujo completo GRABANDO → corte de red → reconexión → FINALIZADO.
 
-Con la persistencia, el servidor restaura `comando_global` y los secretos al arrancar, sin interrumpir un examen en curso por un simple restart del proceso.
+### 2.5 Observación de telemetría real del keylogger
 
----
-
-## 4. Protección de integridad del estado del cliente
-
-El agente cachea su estado local (`state.json`: `server_url`, `client_id`, `estado_local`, `secreto_sync`) para poder reconectar sin pasar por discovery completo. Se protegió ese archivo contra edición/borrado por el propio alumno, aprovechando que el agente corre con privilegios elevados:
-
-- **Linux:** `chattr +i` (inmutabilidad real a nivel de filesystem, bloquea escritura y borrado incluso para root hasta que se revierte).
-- **Windows:** ACLs vía `icacls`, otorgando control total solo a `SYSTEM`/`Administradores` y denegando escritura/borrado al usuario autenticado — **sin** restringir lectura.
-
-### 4.1 Edge case descubierto: ventana de carrera en el bloqueo de ACL
-
-La primera implementación usaba `icacls /inheritance:r`, que **borra** todos los permisos heredados antes de volver a otorgarlos en pasos subsiguientes. Como la secuencia de comandos no es atómica, un `kill` del proceso justo en esa ventana (confirmado en pruebas de campo reales, no solo hipotético) dejaba `state.json` sin ningún permiso de lectura para el usuario normal — de forma permanente, requiriendo `icacls /reset` manual como Administrador.
-
-**Fix:** reemplazo de `/inheritance:r` por `/inheritance:d` (convierte los permisos heredados en explícitos en vez de borrarlos — nunca hay una ventana sin lectura), más una lógica de auto-sanación en `_cargar_estado()`: si la lectura falla por permisos, se desbloquea, se reintenta, y se vuelve a bloquear ya con el ACL corregido.
-
-### 4.2 Detección de silencio y watchdog en vivo
-
-Antes de este periodo no existía ningún mecanismo para detectar cuándo un agente dejaba de reportar telemetría a mitad de examen (proceso terminado, corte de red, batería agotada) — ese hueco de monitoreo era invisible para el profesor. Se implementaron dos mecanismos complementarios:
-
-1. **Detección retroactiva en `/sync`:** cuando un agente reconecta tras un silencio mayor al umbral (`UMBRAL_GAP_SEGUNDOS = 60`), el servidor escribe una línea sintética `AGENTE_INTERRUMPIDO gap=Ns` directamente en el log del alumno, visible en la auditoría forense igual que cualquier evento de módulo.
-2. **Watchdog en vivo:** un hilo en segundo plano en el servidor revisa activamente a todos los clientes en `GRABANDO`, sin depender de que el agente vuelva a conectarse — así el profesor lo ve en el dashboard aunque el alumno nunca vuelva a reportar.
-
-El umbral de 60s no es arbitrario: es consecuencia directa del *watchdog* de Task Scheduler en Windows, que relanza el proceso del agente cada minuto si detecta que no hay una instancia corriendo (agregado para cubrir el caso de un alumno terminando el proceso manualmente vía Administrador de Tareas). Ese watchdog acota el *downtime* máximo teórico de un agente terminado a ~60 segundos, y ese valor es el que fija el umbral de silencio sospechoso.
-
-**Superficie nueva expuesta por este trabajo:** regla `R-08` (Interrupción del Agente) reconocida por el motor de correlación; campo `en_silencio` por alumno en `GET /api/status`; un cuarto estado visual ("Sin conexión") en la matriz de agentes del dashboard.
+Revisión manual de logs de teclado generados en un equipo Windows real con layout de teclado **Español Latinoamericano**, que permitió detectar que una letra puntual ("r") se registraba sistemáticamente como un carácter de tecla muerta (`´`) — ver 3.2.
 
 ---
 
-## 5. Bitácora de edge cases — fallos de red y reconexión
+## 3. Cambios aplicados
 
-| # | Síntoma observado en campo | Causa raíz | Corrección |
+### 3.1 Cambios de arquitectura
+
+- **Resolución dinámica de versión de Python compatible.** El instalador de Windows exigía originalmente Python 3.14 exacto vía el launcher `py`. Se reemplazó por una función (`Resolver-PythonCompatible`) que enumera las versiones instaladas con `py -0p` (soportando los dos formatos de salida del launcher, anterior y posterior a la reescritura de `py` en 3.13), elige la más nueva que sea ≥ 3.12, cae a un `python` genérico del PATH si no hay launcher, y solo como último recurso descarga e instala Python 3.14 en silencio. Esto desacopla la instalación de una versión exacta hardcodeada, ya que el proyecto en realidad solo requiere ≥ 3.12 (3.14 se eligió únicamente por mejoras de rendimiento del launcher, no por una dependencia funcional real).
+- **Vigilancia del proceso agente vía Task Scheduler.** Una sola tarea programada con dos triggers (al iniciar sesión + repetición cada 1 minuto), ambos apuntando a un `.vbs` generado en tiempo de instalación con las rutas reales del equipo. El `.vbs` lanza `watchdog.ps1` sin crear ninguna ventana de consola (`WScript.Shell.Run(cmd, 0, False)`), a diferencia de `powershell.exe -WindowStyle Hidden`, que sí llega a crear la consola antes de ocultarla (parpadeo visible).
+- **Distinción arquitectónica entre error de transporte y rechazo del servidor.** El ciclo de sincronización del agente (`SyncManager`) ahora separa explícitamente un error de red (`RequestException`: sin DNS, timeout, WiFi caído) de un rechazo explícito y definitivo del servidor (`401`). Solo el segundo caso dispara el abandono de la sesión cacheada y la vuelta a `discovery()`. El detalle completo y la motivación están en 3.4.
+- **Reuso del reconstructor de texto tecleado en el motor de reglas.** El comparador de similitud (`comparator.py`) ya contaba con una función (`reconstruir_texto`) que simula el cursor real — backspace, flechas, mayúsculas sostenidas — para reconstruir lo que el alumno realmente escribió a partir del log crudo del keylogger. Esa función no se usaba en el motor de correlación de reglas (`correlator.py`), que hasta ahora matcheaba los patrones de lenguaje natural directamente contra el texto crudo. Se integró como una segunda pasada: si el patrón no matchea contra el texto crudo (necesario para mantener intactos los patrones de atajos de teclado, ej. `\[CTRL\]\+c`), se reintenta contra el texto reconstruido, exclusivamente para eventos de `keylogger`.
+
+### 3.2 Corrección de errores encontrados
+
+| # | Problema | Causa raíz | Corrección |
 |---|---|---|---|
-| 1 | `422 Unprocessable Content` en `/api/discovery` tras una reconexión exitosa | `_verificar_reloj()` llamaba a discovery con la firma antigua (sin `client_id`/header) tras cambiar el contrato del endpoint | Se actualizó la llamada con los parámetros requeridos |
-| 2 | Tras matar el proceso con Task Manager en pleno `GRABANDO`, el agente reconectaba pero ningún módulo de telemetría volvía a generar logs (solo `ErrorDetection`) | `_procesar_comando()` solo llama `orchestrator.start_all()` en una *transición* de estado; el camino de reconexión por caché asignaba `StateMachine = "GRABANDO"` directamente, sin pasar por una transición | Se agregó un `start_all()` explícito en el camino de reconexión por caché cuando el estado cacheado es `GRABANDO` |
-| 3 | Reconexión por caché fallaba de forma intermitente y caía a discovery, quedando en callejón sin salida (discovery rechaza con 403 fuera de `ESPERANDO`) | Un solo intento de validación de 3s era insuficiente ante un blip transitorio de red (ej. reconexión del túnel de Cloudflare) | Reintentos (4 intentos, 3s entre cada uno) antes de rendirse a discovery |
-| 4 | Tras un relanzamiento (watchdog de Task Scheduler), el `client_id` generado no coincidía con el de la sesión anterior, causando `401` consistente en `/sync` | `os.getlogin()` es poco confiable cuando el proceso se relanza sin sesión/consola asociada | Cascada de fallback: `USERNAME`/`USER` (variables de entorno, estables) antes de `os.getlogin()` |
-| 5 | Ningún log de diagnóstico visible en instalaciones reales (Windows) | El agente corre con `pythonw.exe` a propósito (sin consola); `print()` se descartaba silenciosamente | Redirección de `stdout`/`stderr` a `agente_log.txt` con rotación simple a los 5MB |
-| 6 | `state.json` ilegible tras un `kill` a mitad de cambio de estado (ver sección 4.1) | Ventana de carrera en `_bloquear_archivo` (Windows) | Ver sección 4.1 |
-| 7 | `403 Forbidden` "fantasma" en el log del servidor en cada reconexión por caché exitosa, aparentando un fallo | `_verificar_reloj()` reusaba `/api/discovery` (gateado por `comando_global`) solo para leer el header `Date` | Nuevo endpoint dedicado `GET /api/ping`, sin gating, mínimo |
-| 8 | El desinstalador de Windows borraba `config.txt` (configuración del túnel/servidor) en cada reinstalación | Glob `*.txt` demasiado amplio en la limpieza de residuos | Exclusión explícita de `config.txt` del borrado |
-| 9 | Ante un corte de WiFi prolongado durante `GRABANDO`, el cliente caía en un rechazo **permanente**: tras 3 fallos de red consecutivos abandonaba la caché (`server_url`/`secreto_sync`) y detenía todos los módulos de captura (`stop_all()`), cayendo a `discovery()` — pero `/api/discovery` rechaza con `403` siempre que `comando_global != "ESPERANDO"`, así que durante un examen en curso ese camino nunca tenía salida hasta que el profesor finalizaba manualmente. Además, detener la captura por una simple caída de red (sin que el proceso fuera matado ni suspendido) abría un hueco de integridad: un alumno podía cortar su propio WiFi para pausar el monitoreo local sin ser detectado por el vigilante (que solo detecta hilos suspendidos). | `SyncManager()` y la validación de caché al inicio (`_validar_url_cacheada`) ahora distinguen explícitamente un `RequestException` (sin red/DNS/timeout) de un `401` real del servidor. Solo el `401` — la única señal inequívoca de que el secreto cacheado ya no es válido (p. ej. tras un reset del profesor) — dispara el abandono de caché, `stop_all()` y la vuelta a `discovery()`. Un error de red puro ya nunca detiene la captura ni toca el estado cacheado: solo reintenta con backoff progresivo (tope de 60s) contra el mismo `server_url`, apoyado en que `secretos_por_cliente` en el servidor no se invalida por silencio/timeout (solo por un reset explícito — ver sección 3), por lo que al recuperarse la red el próximo `/sync` exitoso retoma la sesión sin pérdida de datos (`combine_logs()` recoge todo lo acumulado localmente mientras no hubo conexión). Se evaluaron también alternativas de lado-servidor (reabrir `discovery` para `client_id` ya conocidos durante `GRABANDO`) y se descartaron por debilitar el límite de seguridad del `ESPERANDO`: un `client_id` es razonablemente adivinable en una red de sala (`usuario@hostname`), y aceptar su discovery fuera de la ventana controlada por el profesor permitiría a un tercero obtener el secreto de otro alumno. |
+| 1 | El desinstalador de Windows reportaba "sin procesos residuales" aun con el agente vivo y sincronizando | `[regex]::Escape($RutaCliente)` combinado con el operador `-like`: `Regex.Escape()` duplica cada backslash (pensado para `-match`/regex), pero `-like` no es un motor de regex — el patrón buscaba dobles backslashes que nunca aparecen en un `CommandLine` real | Se reemplazó por `.Contains()` (comparación literal, sin ambigüedad de escapado), con dos pasadas separadas por 2s para cubrir una posible relanzada del vigilante justo antes de desinstalar |
+| 2 | `ModuleNotFoundError: No module named 'numpy._core._multiarray_umath'` al correr el agente en un equipo con Python 3.12.10, tras haberlo instalado antes con 3.14 | `python -m venv venv` no vacía un directorio ya existente; los binarios `.pyd` de `numpy` compilados para `cp314` quedaban en el venv aunque éste se recreara con `cp312`, y `pip` no los reinstalaba porque el dist-info ya figuraba como "satisfecho" | `python -m venv --clear venv` |
+| 3 | El instalador generaba una tarea programada con un nombre distinto al que el desinstalador buscaba (`Agente_IntegriTI_*` vs `Agente_ProyectoTitulo_*`) | Drift entre una copia de referencia desactualizada y los archivos reales del proyecto, que ya habían sido renombrados | Unificado a `Agente_ProyectoTitulo_$UsuarioReal` en ambos scripts |
+| 4 | Parpadeo visible de una ventana de consola al iniciar el agente vía el vigilante | `powershell.exe -WindowStyle Hidden` crea la consola antes de aplicarle el estilo oculto | Lanzamiento vía `.vbs` con `WScript.Shell.Run(cmd, 0, False)`, que nunca asigna una consola |
+| 5 | En Windows, con layout de teclado Español Latinoamericano, la letra **"r"** se registraba sistemáticamente en el log como el carácter de una tecla muerta de acento (**"´"**) | Bug conocido de `pynput` en su backend de Windows: arma una tabla estática `scan_code → carácter` llamando a `ToUnicodeEx` una vez por cada combinación de modificadores; con layouts que tienen varias teclas muertas para acentos, `MapVirtualKeyEx` puede devolver un scan code que colisiona entre una tecla muerta y una letra normal, haciendo que esa letra herede el carácter de la tecla muerta | Para A-Z y 0-9 se usa directamente `key.vk` (virtual-key code de Windows, fijo e independiente del layout activo — `VK_A..VK_Z = 0x41..0x5A`, `VK_0..VK_9 = 0x30..0x39`) en vez de `key.char`, evitando por completo la tabla de teclas muertas. El resto de los caracteres (acentos, ñ, símbolos) sigue usando `key.char` |
+| 6 | Frases en lenguaje natural dirigidas a una IA (ej. "me da error acá") no eran detectadas por las reglas del keylogger pese a estar realmente escritas en pantalla | El keylogger no borra nada al presionar backspace: solo agrega un marcador `[BASKSPACE]` al final del texto acumulado. Una sola corrección de tipeo en medio de la frase (ej. `eror[BASKSPACE][BASKSPACE]rror`) rompe cualquier coincidencia literal contra el texto crudo, aunque en pantalla se haya visto "error" con normalidad | Ver 3.1 — reuso de `reconstruir_texto()` en el motor de reglas |
+
+### 3.3 Adiciones al sistema
+
+- **Simulador de carga con logs sintéticos realistas** y probabilidad configurable de desconexión por cliente (ver 2.1).
+- **Panel "Últimas Desconexiones"** en el dashboard, como pestaña propia (igual que el Comparador), que reutiliza el mismo feed de alertas existente sin necesidad de un endpoint nuevo. Detecta los eventos de desconexión/reconexión por **contenido** (no solo por `regla_id == "SISTEMA"`), de forma que sobreviven a un reanálisis manual de las reglas y a reglas de correlación propias que incorporen la misma línea del sistema.
+- **Regla de correlación ampliada (R-22)** para detectar frases en español del tipo "me da/tira/sale/marca/manda error [...] acá/aquí", típicas de un alumno describiéndole un error puntual a un asistente de IA.
+- **Resolución universal de intérprete Python** en el instalador (ver 3.1), en vez de exigir una versión exacta.
+
+### 3.4 Edge cases encontrados
+
+- **Corte de WiFi prolongado durante `GRABANDO`.** El agente, tras 3 fallos de sincronización consecutivos, abandonaba la sesión cacheada (secreto, `server_url`) y caía a `discovery()` — pero el servidor rechaza `GET /api/discovery` con `403` siempre que `comando_global != "ESPERANDO"`, sin excepción para un `client_id` ya conocido. Durante un examen en curso esto era un **callejón sin salida permanente**, resoluble únicamente cuando el profesor finalizaba el examen manualmente. Se evaluaron dos alternativas: (a) relajar la compuerta de `discovery` del lado del servidor para clientes ya conocidos, descartada porque `client_id` se deriva de usuario/hostname y es razonablemente adivinable dentro de una red de sala compartida — relajar esa compuerta permitiría a un tercero obtener el secreto de otro alumno fuera de la ventana de admisión controlada por el profesor; (b) un fix exclusivamente del lado cliente, adoptada: el agente ahora distingue un error de transporte (reintenta indefinidamente contra la misma sesión cacheada, con backoff acotado) de un `401` explícito (única señal real de que el secreto ya no sirve, típicamente tras un reset del profesor).
+- **Vector de integridad secundario descubierto junto con el anterior**: como el agente detenía todos los módulos de captura (`stop_all()`) ante cualquier pérdida de conexión —incluso transitoria—, un alumno podía cortar su propio WiFi a propósito para pausar el monitoreo local (keylogger, portapapeles, monitor de contexto — ninguno de los cuales necesita red) sin que el proceso fuera detectado como suspendido ni terminado por el vigilante. Quedó cerrado como efecto colateral del fix anterior: ya no se detiene la captura ante un error de transporte puro.
+- **Proceso suspendido (no terminado) externamente.** Un vigilante que solo chequee "¿existe el PID?" no detecta esto — el proceso sigue vivo pero no ejecuta nada. Requirió inspeccionar el estado real de sus hilos (`ThreadState = Wait` + `WaitReason = Suspended`, el marcador específico que deja `SuspendThread`/`NtSuspendProcess`, distinto de una espera normal de I/O).
+- **Residuos entre reinstalaciones**: venv huérfano (bloqueado por DLLs nativas aún cargadas — Npcap, hooks de `pynput` — hasta que el proceso realmente termina), hook global `sitecustomize.py`/`PYTHONPATH` sin revertir, tarea programada fantasma.
+- **Caso abierto, no resuelto**: se reportó una vez "el agente no inicia tras instalar, no aparece en el Administrador de tareas", sin poder reproducirse sin acceso a una máquina Windows real en el momento. Se agregó instrumentación de diagnóstico (`vigilante_log.txt`, registrando cada paso del vigilante) para la próxima vez que ocurra; la causa raíz sigue sin confirmarse.
+
+### 3.5 Cambios al sistema de instalación
+
+- Creación del entorno virtual con `--clear`, para no arrastrar binarios compilados de una versión de Python distinta entre reinstalaciones.
+- Resolución dinámica de Python ≥ 3.12 en vez de exigir 3.14 exacto, con una verificación explícita post-creación del venv (`Test-Path venv\Scripts\python.exe`) que aborta limpiamente en vez de continuar en silencio si la creación falló.
+- Desinstalador: verificación explícita de que la tarea programada se eliminó realmente (con reintento), kill de respaldo de procesos residuales corregido (`.Contains()` en dos pasadas), borrado del venv con reintentos crecientes (las DLLs nativas tardan en liberarse), exclusión de `config.txt` del borrado de residuos (para no perder la configuración del túnel en cada reinstalación), liberación del ACL de `state.json` antes de borrarlo (el agente lo bloquea contra el propio alumno).
+- Lanzamiento del agente sin ventana de consola visible, vía un `.vbs` generado dinámicamente en el momento de instalar con las rutas reales del equipo.
 
 ---
 
-## 6. Robustez de instalación y desinstalación
+## 4. Análisis de código estático
 
-Varios edge cases de este periodo no son de red/reconexión sino del ciclo de vida de instalación — relevantes para QA porque afectan directamente la reproducibilidad de la marcha blanca en máquinas nuevas:
+Se corrió **Bandit** sobre todo el código Python del proyecto (`Server/` y `Client/`), como continuación de una auditoría previa hecha con Semgrep sobre el mismo código. Los resultados de ambas herramientas se presentan juntos, con el estado real verificado contra el repositorio al momento de escribir este informe (commit `9034cf9`).
 
-| # | Problema detectado | Solución aplicada |
+### 4.1 Hallazgos de la auditoría previa (Semgrep) — estado actual
+
+| Hallazgo | Veredicto original | Estado verificado ahora |
 |---|---|---|
-| 1 | El desinstalador de Windows no verificaba que la tarea programada realmente se hubiera eliminado, ni garantizaba que el proceso del agente quedara detenido. | Verificación explícita con `Get-ScheduledTask` (con reintento) y un *kill* de respaldo filtrando por línea de comando (`pythonw.exe`/`python.exe` ejecutando `client.py`). |
-| 2 | Ni el instalador ni el desinstalador (Windows y Linux) revertían el *hook* global de Python (`sitecustomize.py`) ni la modificación de `PYTHONPATH` a nivel de usuario — quedaban instalados permanentemente incluso después de desinstalar el agente. | Los desinstaladores eliminan `sitecustomize.py` y el archivo bandera `.telemetria_active`, revierten quirúrgicamente la entrada de `PYTHONPATH` (sin tocar otras rutas del usuario) y remueven `.telemetria_global` si queda vacía. |
-| 3 | El desinstalador de Linux no revertía el *bypass* de Wayland→Xorg en Debian — una modificación a nivel de todo el equipo, no solo del usuario del agente. | Reversión opcional, con confirmación explícita del operador dado su alcance de sistema completo, del archivo de configuración de GDM3. |
-| 4 | El desinstalador de Windows borraba `config.txt` (configuración del túnel/servidor) en cada reinstalación — ver también fila 8 de la bitácora en sección 5. | Exclusión explícita de `config.txt` del glob de limpieza de residuos. |
-| 5 | `requirements.txt` del servidor no reflejaba las dependencias reales del código (faltaban `datasketch` y `pyotp`). | Regenerado a partir de las importaciones reales de todos los módulos del servidor. |
+| `wildcard-cors` en `Server/main.py` (`allow_origins=["*"]` junto con `allow_credentials=True`) | Real, innecesario — ningún flujo del proyecto requiere CORS cross-origin (dashboard same-origin, agentes vía `requests`, no navegador) | **Sigue presente en el repositorio.** Un registro anterior lo daba por corregido, pero el middleware CORS wildcard continúa en `Server/main.py` líneas 25-31 |
+| HTTP sin cifrar en el discovery por LAN (`client.py`) | Riesgo de diseño aceptado — escaneo de subred local, sin DNS/certificado disponible | Sin cambios — aceptado |
+| `insecure-file-permissions` (`chmod 0o666`) en `error_detection.py` | Pendiente — por confirmar si el permiso amplio es necesario por el hook global (corre bajo la sesión del alumno, no del agente elevado) | **Sigue pendiente** — confirmado también por Bandit (`B103`, severidad ALTA) en esta pasada |
+| `missing-integrity` en scripts CDN (Tailwind, marked.js) | Parcialmente corregible — SRI viable para `marked.min.js`, no viable para el CDN dinámico de Tailwind | Sin cambios |
+| `GET /profesor/comando/{nuevo_comando}` cambia el estado del examen sin protección CSRF | La dependencia `solo_local` no mitiga esto: una petición CSRF disparada desde el propio navegador del profesor también llega como loopback puro | **Sigue pendiente** — confirmado, el endpoint sigue siendo un `GET` que cambia estado, protegido solo por `solo_local` |
 
----
+### 4.2 Resultados de Bandit (pasada nueva)
 
-## 7. Auditoría de seguridad con análisis estático (Semgrep)
+77 hallazgos en total sobre `Server/` y `Client/`:
 
-Se integró **Semgrep OSS** (`semgrep --config=auto`) como primera pasada de auditoría, con triage manual de cada hallazgo:
-
-| Hallazgo | Veredicto | Acción |
+| Severidad | Cantidad | Detalle |
 |---|---|---|
-| `wildcard-cors` en `Server/main.py` (`allow_origins=["*"]`) | Real, innecesario — ningún flujo del proyecto requiere CORS (dashboard same-origin, agentes vía `requests`, no navegador) | **Corregido:** middleware CORS eliminado por completo |
-| HTTP sin cifrar en el discovery por LAN (`client.py`) | Riesgo de diseño aceptado — escaneo de subred local, sin DNS/certificado disponible | Documentado con `nosemgrep` justificado |
-| `insecure-file-permissions` (`0o666`) en `error_detection.py` | `[PENDIENTE]` — requiere confirmar si el permiso amplio es necesario por el hook global (corre bajo la sesión del alumno, no del agente elevado) | Pendiente de revisión |
-| `missing-integrity` en scripts CDN (Tailwind, marked.js) | Parcialmente corregible — SRI viable para `marked.min.js` (versión fija), no viable para el CDN dinámico de Tailwind | `[PENDIENTE]` |
+| ALTA | 1 | `B103` — `chmod 0o666` en `error_detection.py` (mismo hallazgo que Semgrep, ver 4.1) |
+| MEDIA | 1 | `B104` — bind a `0.0.0.0` en `Server/main.py`. **Evaluado como intencional y mitigado**: el servidor necesita aceptar conexiones LAN de los agentes y del túnel de Cloudflare; los endpoints sensibles (dashboard, administración, reglas) están protegidos por la dependencia `solo_local`, que rechaza explícitamente cualquier request con headers de proxy o que no venga de loopback |
+| BAJA | 75 | Mayormente manejo de excepciones silencioso (`B110`/`B112`, 51 ocurrencias — `try/except: pass` o `continue`, deliberado en varios módulos de captura para no interrumpir el monitoreo ante un error puntual de un módulo) y llamadas a `subprocess` con ruta parcial (`B603`/`B607`/`B404`, 23 ocurrencias, en su mayoría invocaciones a `py`/`python`/`icacls`/`setx` ya validadas por el propio flujo del instalador) |
 
-**Hallazgo adicional, fuera del alcance de Semgrep, encontrado durante la revisión manual:** `GET /profesor/comando/{nuevo_comando}` cambia el estado del examen mediante un **GET sin protección CSRF**. La dependencia `solo_local` (que exige IP loopback y rechaza headers de proxy) no mitiga esto, porque una petición CSRF disparada desde el propio navegador del profesor también llega como loopback puro. `[PENDIENTE — para resolver antes de producción]`.
+**Nota metodológica:** la auditoría previa usó Semgrep con reglas de la comunidad (`p/python`, `p/security-audit`); esta pasada se hizo con Bandit porque, en el entorno donde se escribió este informe, el registro de reglas de Semgrep no era alcanzable por red. El alcance de Bandit está limitado a Python — no cubre el JavaScript del dashboard ni los scripts de PowerShell del instalador, que quedan pendientes de una pasada con una herramienta específica para esos lenguajes.
 
-**De-branding del proyecto:** al remover las referencias de nombre del proyecto en el código, se identificó que la whitelist de títulos de ventana del comparador (`titulos_permitidos` / `TITULO_PERMITIDO_CONTIENE`) dependía de un string hardcodeado ligado al nombre antiguo del proyecto — un **bug funcional real** (afecta la detección de fugas de contexto), no solo cosmético, descubierto como efecto colateral de una tarea de limpieza que a primera vista no parecía tocar lógica de negocio.
+### 4.3 Pendientes de esta sección
 
----
-
-## 8. Marcha blanca — estado y métricas
-
-`[PENDIENTE]` — esta sección se completa con datos de la ejecución real con múltiples clientes simultáneos:
-
-- Tasa de falsos positivos / falsos negativos en detección de anomalías (sniffer, keylogger, correlator, comparador)
-- Latencia y estabilidad de `/sync` bajo carga concurrente (N alumnos × intervalo de 15s)
-- Comportamiento observado del watchdog de silencio (umbral actual: 60s) en condiciones reales de Wi-Fi inestable
-- Calibración resultante de los umbrales del comparador (`umbral_critico_score`, `umbral_alto_jaccard`, etc.) a partir del comportamiento real de los usuarios de prueba
+1. Resolver el CSRF de `GET /profesor/comando/{nuevo_comando}`.
+2. Decidir y documentar (o corregir) el `chmod 0o666` en `error_detection.py`.
+3. Quitar o acotar el middleware CORS wildcard de `Server/main.py`, que sigue sin corregirse pese a estar marcado como tal en un registro anterior.
+4. Correr una auditoría equivalente sobre el JavaScript del dashboard y los scripts `.ps1` del instalador.
 
 ---
 
-## 9. Próximos pasos antes de cierre del hito
+## 5. Falsos positivos y negativos
 
-1. Resolver el CSRF de `/profesor/comando/{nuevo_comando}` (sección 7).
-2. Decidir y documentar la justificación (o corrección) del `chmod 0o666` en `error_detection.py`.
-3. Ejecutar la marcha blanca con el número real de clientes esperado y completar la sección 7 con métricas.
-4. Fijar el nuevo nombre/identidad del proyecto post-rebranding en la documentación (`architerture.md` y README) y limpiar el archivo `install_log.txt` commiteado por accidente (contiene una ruta local personal).
-5. Correr Semgrep en CI (GitHub Actions) para que las próximas regresiones de este tipo se detecten automáticamente, no solo en pasadas manuales.
+`[PENDIENTE DE DATOS REALES]` — esta sección todavía no cuenta con una tasa medida de falsos positivos/negativos contra uso real de alumnos; lo que sigue es la validación hecha hasta ahora y los riesgos conocidos por diseño de cada mecanismo de detección.
+
+### 5.1 Validación hecha hasta ahora
+
+La validación realizada (sección 2.1) confirma la **corrección del formato/parseo** de los logs sintéticos contra las expresiones regulares reales (10.598 líneas, 0 fallos de matcheo), pero esto mide fidelidad de formato, no la tasa de acierto de las reglas de detección frente a comportamiento real y variado de alumnos — son dos preguntas distintas.
+
+### 5.2 Riesgos de falso positivo conocidos por diseño
+
+- Un alumno que pega código **propio** (copiado de un archivo/sesión anterior del mismo editor, no de una IA) junto con una ventana de navegador abierta en segundo plano puede disparar reglas como R-01/R-02 (correlación de portapapeles + sitio de IA) sin haber consultado realmente a una IA.
+- La regla ampliada en 3.3 (frases como "me da error acá") puede dispararse si el alumno le escribe eso a un **compañero por un canal permitido** (si existiera uno) o lo deja como comentario/nota para sí mismo, no necesariamente a una IA.
+- `\[CTRL\]\+v` (pegado) se dispara también por acciones legítimas del editor (autocompletado, deshacer/rehacer encadenado, snippets).
+
+### 5.3 Riesgos de falso negativo conocidos por diseño
+
+- Colaboración o consulta a IA **verbal** o en un dispositivo externo (celular, otra laptop) no deja ningún rastro digital en el equipo monitoreado.
+- Un alumno que **parafrasea** manualmente una respuesta de IA en vez de copiarla y pegarla literalmente evade toda regla basada en portapapeles.
+- El vector de "cortar WiFi para pausar la captura" (3.4) quedó cerrado, pero cualquier otro mecanismo que no dependa de la red (ej. anular un módulo específico sin tocar la conexión) no está cubierto por ese fix puntual.
+
+### 5.4 Metodología propuesta para medirlo
+
+1. Ejecutar un examen controlado con el número real de alumnos esperado, con un subconjunto instruido explícitamente a intentar infracciones conocidas (para medir falsos negativos) y otro subconjunto resolviendo el examen de forma legítima pero con patrones de trabajo "ruidosos" (para medir falsos positivos: pegar código propio, tener el navegador abierto, etc.).
+2. Comparar las alertas generadas por el sistema contra un registro manual de lo que efectivamente ocurrió en cada equipo durante la prueba.
+3. Calcular precisión/recall por regla (no solo agregado), para poder recalibrar umbrales puntuales (ej. `ventana_segundos` de cada regla, `umbral_critico_score`/`umbral_alto_jaccard` del comparador) en vez de ajustar todo el sistema a ciegas.
+
+---
+
+## 6. Benchmarking de la solución
+
+`[PENDIENTE DE DATOS REALES]` — no se ha corrido todavía una medición de desempeño bajo carga real. Lo que sigue es lo que ya se puso a prueba indirectamente y el plan de medición.
+
+### 6.1 Lo ya ejercitado indirectamente
+
+- El simulador de carga (2.1) validó la **correctitud** del pipeline completo (generación → `/sync` → correlator → dashboard) con varios clientes concurrentes, pero no se instrumentó para medir tiempos de respuesta, uso de CPU/memoria del servidor ni del agente bajo esa carga.
+- El polling del dashboard está fijo en un intervalo de 2s (`setInterval(refrescarDashboard, 2000)`, `Server/static/js/main.js`) y el de sincronización del agente en 15s por defecto (`ADR-005`, `architerture.md`) — ambos valores de diseño, no calibrados todavía contra una medición real de carga.
+
+### 6.2 Métricas a levantar
+
+1. **Latencia y estabilidad de `/sync`** con *N* agentes reales sincronizando en paralelo cada 15s, variando *N* hasta encontrar el punto de degradación.
+2. **Uso de CPU/memoria del agente cliente** en reposo y durante `GRABANDO` (los 7 módulos de telemetría corriendo simultáneamente), en un equipo de las especificaciones mínimas esperadas en sala de clases.
+3. **Uso de CPU/memoria del servidor** con el comparador de similitud corriendo su análisis automático (por defecto cada 60s) sobre el total de alumnos conectados.
+4. **Comportamiento del watchdog de silencio** (umbral actual: 60s) bajo condiciones reales de WiFi inestable — ver también 5.4, ya que esto se cruza con la calibración de falsos positivos de desconexión.
+5. Tiempo real de instalación/desinstalación de punta a punta en un equipo de sala, incluyendo la descarga de Python cuando corresponde (peor caso del flujo descrito en 3.1).
+
+### 6.3 Próximo paso
+
+Ejecutar la marcha blanca con el número real de clientes esperado (ver también 5.4) registrando estas métricas desde el principio, en vez de medirlas por separado — ambas secciones (5 y 6) dependen de la misma corrida real con alumnos.

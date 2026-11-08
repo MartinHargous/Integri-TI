@@ -18,13 +18,13 @@
 - [ ] hacer las pruebas de cargar con el sim (mejorar el tema de los logs falsos, ver quesi uno se desconecta que acomule logs)
 
 **no tan importantes**
-- [ ] agregar el "me da error" en los posibles prompts
+- [x] agregar el "me da error" en los posibles prompts
 
-- [ ] agregar busqueda en la cuadricula general
+- [x] agregar busqueda en la cuadricula general
 
 - [ ] es demasiada info con muchos alumnos ver como enfocar todo de forma facil de leer
 
-- [ ] agregar un panel de las ultimas desconexiones
+- [x] agregar un panel de las ultimas desconexiones
 
 **OBS**  
 (javiar reinicio el pc mato el proceso, y siguio funcando, trato de borrar el state.json y atampoco le funco)

@@ -27,7 +27,8 @@ fi
 DIR_GLOBAL="$HOME_REAL/.telemetria_global"
 echo "[*] Creando directorio seguro en: $DIR_GLOBAL"
 mkdir -p "$DIR_GLOBAL"
-chmod -R 777 "$DIR_GLOBAL"
+chown -R $USUARIO_REAL:$USUARIO_REAL "$DIR_GLOBAL"
+chmod -R 755 "$DIR_GLOBAL"
 
 # 2. Inyectar el PYTHONPATH en los perfiles exactos del alumno
 LINEA_EXPORT="export PYTHONPATH=\"$DIR_GLOBAL:\$PYTHONPATH\""
@@ -61,7 +62,8 @@ if [ -d "$CARPETA_CLIENTE" ]; then
     LOG_AUDITORIA="$CARPETA_CLIENTE/modules/error_detection/auditoria_python.log"
     mkdir -p "$(dirname "$LOG_AUDITORIA")"
     touch "$LOG_AUDITORIA"
-    sudo chmod 666 "$LOG_AUDITORIA"
+    sudo chown $USUARIO_REAL:$USUARIO_REAL "$LOG_AUDITORIA"
+    sudo chmod 644 "$LOG_AUDITORIA"
     echo "[OK] Permisos restaurados en $CARPETA_CLIENTE."
 else
     echo "[!] Error: No se encontró la carpeta $CARPETA_CLIENTE."

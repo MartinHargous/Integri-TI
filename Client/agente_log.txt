@@ -364,3 +364,291 @@ Apagando módulo de detección USB...
 [BÚSQUEDA - Intento 1] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
 
 [!] Proceso detenido por el usuario.
+============================================================
+ Agente de Telemetría Estudiantil 
+============================================================
+[*] Inicio de sesión del agente: 2026-11-08T18:48:31
+[-] Solicitando permisos de administrador en Windows (UAC)...
+============================================================
+ Agente de Telemetría Estudiantil 
+============================================================
+[*] Inicio de sesión del agente: 2026-11-08T18:48:37
+[DEBUG] No se encontró (o no se pudo leer) state.json en C:\Users\Martin Hargous\Documents\Integri-TI\Client\state.json.
+[BÚSQUEDA - Intento 1] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[OK] Profesor encontrado en: https://servidor.integri-ti.org
+
+[INFO] Iniciando agente. Sincronizando con https://servidor.integri-ti.org cada 15.0s...
+[OK] Conexión establecida con el profesor (https://servidor.integri-ti.org). Estado: ESPERANDO
+
+[+] Orden recibida: INICIAR TELEMETRÍA.
+[OK] Monitor de contexto iniciado en win32.
+[INFO] Sniffer iniciado. Método activo: REGEX
+[INFO] Escuchando TCP, UDP (QUIC) y DNS. Guardando en: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Monitor del portapapeles iniciado.
+[INFO] Telemetría y notificaciones ACTIVADAS.
+======================================================================
+--- Módulo de Detección USB y Celulares Iniciado ---
+Modo: On-Access (Alertas en tiempo real al abrir, leer o copiar archivos)
+Log: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+Exportación automática: Cada 60.0s -> C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+======================================================================
+[2026-11-08T18:52:03] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[INFO] Keystroke SVM agent started in background (no GUI).
+[OK] Monitoreo de conexiones USB físicas activo.
+[2026-11-08T18:52:05] CAMBIO DE CONTEXTO: python.exe -> C:\Users\Martin Hargous\AppData\Local\Programs\Python\Python314\python.exe
+[2026-11-08T18:52:06] CAMBIO DE CONTEXTO: WindowsTerminal.exe -> Windows PowerShell
+[2026-11-08T18:52:16] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[OK] Logs combinados y ordenados en combined_log.log
+[2026-11-08T18:52:18] CAMBIO DE CONTEXTO: python.exe -> C:\Users\Martin Hargous\AppData\Local\Programs\Python\Python314\python.exe
+[*] 10 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-11-08T18:52:22] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[2026-11-08T18:52:23] CAMBIO DE CONTEXTO: firefox.exe -> Mozilla Firefox
+[INFO] SVM entrenado. Iniciando auditoría silenciosa...
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 12 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 2 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+
+[+] USB FÍSICO CONECTADO -> VID: 2717 | PID: FF40 (Redmi Note 14 Pro+ 5G)
+[+] Activando vigilancia On-Access para Smartphone MTP: Redmi Note 14 Pro+ 5G
+[2026-11-08T18:53:03] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[2026-11-08T18:53:04] CAMBIO DE CONTEXTO: explorer.exe -> benchmark - Explorador de archivos
+
+[+] USB FÍSICO CONECTADO -> VID: 2717 | PID: FF40 (Redmi Note 14 Pro+ 5G)
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 8 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-11-08T18:53:07] CAMBIO DE CONTEXTO: explorer.exe -> Redmi Note 14 Pro+ 5G - Explorador de archivos
+[2026-11-08T18:53:08] CAMBIO DE CONTEXTO: explorer.exe -> Almacenamiento interno compartido - Explorador de archivos
+[2026-11-08T18:53:10] CAMBIO DE CONTEXTO: explorer.exe -> Download - Explorador de archivos
+
+======================================================================
+[ALERTA INTEGRIDAD] Acceso a archivo en dispositivo externo
+  - Dispositivo: Smartphone MTP (Redmi Note 14 Pro+ 5G)
+  - Archivo:     294446-fe35920af22a48fa6d803425cbc4f5d3.mp3
+  - Acción:      ARCHIVO SELECCIONADO EN DISPOSITIVO
+  - Proceso:     Explorador de Windows (Carpeta: Download)
+  - Fecha/Hora:  2026-11-08T18:53:14
+======================================================================
+
+
+======================================================================
+[ALERTA INTEGRIDAD] Acceso a archivo en dispositivo externo
+  - Dispositivo: Smartphone MTP (Redmi Note 14 Pro+ 5G)
+  - Archivo:     25a-5l1-polo-60-1.pdf
+  - Acción:      ARCHIVO SELECCIONADO EN DISPOSITIVO
+  - Proceso:     Explorador de Windows (Carpeta: Download)
+  - Fecha/Hora:  2026-11-08T18:53:17
+======================================================================
+
+[2026-11-08T18:53:18] CAMBIO DE CONTEXTO: firefox.exe -> 25a-5l1-polo-60-1[1].pdf — Mozilla Firefox
+[2026-11-08T18:53:20] CAMBIO DE CONTEXTO: firefox.exe -> Mozilla Firefox
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 12 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 5 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-11-08T18:53:46] CAMBIO DE CONTEXTO: Code.exe -> test.py - Integri-TI - Visual Studio Code
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 5 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-11-08T18:54:03] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[2026-11-08T18:54:04] CAMBIO DE CONTEXTO: firefox.exe -> 25a-5l1-polo-60-1[1].pdf — Mozilla Firefox
+[2026-11-08T18:54:05] CAMBIO DE CONTEXTO: firefox.exe -> Redacción informe rendimiento - Google Gemini — Mozilla Firefox
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 24 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-11-08T18:54:10] CAMBIO DE CONTEXTO: firefox.exe -> Google Gemini — Mozilla Firefox
+[2026-11-08T18:54:11] CAMBIO DE CONTEXTO: firefox.exe -> Redacción informe rendimiento - Google Gemini — Mozilla Firefox
+[2026-11-08T18:54:12] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[2026-11-08T18:54:16] CAMBIO DE CONTEXTO: firefox.exe -> Hito 2 PT2 - Documentos de Google — Mozilla Firefox
+[2026-11-08T18:54:19] CAMBIO DE CONTEXTO: python.exe -> C:\Users\Martin Hargous\AppData\Local\Programs\Python\Python314\python.exe
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 20 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-11-08T18:54:28] CAMBIO DE CONTEXTO: explorer.exe -> 
+[2026-11-08T18:54:29] CAMBIO DE CONTEXTO: WindowsTerminal.exe -> Windows PowerShell
+[2026-11-08T18:54:33] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[OK] Logs combinados y ordenados en combined_log.log
+[2026-11-08T18:54:40] CAMBIO DE CONTEXTO: firefox.exe -> Auditoría y Registro Forense — Mozilla Firefox
+[*] 7 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[OK] Logs combinados y ordenados en combined_log.log
+[2026-11-08T18:54:56] CAMBIO DE CONTEXTO: python.exe -> C:\Users\Martin Hargous\AppData\Local\Programs\Python\Python314\python.exe
+[*] 7 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[2026-11-08T18:55:01] CAMBIO DE CONTEXTO: firefox.exe -> Panel de Control — Mozilla Firefox
+[2026-11-08T18:55:03] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[2026-11-08T18:55:09] CAMBIO DE CONTEXTO: WindowsTerminal.exe -> Windows PowerShell
+[OK] Logs combinados y ordenados en combined_log.log
+[*] 5 registros enviados al servidor correctamente.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+
+[!] Orden recibida: DETENER Y FINALIZAR EXAMEN.
+[INFO] Telemetría y notificaciones DETENIDAS.
+[OK] Monitor del portapapeles detenido.
+[OK] Monitor de contexto detenido.
+
+Apagando módulo de detección USB...
+[-] Deteniendo vigilancia para dispositivo: 2717:FF40
+[2026-11-08T18:55:12] [INFO] Logs de USB exportados exitosamente a: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_export.log
+[OK] Módulo de detección USB detenido.
+[*] Empaquetando y enviando telemetría final al servidor...
+[OK] Logs combinados y ordenados en combined_log.log
+[OK] Telemetría final confirmada por el servidor.
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\error_detection\auditoria_python.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\keylogger\keylogger.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\paperclip\paperclip.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\program_monitor\program_monitor.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\sniffer\sniffer.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\svm_keystroke_dym\alerts.log
+[OK] Archivo de log vaciado: C:\Users\Martin Hargous\Documents\Integri-TI\Client\modules\usb_detection\usb_detection.log
+[INFO] Sesión de examen cerrada.
+[INFO] El cliente queda buscando el servidor del profesor (esperando que esté en ESPERANDO)...
+
+[DEBUG] No se encontró (o no se pudo leer) state.json en C:\Users\Martin Hargous\Documents\Integri-TI\Client\state.json.
+[BÚSQUEDA - Intento 1] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+
+[!] Proceso detenido por el usuario.
+============================================================
+ Agente de Telemetría Estudiantil 
+============================================================
+[*] Inicio de sesión del agente: 2026-11-08T18:56:52
+[-] Solicitando permisos de administrador en Windows (UAC)...
+============================================================
+ Agente de Telemetría Estudiantil 
+============================================================
+[*] Inicio de sesión del agente: 2026-11-08T18:56:57
+[DEBUG] No se encontró (o no se pudo leer) state.json en C:\Users\Martin Hargous\Documents\Integri-TI\Client\state.json.
+[BÚSQUEDA - Intento 1] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 2] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 3] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 4] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 5] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 6] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 7] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 8] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 9] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 10] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 11] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 12] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 13] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 14] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 15] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 16] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 17] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 18] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 19] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 20] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 21] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 22] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 23] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 24] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 25] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 26] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 27] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 28] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 29] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 30] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 31] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 32] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 33] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 34] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 35] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 36] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 37] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 38] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 39] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 40] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 41] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 42] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 43] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 44] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 45] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 46] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 47] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 48] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 49] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 50] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 51] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 52] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 53] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+[BÚSQUEDA - Intento 54] Probando servidor vía Cloudflare: https://servidor.integri-ti.org...
+
+[!] Proceso detenido por el usuario.

@@ -31,7 +31,7 @@ class ErrorDetection:
         """Otorga permisos de lectura/escritura totales (chmod 666) para evitar bloqueos root/kali."""
         try:
             if ruta.exists():
-                os.chmod(ruta, 0o666)
+                os.chmod(ruta, 0o644)
         except Exception:
             pass
     def _read_config(self):
